@@ -5,7 +5,7 @@
 ## Montage (Wanted Design System)
 
 - 출처: https://github.com/wanteddev/montage-android, 태그 `v4.0.0`
-- 쓴 것: 색 토큰, 글자 스케일, 아이콘 vector, 컴포넌트 모양을 `ui/design` 으로 옮겼다. 원티드 로고, 워드마크, 로딩 애니메이션은 넣지 않았다
+- 쓴 것: 색 토큰, 글자 스케일, 아이콘 vector 중 화면에서 쓰는 것, 컴포넌트 모양을 `ui/design` 으로 옮겼다. 원티드 로고, 워드마크, 로딩 애니메이션은 넣지 않았다
 - 바꾼 것: brand 계열 색을 이 앱의 강조색으로 바꿨다
 
 ```
@@ -34,7 +34,7 @@ SOFTWARE.
 
 ## Pretendard
 
-- 출처: https://github.com/orioncactus/pretendard (Montage v4.0.0 에 들어 있는 Pretendard JP 1.301 의 Regular, Medium, SemiBold, Bold 파일)
+- 출처: https://github.com/orioncactus/pretendard (릴리스 v1.3.9 의 `public/static` 에 있는 Pretendard Regular, Medium, SemiBold, Bold otf 파일. 앱이 한국어와 영어만 써서 일본어 글자가 든 Pretendard JP 대신 이 판을 쓴다)
 - 위치: `ui/design/src/commonMain/composeResources/font/`
 
 ```
