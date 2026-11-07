@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 
 data class HistoryUiState(
     val loading: Boolean = true,
-    /** 회차와 연습 답변, 최근 것부터. */
+    /** 스크립트, 회차와 연습 답변. 스크립트를 맨 위에 두고 나머지는 최근 것부터다. */
     val entries: List<HistoryEntry> = emptyList(),
     val weaknesses: List<HistoryWeakness> = emptyList(),
     val grades: List<String> = emptyList(),

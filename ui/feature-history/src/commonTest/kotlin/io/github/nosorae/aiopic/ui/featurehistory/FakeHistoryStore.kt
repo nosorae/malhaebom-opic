@@ -19,6 +19,7 @@ class FakeHistoryStore(
     val answers = MutableStateFlow(answers)
     val flags = MutableStateFlow(emptySet<CorrectionFlag>())
     val jobs = MutableStateFlow(emptyList<AnalysisJob>())
+    val scripts = MutableStateFlow(emptyList<HistoryScript>())
 
     override fun sessions(): Flow<List<ExamSession>> = sessions
 
@@ -29,6 +30,8 @@ class FakeHistoryStore(
     override fun jobs(): Flow<List<AnalysisJob>> = jobs
 
     override fun seen(): Flow<Map<String, Int>> = seen
+
+    override fun scripts(): Flow<List<HistoryScript>> = scripts
 
     override suspend fun markSeen(key: String, value: Int) {
         seen.update { it + (key to value) }

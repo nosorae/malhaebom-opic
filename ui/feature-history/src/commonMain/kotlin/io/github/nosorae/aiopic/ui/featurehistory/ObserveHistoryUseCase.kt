@@ -39,6 +39,9 @@ data class HistorySession(
  */
 data class HistoryPractice(val answerId: String, val typeName: String, val model: String?, val analysis: AnswerAnalysis, val job: JobState? = null) : HistoryEntry
 
+/** 코치 세션의 스크립트 한 줄(F14.6). [question] 은 질문 글, [targetGrade] 는 그 세션의 목표 등급이다. */
+data class HistoryScript(val sessionId: String, val questionId: String, val question: String, val targetGrade: String) : HistoryEntry
+
 /**
  * 문항 유형별 약점 한 줄. [typeName] 은 사용자에게 보일 유형 이름이다. [rose] 는 지난번에 본 점수보다 오른 것을 아직 축하하지 않았거나 지금 축하하는 중이다(#198).
  * 화면이 이 줄의 축하를 시작하면 [HistoryIntent.MarkWeaknessSeen] 으로 본 표시를 남긴다.
@@ -67,7 +70,8 @@ class ObserveHistoryUseCase(
     operator fun invoke(): Flow<History> = flow {
         // 이 구독에서 오른 것을 본 유형과 그때 점수. 축하를 시작해 본 표시가 남아도 그 점수인 동안은 축하 중이라 축하가 중간에 사라지지 않는다.
         val rose = mutableMapOf<String, Int>()
-        emitAll(history(rose))
+        // ponytail: 회차와 답변에 저장 시각이 없어 스크립트는 시간 순서에 섞지 않고 맨 위에 최근 것부터 둔다. 시각이 생기면 함께 줄 세운다.
+        emitAll(combine(history(rose), store.scripts()) { history, scripts -> history.copy(entries = scripts + history.entries) })
     }
 
     private fun history(rose: MutableMap<String, Int>) = combine(store.sessions(), store.answers(), store.flags(), store.jobs(), store.seen()) { sessions, answers, flags, jobs, seen ->

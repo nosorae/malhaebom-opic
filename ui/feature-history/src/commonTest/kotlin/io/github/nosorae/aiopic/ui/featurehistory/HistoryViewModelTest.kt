@@ -57,6 +57,18 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun `F14_6 스크립트는 같은 질문이어도 하나씩 기록 맨 위에 올린다`() = runTest(dispatcher) {
+        val store = FakeHistoryStore(sessions = listOf(ExamSession(id = "s1", status = ExamStatus.Finished)))
+        val scripts = listOf(HistoryScript("c2", "q1", "Tell me about a trip.", "AL"), HistoryScript("c1", "q1", "Tell me about a trip.", "IH"))
+        store.scripts.value = scripts
+
+        val viewModel = subscribed(store)
+        advanceUntilIdle()
+
+        assertEquals(scripts + viewModel.uiState.value.sessions, viewModel.uiState.value.entries)
+    }
+
+    @Test
     fun `F7_3 끝난 회차만 최근 것부터 기록에 올린다`() = runTest(dispatcher) {
         val sessions = listOf(
             ExamSession(id = "s1", status = ExamStatus.Finished),
@@ -126,6 +138,7 @@ class HistoryViewModelTest {
             when (it) {
                 is HistorySession -> it.session.id
                 is HistoryPractice -> it.answerId
+                is HistoryScript -> it.sessionId
             }
         }
         assertEquals(listOf("s2", "p2", "s1", "p1"), ids)

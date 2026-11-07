@@ -8,6 +8,8 @@
     <string name="history_filter_all">전체</string>
     <string name="history_filter_exam">모의고사</string>
     <string name="history_filter_practice">연습</string>
+    <string name="history_filter_script">스크립트</string>
+    <string name="history_script">코치 스크립트, 목표 %1$s</string>
     <string name="history_practice">%1$s 연습</string>
     <string name="history_practice_pending">분석 중</string>
     <string name="history_practice_queued">차례가 되면 점수와 교정을 분석합니다</string>

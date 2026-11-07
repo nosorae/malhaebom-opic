@@ -22,4 +22,7 @@ interface HistoryStore {
     fun seen(): Flow<Map<String, Int>>
 
     suspend fun markSeen(key: String, value: Int)
+
+    /** 코치 세션이 남긴 스크립트, 최근 것부터(F14.6). 질문 하나에 여럿일 수 있다. */
+    fun scripts(): Flow<List<HistoryScript>>
 }

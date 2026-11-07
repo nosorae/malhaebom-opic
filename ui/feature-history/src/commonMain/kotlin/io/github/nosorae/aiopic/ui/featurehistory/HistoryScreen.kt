@@ -55,19 +55,27 @@ fun HistoryRoute(
     onOpenSession: (sessionId: String) -> Unit,
     onOpenAnswer: (answerId: String) -> Unit,
     onOpenCoach: () -> Unit,
+    onOpenScript: (HistoryScript) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HistoryScreen(state = state, onOpenSession = onOpenSession, onOpenAnswer = onOpenAnswer, onOpenCoach = onOpenCoach, onIntent = viewModel::onIntent, modifier = modifier)
+    HistoryScreen(state = state, onOpenSession = onOpenSession, onOpenAnswer = onOpenAnswer, onOpenCoach = onOpenCoach, onIntent = viewModel::onIntent, modifier = modifier, onOpenScript = onOpenScript)
 }
 
-/** 기록 목록에서 볼 종류. 회차와 연습이 둘 다 있을 때만 고를 수 있다. */
-internal enum class HistoryFilter { All, Exam, Practice }
+/** 기록 목록에서 볼 종류. 두 종류 넘게 있을 때만 고를 수 있고, 있는 종류만 칩으로 보인다. */
+internal enum class HistoryFilter { All, Exam, Practice, Script }
+
+private val HistoryEntry.filter: HistoryFilter
+    get() = when (this) {
+        is HistorySession -> HistoryFilter.Exam
+        is HistoryPractice -> HistoryFilter.Practice
+        is HistoryScript -> HistoryFilter.Script
+    }
 
 /**
  * 기록 탭(S13, F7.3, F7.4). 모의고사 회차와 한 문항 연습 답변을 한 목록에 최근 것부터 보인다. 회차는 등급과 분석 모델,
  * 연습은 문항 유형과 점수를 보이고 분석 중과 실패도 그 줄에 보인다. 모델이 섞인 회차는 표시한다(F5.7).
- * 회차를 누르면 [onOpenSession] 로 회차 리포트를, 연습을 누르면 [onOpenAnswer] 로 그 답변 리포트를 연다.
+ * 회차를 누르면 [onOpenSession] 로 회차 리포트를, 연습을 누르면 [onOpenAnswer] 로 그 답변 리포트를, 코치 스크립트를 누르면 [onOpenScript] 로 스크립트 화면을 연다(F14.6).
  * 아래에 문항 유형별 약점 점수를 약한 것부터 막대와 함께 두고, 그 위에 코치 시작 버튼([onOpenCoach], F10.1)을 둔다. 지난번에 본 것보다 오른 점수는 처음 볼 때 점수 둘레에 작은 축하를 한다(#198).
  * 이 화면의 주인공 움직임은 하나다. 맨 위 등급 눈금에서 최근 회차 등급으로 구슬이 미끄러져 멈춘다. 분석 중인 연습 줄의 작은 물결만 기다리는 동안 계속 움직인다.
  */
@@ -79,6 +87,7 @@ fun HistoryScreen(
     onOpenCoach: () -> Unit,
     onIntent: (HistoryIntent) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenScript: (HistoryScript) -> Unit = {},
 ) {
     val currentOnIntent by rememberUpdatedState(onIntent)
     // ponytail: 필터는 이 화면 안의 보기 상태라 ViewModel 대신 rememberSaveable 에 둔다. 다른 화면이 필터를 알아야 하면 UiState 로 옮긴다.
@@ -90,9 +99,10 @@ fun HistoryScreen(
             state.empty -> Body(stringResource(Res.string.history_empty))
 
             else -> LazyColumn(Modifier.fillMaxWidth()) {
-                val both = state.sessions.isNotEmpty() && state.sessions.size < state.entries.size
-                val shown = if (both) filter else HistoryFilter.All
-                if (shown != HistoryFilter.Practice && state.sessions.any { it.session.grade != null }) {
+                val kinds = state.entries.map { it.filter }.toSet()
+                val both = kinds.size > 1
+                val shown = if (both && (filter == HistoryFilter.All || filter in kinds)) filter else HistoryFilter.All
+                if (shown in setOf(HistoryFilter.All, HistoryFilter.Exam) && state.sessions.any { it.session.grade != null }) {
                     item {
                         SectionTitle(stringResource(Res.string.history_grades))
                         LatestGrade(state)
@@ -101,20 +111,23 @@ fun HistoryScreen(
                 if (state.entries.isNotEmpty()) {
                     item {
                         SectionTitle(stringResource(Res.string.history_list))
-                        if (both) FilterRow(filter, onSelect = { filter = it })
+                        if (both) FilterRow(listOf(HistoryFilter.All) + HistoryFilter.entries.filter { it in kinds }, shown, onSelect = { filter = it })
                     }
                 }
-                val entries = state.entries.filter {
-                    when (shown) {
-                        HistoryFilter.All -> true
-                        HistoryFilter.Exam -> it is HistorySession
-                        HistoryFilter.Practice -> it is HistoryPractice
-                    }
-                }
+                val entries = state.entries.filter { shown == HistoryFilter.All || it.filter == shown }
                 items(entries, key = { it.key }) { entry ->
                     when (entry) {
                         is HistorySession -> SessionRow(entry, onClick = { onOpenSession(entry.session.id) }, modifier = montageItemMotion())
+
                         is HistoryPractice -> PracticeRow(entry, onClick = { onOpenAnswer(entry.answerId) }, modifier = montageItemMotion())
+
+                        is HistoryScript -> MontageListCell(
+                            title = stringResource(Res.string.history_script, entry.targetGrade),
+                            caption = entry.question,
+                            chevron = true,
+                            onClick = { onOpenScript(entry) },
+                            modifier = montageItemMotion().testTag("history-script"),
+                        )
                     }
                 }
                 if (state.weaknesses.isNotEmpty()) {
@@ -154,15 +167,16 @@ private val HistoryEntry.key: String
     get() = when (this) {
         is HistorySession -> "session:${session.id}"
         is HistoryPractice -> "practice:$answerId"
+        is HistoryScript -> "script:$sessionId"
     }
 
 @Composable
-private fun FilterRow(selected: HistoryFilter, onSelect: (HistoryFilter) -> Unit, modifier: Modifier = Modifier) {
+private fun FilterRow(filters: List<HistoryFilter>, selected: HistoryFilter, onSelect: (HistoryFilter) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier.fillMaxWidth().padding(horizontal = MontageSpacing.spacing20, vertical = MontageSpacing.spacing4),
         horizontalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8),
     ) {
-        HistoryFilter.entries.forEach { filter ->
+        filters.forEach { filter ->
             MontageChip(
                 text = stringResource(filter.label),
                 onClick = { onSelect(filter) },
@@ -179,6 +193,7 @@ private val HistoryFilter.label: StringResource
         HistoryFilter.All -> Res.string.history_filter_all
         HistoryFilter.Exam -> Res.string.history_filter_exam
         HistoryFilter.Practice -> Res.string.history_filter_practice
+        HistoryFilter.Script -> Res.string.history_filter_script
     }
 
 @Composable
