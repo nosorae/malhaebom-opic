@@ -191,12 +191,26 @@ class LiveCoachViewModelTest {
         val viewModel = connected(db)
 
         viewModel.onIntent(LiveCoachIntent.LeaveApp)
+        advanceTimeBy(LEAVE_GRACE + 1.milliseconds)
         runCurrent()
         val paused = viewModel.uiState.value.coach?.status
         viewModel.onIntent(LiveCoachIntent.ReturnToApp)
         runCurrent()
 
         assertEquals(CoachStatus.Paused to CoachStatus.Active, paused to viewModel.uiState.value.coach?.status)
+    }
+
+    @Test
+    fun `F11_8 화면 회전처럼 잠깐 멈췄다 바로 돌아오면 연결을 끊지 않는다`() = test { db ->
+        val viewModel = connected(db)
+
+        viewModel.onIntent(LiveCoachIntent.LeaveApp)
+        advanceTimeBy(LEAVE_GRACE / 2)
+        viewModel.onIntent(LiveCoachIntent.ReturnToApp)
+        advanceTimeBy(LEAVE_GRACE)
+        runCurrent()
+
+        assertEquals(CoachStatus.Active to 1, viewModel.uiState.value.coach?.status to transport.connects.size)
     }
 
     @Test

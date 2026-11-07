@@ -112,6 +112,9 @@ class LiveCoachViewModel(
     /** 앱이 뒤로 가며 멈췄다. 사용자가 멈춘 것은 앱이 돌아와도 이어 가지 않는다. */
     private var pausedByApp = false
 
+    /** 앱이 멈춘 뒤 [LEAVE_GRACE] 안에 다시 시작하지 않으면 일시정지한다. 구성 변경으로 화면만 다시 만들어지면 취소된다. */
+    private var leaving: Job? = null
+
     /** 리허설 녹음 중에만 음량과 녹음 시간을 모은다. 녹음 중에 화면을 떠나 이 일이 취소되면 녹음을 멈춘다. */
     private var recording: Job? = null
 
@@ -141,13 +144,19 @@ class LiveCoachViewModel(
             LiveCoachIntent.Resume -> send(CoachEvent.Resumed)
 
             LiveCoachIntent.LeaveApp -> if (_uiState.value.coach?.status == CoachStatus.Active) {
-                pausedByApp = true
-                send(CoachEvent.Paused)
+                leaving = viewModelScope.launch {
+                    delay(LEAVE_GRACE)
+                    pausedByApp = true
+                    applyCoachEventUseCase(sessionId, CoachEvent.Paused)
+                }
             }
 
-            LiveCoachIntent.ReturnToApp -> if (pausedByApp) {
-                pausedByApp = false
-                send(CoachEvent.Resumed)
+            LiveCoachIntent.ReturnToApp -> {
+                leaving?.cancel()
+                if (pausedByApp) {
+                    pausedByApp = false
+                    send(CoachEvent.Resumed)
+                }
             }
 
             is LiveCoachIntent.EditMaterial -> send(CoachEvent.MaterialEdited(intent.kind, intent.text))
@@ -235,3 +244,10 @@ class LiveCoachViewModel(
         fun create(sessionId: String, questionId: String, question: String, targetGrade: String): LiveCoachViewModel
     }
 }
+
+/**
+ * 앱이 멈춘 뒤 일시정지까지 기다리는 시간. 화면 회전, 다크 모드, 글자 크기 변경은 Android 가 화면을 다시 만들며 멈췄다 바로 다시 시작해서
+ * 그 사이에 연결을 끊지 않는다. 실제로 뒤로 간 앱은 이 시간 뒤에 멈춘다.
+ */
+// ponytail: 느린 기기에서 화면을 다시 만드는 데 이보다 오래 걸리면 연결이 한 번 끊겼다 이어진다. 그러면 값을 늘린다.
+internal val LEAVE_GRACE = 2.seconds
