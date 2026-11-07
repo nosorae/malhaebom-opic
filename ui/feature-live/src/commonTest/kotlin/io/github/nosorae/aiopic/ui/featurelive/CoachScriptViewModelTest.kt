@@ -51,7 +51,7 @@ class CoachScriptViewModelTest {
     private fun test(block: suspend TestScope.(CoachStore) -> Unit) = runTest(dispatcher) {
         val db: OpicDatabase = inMemoryDatabase(dispatcher)
         val store = CoachStore(db)
-        store.save(CoachState("c1", "q1", "IH", Instant.fromEpochSeconds(0)))
+        store.save(CoachState("c1", "q1", "Tell me.", "IH", Instant.fromEpochSeconds(0)))
         val card = buildJsonObject {
             put("user_said", blast.userSaid)
             put("english", blast.english)

@@ -18,7 +18,7 @@ fun interface CoachFactory {
 /** 저장된 세션이면 이어 가고(F11.8), 없으면 새로 시작한다. */
 @Inject
 class OpenCoachUseCase(private val factory: CoachFactory) {
-    suspend operator fun invoke(sessionId: String, questionId: String, question: String, targetGrade: String, scope: CoroutineScope): LiveCoach = factory.create(question, targetGrade, scope).also { if (!it.open(sessionId)) it.start(sessionId, questionId, targetGrade) }
+    suspend operator fun invoke(sessionId: String, questionId: String, question: String, targetGrade: String, scope: CoroutineScope): LiveCoach = factory.create(question, targetGrade, scope).also { if (!it.open(sessionId)) it.start(sessionId, questionId, question, targetGrade) }
 }
 
 /** 내 목소리 크기와 코치 목소리 크기(0~1). 지금 말하는 쪽의 목소리 띠에 쓴다(F12.1). */

@@ -77,7 +77,7 @@ class OpicCoachTest {
 
     @Test
     fun `F14_1 스크립트 프롬프트에 질문 등급 길이 받아쓰기 메모 표현 카드 리허설을 넣는다`() {
-        val session = CoachState("s1", "q1", "IM2", Instant.fromEpochSeconds(0)).copy(
+        val session = CoachState("s1", "q1", "Tell me.", "IM2", Instant.fromEpochSeconds(0)).copy(
             lines = listOf(Line(CoachPhase.Explore, Speaker.User, "부산에 갔어요")),
             materials = listOf(Material(MaterialKind.Place, "Busan")),
             expressions = listOf(Expression("바다가 예뻤다", "the sea was stunning", "IM3")),

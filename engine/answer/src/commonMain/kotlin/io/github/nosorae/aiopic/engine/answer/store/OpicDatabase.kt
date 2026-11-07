@@ -103,7 +103,7 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
     object : Migration(3, 4) {
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `coach_session` (`id` TEXT NOT NULL, `questionId` TEXT NOT NULL, `targetGrade` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, " +
+                "CREATE TABLE IF NOT EXISTS `coach_session` (`id` TEXT NOT NULL, `questionId` TEXT NOT NULL, `question` TEXT NOT NULL, `targetGrade` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, " +
                     "`phase` TEXT NOT NULL, `talkTimeMs` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `status` TEXT NOT NULL, PRIMARY KEY(`id`))",
             )
             connection.execSQL(
@@ -123,6 +123,7 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
 data class CoachSessionRow(
     @PrimaryKey val id: String,
     val questionId: String,
+    val question: String,
     val targetGrade: String,
     val startedAt: Long,
     val phase: String,

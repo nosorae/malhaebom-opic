@@ -61,7 +61,7 @@ class LiveCoachTest {
     )
 
     private suspend fun TestScope.started(db: OpicDatabase, scope: CoroutineScope = backgroundScope) = coach(db, scope).also {
-        it.start("c1", "q1", "IH")
+        it.start("c1", "q1", "Tell me about your home.", "IH")
         runCurrent()
     }
 
@@ -350,6 +350,17 @@ class LiveCoachTest {
         after.open("c1")
 
         assertEquals(listOf(Material(MaterialKind.Place, "Busan")), after.state.value?.materials)
+    }
+
+    @Test
+    fun `질문 글을 세션에 저장해 다시 열어도 남는다`() = test { db ->
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job())
+        started(db, app)
+        app.cancel()
+
+        val reopened = coach(db).apply { open("c1") }
+
+        assertEquals("Tell me about your home.", reopened.state.value?.question)
     }
 
     @Test

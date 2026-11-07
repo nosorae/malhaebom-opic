@@ -43,7 +43,7 @@ class LiveCoach(
     private var connection: Job? = null
     private var connectedPhase: CoachPhase? = null
 
-    suspend fun start(id: String, questionId: String, targetGrade: String) = lock.withLock { set(CoachState(id, questionId, targetGrade, clock.now())) }
+    suspend fun start(id: String, questionId: String, question: String, targetGrade: String) = lock.withLock { set(CoachState(id, questionId, question, targetGrade, clock.now())) }
 
     /** 저장된 세션을 되살려 이어 간다. 진행 중이던 세션이면 바로 다시 연결한다. 없으면 false. */
     suspend fun open(id: String): Boolean = lock.withLock {

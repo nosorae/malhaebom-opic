@@ -26,7 +26,7 @@ import kotlin.time.Instant
 /** 스크립트 만들기와 다듬기(F14.1, F14.4). 응답 본문은 스크립트 스키마 모양으로 손으로 쓴 것이고 가짜 클라이언트로만 돈다. */
 class GeminiScriptWriterTest {
     private val blast = Expression("진짜 좋았어", "It was an absolute blast", "IH")
-    private val session = CoachState("c1", "q1", "IH", Instant.fromEpochSeconds(0), expressions = listOf(blast, Expression("배고팠어", "I was starving", "IM3")))
+    private val session = CoachState("c1", "q1", "q", "IH", Instant.fromEpochSeconds(0), expressions = listOf(blast, Expression("배고팠어", "I was starving", "IM3")))
     private val prompts = mutableListOf<String>()
     private var requests = 0
 

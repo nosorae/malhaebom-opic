@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 class CoachProgressTest {
-    private val start = CoachState("c1", "q1", "IH", Instant.fromEpochSeconds(0))
+    private val start = CoachState("c1", "q1", "Tell me.", "IH", Instant.fromEpochSeconds(0))
 
     private fun args(vararg pairs: Pair<String, String>): JsonObject = buildJsonObject { pairs.forEach { (k, v) -> put(k, v) } }
 

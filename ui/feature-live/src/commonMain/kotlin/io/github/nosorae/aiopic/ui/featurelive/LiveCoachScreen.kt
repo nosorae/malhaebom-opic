@@ -470,6 +470,7 @@ internal object LiveCoachSamples {
     private val explore = CoachState(
         id = "c1",
         questionId = "q1",
+        question = QUESTION,
         targetGrade = "IH",
         startedAt = Instant.fromEpochSeconds(0),
         lines = listOf(

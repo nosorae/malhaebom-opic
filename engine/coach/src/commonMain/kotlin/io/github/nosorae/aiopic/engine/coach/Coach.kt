@@ -48,6 +48,8 @@ private fun cost(tokens: Map<Modality, Int>, prices: Map<Modality, Double>) = to
 data class CoachState(
     val id: String,
     val questionId: String,
+    /** 질문 글. 기록과 스크립트가 문항 풀에서 다시 찾지 않고 이 글을 쓴다. */
+    val question: String,
     val targetGrade: String,
     val startedAt: Instant,
     val phase: CoachPhase = CoachPhase.Explore,
