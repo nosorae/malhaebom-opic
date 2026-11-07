@@ -134,10 +134,14 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
     ) {
         when {
             state.consented == false -> ConsentContent(onAgree = { onIntent(LiveCoachIntent.GiveConsent) })
+
             state.micDenied -> Notice(stringResource(Res.string.live_mic_denied), action = stringResource(Res.string.live_open_settings), onAction = onOpenSettings)
+
             coach == null -> if (state.consented == true) Waiting(stringResource(Res.string.live_connecting))
+
             // 바깥 겹이 스크립트 화면으로 바꾸기 전 한 프레임 남짓 보인다. 스크립트는 스크립트 화면이 만든다.
             coach.status == CoachStatus.Finished -> Waiting(stringResource(Res.string.live_script_wait))
+
             else -> Conversation(state.question, coach, onIntent, onEdit = { editing = it })
         }
     }
