@@ -16,6 +16,12 @@ enum class OpicPrompt(private val path: String, response: SerialDescriptor) {
 
     /** 출제(F6.1). */
     Questions("files/prompts/questions.md", QuestionsResponse.serializer().descriptor),
+
+    /** 코치 세션으로 스크립트 만들기(F14.1). 채우기는 [scriptPrompt]. */
+    Script("files/prompts/script.md", ScriptResponse.serializer().descriptor),
+
+    /** 사용자가 고친 스크립트를 목표 등급 길이에 맞춰 다듬기(F14.4). 채우기는 [polishPrompt]. */
+    ScriptPolish("files/prompts/script-polish.md", ScriptResponse.serializer().descriptor),
     ;
 
     val responseSchema: JsonObject = jsonSchema(response)

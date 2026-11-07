@@ -11,10 +11,10 @@ import kotlin.test.assertTrue
  */
 class OpicPromptFileTest {
     @Test
-    fun `F5_7 프롬프트 파일 3개는 모두 서로 다른 promptVersion 을 가진다`() = runTest {
+    fun `F5_7 프롬프트 파일은 모두 서로 다른 promptVersion 을 가진다`() = runTest {
         val versions = OpicPrompt.entries.map { it.load().version }
 
-        assertEquals(3, versions.toSet().size, "$versions")
+        assertEquals(OpicPrompt.entries.size, versions.toSet().size, "$versions")
         assertTrue(versions.all { it.startsWith("opic-en-") }, "$versions")
     }
 

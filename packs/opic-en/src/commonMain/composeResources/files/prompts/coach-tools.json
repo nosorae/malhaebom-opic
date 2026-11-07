@@ -1,0 +1,31 @@
+[
+  {
+    "name": "save_material",
+    "description": "Save one piece of the user's story as a short English note.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string", "enum": ["place", "person", "event", "feeling"], "description": "What the note is about." },
+        "text": { "type": "string", "description": "A short English note of what the user said." }
+      },
+      "required": ["kind", "text"]
+    }
+  },
+  {
+    "name": "save_expression",
+    "description": "Save an English expression card for something the user said.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "user_said": { "type": "string", "description": "The user's words as they said them, in Korean or English." },
+        "english": { "type": "string", "description": "The English expression you suggested." },
+        "grade": { "type": "string", "enum": ["IM1", "IM2", "IM3", "IH", "AL"], "description": "The grade of the expression." }
+      },
+      "required": ["user_said", "english", "grade"]
+    }
+  },
+  {
+    "name": "advance_phase",
+    "description": "Move to the next phase when this phase has done its job."
+  }
+]
