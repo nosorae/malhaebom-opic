@@ -82,13 +82,39 @@ class CoachProgressTest {
     }
 
     @Test
-    fun `F13_3 리허설 받아쓰기는 리허설 단계에서 두 번까지 받는다`() {
+    fun `F13_2 리허설 받아쓰기는 리허설 단계에서만 받고 받으면 핸들을 버리고 피드백 단계로 간다`() {
         val state = start.after(
             CoachEvent.Rehearsed("too early"),
             CoachEvent.NextPhase,
             CoachEvent.NextPhase,
+            CoachEvent.HandleReceived("h1", Instant.fromEpochSeconds(1)),
             CoachEvent.Rehearsed("first"),
+            CoachEvent.Rehearsed("in feedback"),
+        )
+
+        assertEquals(listOf("first"), state.rehearsals)
+        assertEquals(CoachPhase.Feedback, state.phase)
+        assertNull(state.resumeHandle)
+    }
+
+    @Test
+    fun `F13_3 리허설을 건너뛰면 첫 리허설 전에는 피드백 없이 스크립트 정리로 가고 두 번째에서는 피드백으로 간다`() {
+        val rehearse = start.after(CoachEvent.NextPhase, CoachEvent.NextPhase)
+        val second = rehearse.after(CoachEvent.Rehearsed("first"), CoachEvent.RehearseAgain, CoachEvent.NextPhase)
+
+        assertEquals(CoachPhase.Script to CoachStatus.Finished, rehearse.after(CoachEvent.NextPhase).let { it.phase to it.status })
+        assertEquals(CoachPhase.Feedback to listOf("first"), second.phase to second.rehearsals)
+    }
+
+    @Test
+    fun `F13_3 리허설 받아쓰기는 두 번까지 받는다`() {
+        val state = start.after(
+            CoachEvent.NextPhase,
+            CoachEvent.NextPhase,
+            CoachEvent.Rehearsed("first"),
+            CoachEvent.RehearseAgain,
             CoachEvent.Rehearsed("second"),
+            CoachEvent.RehearseAgain,
             CoachEvent.Rehearsed("third"),
         )
 
@@ -97,8 +123,8 @@ class CoachProgressTest {
 
     @Test
     fun `F13_3 피드백에서 한 번 더 리허설하면 리허설 단계로 돌아가고 두 번을 채우면 돌아가지 않는다`() {
-        val feedback = start.after(CoachEvent.NextPhase, CoachEvent.NextPhase, CoachEvent.Rehearsed("first"), CoachEvent.NextPhase)
-        val second = feedback.after(CoachEvent.RehearseAgain, CoachEvent.Rehearsed("second"), CoachEvent.NextPhase)
+        val feedback = start.after(CoachEvent.NextPhase, CoachEvent.NextPhase, CoachEvent.Rehearsed("first"))
+        val second = feedback.after(CoachEvent.RehearseAgain, CoachEvent.Rehearsed("second"))
 
         assertEquals(CoachPhase.Rehearse, feedback.after(CoachEvent.RehearseAgain).phase)
         assertTrue(feedback.canRehearseAgain)

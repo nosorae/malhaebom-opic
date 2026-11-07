@@ -129,7 +129,6 @@ class LiveCoachTest {
         coach.nextPhase()
         runCurrent()
         coach.rehearsed("I usually go to a cafe.")
-        coach.nextPhase()
         runCurrent()
 
         assertEquals(listOf("Explore.", "Express.", "Feedback.\n\nNotes so far:\nrehearsal 1: I usually go to a cafe."), transport.connects.map { it.instruction })
@@ -144,14 +143,12 @@ class LiveCoachTest {
             runCurrent()
         }
         coach.rehearsed("first")
-        coach.nextPhase()
         runCurrent()
 
         coach.rehearseAgain()
         runCurrent()
         val closed = transport.connects.size
         coach.rehearsed("second")
-        coach.nextPhase()
         runCurrent()
         val saved = coach.state.value
         app.cancel()

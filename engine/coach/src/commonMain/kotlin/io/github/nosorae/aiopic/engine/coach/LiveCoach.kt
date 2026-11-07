@@ -55,7 +55,7 @@ class LiveCoach(
     /** 일시정지나 끊김에서 다시 연결한다. 핸들이 살아 있으면 이어 붙이고 아니면 메모로 새로 연다. */
     suspend fun resume() = dispatch(CoachEvent.Resumed)
 
-    /** 리허설 녹음의 받아쓰기를 넣는다(F13). 피드백 단계 지시에 들어간다. */
+    /** 리허설 녹음의 받아쓰기를 넣고 피드백 단계로 간다(F13). 받아쓰기는 피드백 단계 지시에 들어간다. */
     suspend fun rehearsed(transcript: String) = dispatch(CoachEvent.Rehearsed(transcript))
 
     /** 피드백 연결을 닫고 리허설 단계로 돌아간다. 리허설을 두 번 했으면 그대로 둔다(F13.3). */
