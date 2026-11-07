@@ -73,7 +73,7 @@ class CoachEvalTest {
                 """{"serverContent":{"turnComplete":true}}""",
             ),
         )
-        val config = LiveConfig("test-model", "instruction", "Puck", tools)
+        val config = LiveConfig("test-model", "instruction", "Kore", tools)
 
         val run = talk(LiveSession(open = { socket }), "test-key", config, listOf("부산에 갔어요"))
 
@@ -116,7 +116,7 @@ class CoachEvalTest {
             afterTool = listOf("""{"serverContent":{"outputTranscription":{"text":"Who went with you?"}}}""", """{"serverContent":{"turnComplete":true}}"""),
         )
 
-        val run = talk(LiveSession(open = { socket }), "test-key", LiveConfig("test-model", "instruction", "Puck", tools), listOf("부산에 갔어요"))
+        val run = talk(LiveSession(open = { socket }), "test-key", LiveConfig("test-model", "instruction", "Kore", tools), listOf("부산에 갔어요"))
 
         assertEquals("Who went with you?", run.turns.single().coach)
     }

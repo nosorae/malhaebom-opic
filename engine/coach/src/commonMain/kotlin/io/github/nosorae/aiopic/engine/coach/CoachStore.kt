@@ -22,6 +22,7 @@ class CoachStore(db: OpicDatabase) {
         CoachSessionRow(
             id = state.id,
             questionId = state.questionId,
+            question = state.question,
             targetGrade = state.targetGrade,
             startedAt = state.startedAt.toEpochMilliseconds(),
             phase = state.phase.name,
@@ -33,16 +34,9 @@ class CoachStore(db: OpicDatabase) {
     )
 
     /** 다시 계산에 쓰는 일(사용자가 고친 메모 포함)만 붙이고 나머지(시간, 일시정지, 끊김, 핸들)는 세션 행에 맡긴다. */
-    suspend fun append(sessionId: String, phase: CoachPhase, event: CoachEvent) {
-        val kind = when (event) {
-            is CoachEvent.Heard, is CoachEvent.Rehearsed -> "transcript"
-            is CoachEvent.ToolCalled -> "tool"
-            is CoachEvent.Used -> "usage"
-            CoachEvent.NextPhase, CoachEvent.RehearseAgain -> "phase"
-            is CoachEvent.MaterialEdited, is CoachEvent.ExpressionEdited -> "edit"
-            else -> return
-        }
-        dao.append(sessionId, phase.name, kind, json.encodeToString<CoachEvent>(event))
+    suspend fun append(sessionId: String, event: CoachEvent) {
+        if (event is CoachEvent.TimePassed || event is CoachEvent.Paused || event is CoachEvent.Resumed || event is CoachEvent.Dropped || event is CoachEvent.HandleReceived) return
+        dao.append(sessionId, json.encodeToString<CoachEvent>(event))
     }
 
     suspend fun load(id: String): CoachState? {
@@ -73,14 +67,14 @@ class CoachStore(db: OpicDatabase) {
 
     /**
      * 끝난 세션과 스크립트가 있는 세션, 최근 것부터(F14.6). 둘째 값은 스크립트를 만들었는지다. 만들지 못한 세션도 내서 기록 탭에서 다시 만들 수 있게 한다.
-     * 세션은 질문, 목표 등급, 시작 시각만 채우고 받아쓰기와 메모는 비어 있다.
+     * 세션은 질문 id 와 글, 목표 등급, 시작 시각만 채우고 받아쓰기와 메모는 비어 있다.
      */
     fun scriptSessions(): Flow<List<Pair<CoachState, Boolean>>> = combine(dao.scriptSessions(), dao.scriptIds()) { rows, ids ->
         val written = ids.toSet()
         rows.map { it.start() to (it.id in written) }
     }
 
-    private fun CoachSessionRow.start() = CoachState(id, questionId, targetGrade, Instant.fromEpochMilliseconds(startedAt))
+    private fun CoachSessionRow.start() = CoachState(id, questionId, question, targetGrade, Instant.fromEpochMilliseconds(startedAt))
 
     fun script(sessionId: String): Flow<CoachScript?> = dao.script(sessionId).map { row ->
         row?.let {

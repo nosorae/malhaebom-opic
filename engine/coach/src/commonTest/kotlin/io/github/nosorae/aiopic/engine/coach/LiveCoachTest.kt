@@ -61,7 +61,7 @@ class LiveCoachTest {
     )
 
     private suspend fun TestScope.started(db: OpicDatabase, scope: CoroutineScope = backgroundScope) = coach(db, scope).also {
-        it.start("c1", "q1", "IH")
+        it.start("c1", "q1", "Tell me about your home.", "IH")
         runCurrent()
     }
 
@@ -73,14 +73,26 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `F11 침묵 조각은 보내지 않고 말하다 침묵이 시작되면 오디오 끝을 한 번 보낸다`() = test { db ->
+    fun `F11 말하기 전 침묵은 보내지 않고 말이 멈춘 뒤 1초는 침묵도 보낸 다음 오디오 끝을 한 번 보낸다`() = test { db ->
         started(db)
 
-        listOf(SILENT, LOUD, LOUD, SILENT, SILENT).forEach(audio::say)
+        // 40ms 조각이라 1초는 25개다.
+        (listOf(SILENT, LOUD, LOUD) + List(30) { SILENT }).forEach(audio::say)
         runCurrent()
 
-        assertEquals(2, transport.audio.size)
+        assertEquals(2 + 25, transport.audio.size)
         assertEquals(1, transport.audioEnds)
+    }
+
+    @Test
+    fun `F11 침묵 1초가 되기 전에 다시 말하면 오디오 끝을 보내지 않는다`() = test { db ->
+        started(db)
+
+        (listOf(LOUD) + List(10) { SILENT } + LOUD).forEach(audio::say)
+        runCurrent()
+
+        assertEquals(12, transport.audio.size)
+        assertEquals(0, transport.audioEnds)
     }
 
     @Test
@@ -114,10 +126,59 @@ class LiveCoachTest {
 
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("a cafe")))
         transport.server(TransportEvent.ToolCall("t2", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        transport.server(TransportEvent.TurnComplete)
         runCurrent()
 
         assertEquals("Express.\n\nNotes so far:\nplace: a cafe", transport.connects.last().instruction)
         assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_5 코치가 단계를 넘기면 그 턴의 음성과 사용량을 앞 단계로 받은 뒤 턴이 끝나면 새로 연결한다`() = test { db ->
+        val coach = started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        transport.server(TransportEvent.CoachSaid("Let's practice."))
+        transport.server(TransportEvent.Usage(TokenUsage(output = mapOf(Modality.Audio to 50))))
+        runCurrent()
+        val connectsDuringTurn = transport.connects.size
+        transport.server(TransportEvent.TurnComplete)
+        runCurrent()
+        val state = coach.state.value!!
+
+        assertEquals(1, connectsDuringTurn)
+        assertEquals(2, transport.connects.size)
+        assertEquals(CoachPhase.Express, state.phase)
+        assertEquals(listOf(Line(CoachPhase.Explore, Speaker.Coach, "Let's practice.")), state.lines)
+        assertEquals(TokenUsage(output = mapOf(Modality.Audio to 50)), state.usage[CoachPhase.Explore])
+    }
+
+    @Test
+    fun `F11_5 단계를 넘긴 턴이 8초 안에 끝나지 않으면 그때 새로 연결한다`() = test { db ->
+        started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        advanceTimeBy(7.seconds)
+        runCurrent()
+        val connectsBefore = transport.connects.size
+        advanceTimeBy(1.seconds)
+        runCurrent()
+
+        assertEquals(1, connectsBefore)
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_5 코치가 단계를 넘긴 턴 중에 사용자가 다음 단계를 누르면 한 단계만 넘어간다`() = test { db ->
+        val coach = started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        runCurrent()
+        coach.nextPhase()
+        advanceTimeBy(10.seconds)
+        runCurrent()
+
+        assertEquals(CoachPhase.Express, coach.state.value?.phase)
     }
 
     @Test
@@ -211,6 +272,30 @@ class LiveCoachTest {
     }
 
     @Test
+    fun `F11_9 마이크를 열지 못하면 앱이 꺼지지 않고 마이크 이유로 끊기며 다시 연결할 수 있다`() = test { db ->
+        audio.micError = IllegalStateException("mic busy")
+        val coach = started(db)
+        val dropped = coach.state.value?.disconnected
+        audio.micError = null
+
+        coach.resume()
+        runCurrent()
+
+        assertEquals(TransportEvent.Disconnected.MIC, dropped)
+        assertNull(coach.state.value?.disconnected)
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_9 연결이 예외로 끝나면 앱이 꺼지지 않고 네트워크 이유로 끊긴다`() = test { db ->
+        transport.connectError = IllegalStateException("socket closed")
+
+        val coach = started(db)
+
+        assertEquals(TransportEvent.Disconnected.NETWORK, coach.state.value?.disconnected)
+    }
+
+    @Test
     fun `F11_8 앱이 죽었다 살아나면 Room 에서 단계와 받아쓰기와 메모와 핸들을 되살려 이어 붙인다`() = test { db ->
         val app = CoroutineScope(backgroundScope.coroutineContext + Job())
         val before = started(db, app)
@@ -265,6 +350,17 @@ class LiveCoachTest {
         after.open("c1")
 
         assertEquals(listOf(Material(MaterialKind.Place, "Busan")), after.state.value?.materials)
+    }
+
+    @Test
+    fun `질문 글을 세션에 저장해 다시 열어도 남는다`() = test { db ->
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job())
+        started(db, app)
+        app.cancel()
+
+        val reopened = coach(db).apply { open("c1") }
+
+        assertEquals("Tell me about your home.", reopened.state.value?.question)
     }
 
     @Test

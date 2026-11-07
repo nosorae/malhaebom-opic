@@ -30,8 +30,6 @@ data class Expression(val userSaid: String, val english: String, val grade: Stri
 /** 한 단계에서 쓴 토큰. 모달리티마다 단가가 달라 나눠 센다. */
 @Serializable
 data class TokenUsage(val input: Map<Modality, Int> = emptyMap(), val output: Map<Modality, Int> = emptyMap()) {
-    val inputTokens: Int get() = input.values.sum()
-    val outputTokens: Int get() = output.values.sum()
     val costUsd: Double get() = cost(input, INPUT_USD_PER_MILLION) + cost(output, OUTPUT_USD_PER_MILLION)
 
     operator fun plus(other: TokenUsage) = TokenUsage(input.merge(other.input), output.merge(other.output))
@@ -48,6 +46,8 @@ private fun cost(tokens: Map<Modality, Int>, prices: Map<Modality, Double>) = to
 data class CoachState(
     val id: String,
     val questionId: String,
+    /** 질문 글. 기록과 스크립트가 문항 풀에서 다시 찾지 않고 이 글을 쓴다. */
+    val question: String,
     val targetGrade: String,
     val startedAt: Instant,
     val phase: CoachPhase = CoachPhase.Explore,

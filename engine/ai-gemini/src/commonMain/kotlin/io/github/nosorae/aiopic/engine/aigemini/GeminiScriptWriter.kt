@@ -1,20 +1,17 @@
 package io.github.nosorae.aiopic.engine.aigemini
 
 import io.github.nosorae.aiopic.engine.answer.model.ModelInfo
+import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.answer.port.Prompt
 import io.github.nosorae.aiopic.engine.coach.CoachScript
 import io.github.nosorae.aiopic.engine.coach.CoachState
 import io.github.nosorae.aiopic.engine.coach.Expression
 import io.github.nosorae.aiopic.engine.coach.ScriptParts
-import io.github.nosorae.aiopic.engine.coach.ScriptResult
 import io.github.nosorae.aiopic.engine.coach.ScriptWriter
 import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmRequest
-import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 
 /**
  * Gemini `generateContent` 한 번으로 스크립트를 만들고 다듬는다(F14.1, F14.4). 모델은 설정에서 고른 분석 모델이다([model]).
@@ -28,13 +25,15 @@ class GeminiScriptWriter(
     private val scriptPrompt: suspend (CoachState, String) -> Prompt,
     private val polishPrompt: suspend (ScriptParts, List<Expression>, String, String) -> Prompt,
 ) : ScriptWriter {
-    override suspend fun write(session: CoachState, question: String): ScriptResult<CoachScript> {
+    override suspend fun write(session: CoachState, question: String): AnalysisResult<CoachScript> {
         val model = model()
         val prompt = scriptPrompt(session, question)
         return when (val result = generate(model, prompt)) {
-            is ScriptResult.Failed -> result
+            is AnalysisResult.Failed -> result
 
-            is ScriptResult.Success -> ScriptResult.Success(
+            is AnalysisResult.Unscorable -> result
+
+            is AnalysisResult.Success -> AnalysisResult.Success(
                 CoachScript(
                     sessionId = session.id,
                     original = result.value.parts,
@@ -49,32 +48,20 @@ class GeminiScriptWriter(
         }
     }
 
-    override suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): ScriptResult<ScriptParts> = when (val result = generate(model(), polishPrompt(edited, expressions, question, targetGrade))) {
-        is ScriptResult.Failed -> result
-        is ScriptResult.Success -> ScriptResult.Success(result.value.parts)
+    override suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): AnalysisResult<ScriptParts> = when (val result = generate(model(), polishPrompt(edited, expressions, question, targetGrade))) {
+        is AnalysisResult.Failed -> result
+        is AnalysisResult.Unscorable -> result
+        is AnalysisResult.Success -> AnalysisResult.Success(result.value.parts)
     }
 
-    private suspend fun generate(model: ModelInfo, prompt: Prompt): ScriptResult<ScriptWire> {
-        val key = apiKey() ?: return ScriptResult.Failed(AnalysisError.InvalidKey)
-        val text = when (val result = client.generate(LlmRequest(apiKey = key, model = model.id, prompt = prompt.text, responseSchema = prompt.responseSchema))) {
-            is LlmResult.Success -> result.text
-            is LlmResult.Retryable -> return ScriptResult.Failed(if (result.httpStatus == null) AnalysisError.Offline else AnalysisError.Retryable)
-            LlmResult.InvalidKey -> return ScriptResult.Failed(AnalysisError.InvalidKey)
-            LlmResult.ModelNotFound -> return ScriptResult.Failed(AnalysisError.ModelUnavailable)
-            is LlmResult.Rejected -> return ScriptResult.Failed(AnalysisError.Rejected)
+    private suspend fun generate(model: ModelInfo, prompt: Prompt): AnalysisResult<ScriptWire> {
+        val key = apiKey() ?: return AnalysisResult.Failed(AnalysisError.InvalidKey)
+        val text = when (val result = client.generate(LlmRequest(apiKey = key, model = model.id, prompt = prompt.text, responseSchema = prompt.responseSchema)).toAnalysis()) {
+            is AnalysisResult.Success -> result.value
+            is AnalysisResult.Failed -> return result
+            is AnalysisResult.Unscorable -> return result
         }
-        val wire = try {
-            json.decodeFromString(ScriptWire.serializer(), text)
-        } catch (_: SerializationException) {
-            null
-        } catch (_: IllegalArgumentException) {
-            null
-        }
-        return wire?.takeIf { listOf(it.intro, it.body, it.closing).none(String::isBlank) }?.let { ScriptResult.Success(it) } ?: ScriptResult.Failed(AnalysisError.Rejected)
-    }
-
-    private companion object {
-        val json = Json { ignoreUnknownKeys = true }
+        return text.decodeOrNull(ScriptWire.serializer())?.takeIf { listOf(it.intro, it.body, it.closing).none(String::isBlank) }?.let { AnalysisResult.Success(it) } ?: AnalysisResult.Failed(AnalysisError.Rejected)
     }
 }
 

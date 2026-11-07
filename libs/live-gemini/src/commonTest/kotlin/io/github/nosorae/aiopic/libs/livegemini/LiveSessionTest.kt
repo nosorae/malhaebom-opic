@@ -18,13 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Clock
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
 
 class LiveSessionTest {
     private val config = LiveConfig(
@@ -34,12 +28,6 @@ class LiveSessionTest {
         tools = listOf(buildJsonObject { put("name", "save_script") }),
     )
 
-    private val clock = object : Clock {
-        var now = Instant.fromEpochSeconds(0)
-
-        override fun now() = now
-    }
-
     private val sockets = mutableListOf<FakeSocket>()
     private val urls = mutableListOf<String>()
     private val session = LiveSession(
@@ -47,13 +35,12 @@ class LiveSessionTest {
             urls += url
             FakeSocket().also { sockets += it }
         },
-        clock = clock,
     )
 
     /** 서버 프레임을 넣는 즉시 세션이 처리하도록 Unconfined 로 모으며 [block] 을 돌리고, 끝나면 모으기를 멈춘다. */
-    private suspend fun TestScope.collect(resumeHandle: String? = null, resumeHandleAt: Instant? = null, block: suspend () -> Unit): List<LiveEvent> {
+    private suspend fun TestScope.collect(resumeHandle: String? = null, block: suspend () -> Unit): List<LiveEvent> {
         val events = mutableListOf<LiveEvent>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { session.connect("test-key", config, resumeHandle, resumeHandleAt).collect { events += it } }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { session.connect("test-key", config, resumeHandle).collect { events += it } }
         block()
         job.cancelAndJoin()
         return events
@@ -151,19 +138,12 @@ class LiveSessionTest {
     }
 
     @Test
-    fun `도구 호출과 취소를 낸다`() = runTest {
+    fun `도구 호출을 낸다`() = runTest {
         val events = collect {
             sockets.single().server("""{"toolCall":{"functionCalls":[{"id":"c1","name":"save_script","args":{"text":"x"}}]}}""")
-            sockets.single().server("""{"toolCallCancellation":{"ids":["c1"]}}""")
         }
 
-        assertEquals(
-            listOf(
-                LiveEvent.ToolCall("c1", "save_script", buildJsonObject { put("text", "x") }),
-                LiveEvent.ToolCallCancelled(listOf("c1")),
-            ),
-            events,
-        )
+        assertEquals(listOf<LiveEvent>(LiveEvent.ToolCall("c1", "save_script", buildJsonObject { put("text", "x") })), events)
     }
 
     @Test
@@ -180,6 +160,15 @@ class LiveSessionTest {
     }
 
     @Test
+    fun `한 메시지에 턴 끝과 사용량이 함께 오면 사용량을 먼저 내 턴 끝에 닫아도 사용량이 남는다`() = runTest {
+        val events = collect {
+            sockets.single().server("""{"serverContent":{"turnComplete":true},"usageMetadata":{"promptTokenCount":1,"responseTokenCount":2}}""")
+        }
+
+        assertEquals(listOf(LiveEvent.Usage(1, 2, emptyMap(), emptyMap()), LiveEvent.TurnComplete), events)
+    }
+
+    @Test
     fun `GoAway 를 받으면 마지막 핸들로 새 연결을 열고 이어 붙었음을 알린다`() = runTest {
         val events = collect {
             sockets[0].server("""{"setupComplete":{}}""")
@@ -189,7 +178,7 @@ class LiveSessionTest {
             sockets[1].server("""{"setupComplete":{}}""")
         }
 
-        assertEquals(listOf(LiveEvent.Connected, LiveEvent.ResumeHandle("h1"), LiveEvent.GoAway(50.seconds), LiveEvent.Resumed), events)
+        assertEquals(listOf(LiveEvent.Connected, LiveEvent.ResumeHandle("h1"), LiveEvent.Resumed), events)
         assertTrue(sockets[0].closedByClient)
         assertEquals("h1", sockets[1].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"]!!.jsonPrimitive.content)
     }
@@ -201,7 +190,7 @@ class LiveSessionTest {
             sockets[0].serverClose(1000, "bye")
         }
 
-        assertEquals(listOf(LiveEvent.GoAway(1.5.seconds), LiveEvent.Disconnected(1000, "bye")), events)
+        assertEquals(listOf<LiveEvent>(LiveEvent.Disconnected(1000, "bye")), events)
         assertEquals(1, sockets.size)
     }
 
@@ -213,12 +202,11 @@ class LiveSessionTest {
     }
 
     @Test
-    fun `2시간 안에 다시 연결하면 받아 둔 핸들로 이어 붙인다`() = runTest {
+    fun `끊긴 뒤 다시 연결하면 받아 둔 핸들로 이어 붙인다`() = runTest {
         collect {
             sockets[0].server("""{"sessionResumptionUpdate":{"newHandle":"h1","resumable":true}}""")
             sockets[0].serverClose(1006, "")
         }
-        clock.now += 119.minutes
 
         val events = collect { sockets[1].server("""{"setupComplete":{}}""") }
 
@@ -226,41 +214,57 @@ class LiveSessionTest {
     }
 
     @Test
-    fun `핸들을 받은 지 2시간이 지났으면 만료를 알리고 핸들 없이 새로 연다`() = runTest {
-        collect {
-            sockets[0].server("""{"sessionResumptionUpdate":{"newHandle":"h1","resumable":true}}""")
-            sockets[0].serverClose(1006, "")
-        }
-        clock.now += 2.hours + 1.seconds
-
-        val events = collect { sockets[1].server("""{"setupComplete":{}}""") }
-
-        assertEquals(listOf(LiveEvent.ResumeExpired, LiveEvent.Connected), events)
-        assertNull(sockets[1].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"])
-    }
-
-    @Test
     fun `바깥에서 넣은 핸들로 첫 연결부터 이어 붙인다`() = runTest {
-        val events = collect(resumeHandle = "h0", resumeHandleAt = clock.now - 1.hours) { sockets[0].server("""{"setupComplete":{}}""") }
+        val events = collect(resumeHandle = "h0") { sockets[0].server("""{"setupComplete":{}}""") }
 
         assertEquals(listOf<LiveEvent>(LiveEvent.Resumed), events)
         assertEquals("h0", sockets[0].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"]!!.jsonPrimitive.content)
     }
 
     @Test
-    fun `바깥에서 넣은 핸들을 받은 지 2시간이 지났으면 만료를 알리고 새로 연다`() = runTest {
-        val events = collect(resumeHandle = "h0", resumeHandleAt = clock.now - 2.hours - 1.seconds) { sockets[0].server("""{"setupComplete":{}}""") }
-
-        assertEquals(listOf(LiveEvent.ResumeExpired, LiveEvent.Connected), events)
-    }
-
-    @Test
     fun `연결을 열지 못하면 실패를 낸다`() = runTest {
-        val failing = LiveSession(open = { throw LiveConnectException(429, "Too Many Requests") }, clock = clock)
+        val failing = LiveSession(open = { throw LiveConnectException(429, "Too Many Requests") })
 
         val events = failing.connect("test-key", config).toList()
 
         assertEquals(listOf<LiveEvent>(LiveEvent.Failed(429, "Too Many Requests")), events)
+    }
+
+    @Test
+    fun `받다가 망이 끊겨 예외가 나면 키를 지운 이유로 끊김을 내고 끝난다`() = runTest {
+        val events = collect { sockets[0].serverFail(IllegalStateException("closed wss://host/ws?key=test-key")) }
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.Disconnected(null, "closed wss://host/ws")), events)
+    }
+
+    @Test
+    fun `열지 못한 이유에서 키를 지운다`() = runTest {
+        val failing = LiveSession(open = { throw LiveConnectException(null, "failed wss://host/ws?key=test-key&alt=1") })
+
+        val events = failing.connect("test-key", config).toList()
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.Failed(null, "failed wss://host/ws&alt=1")), events)
+    }
+
+    @Test
+    fun `보내다 예외가 나도 던지지 않고 버린다`() = runTest {
+        collect {
+            sockets[0].server("""{"setupComplete":{}}""")
+            sockets[0].sendError = IllegalStateException("broken pipe")
+
+            session.sendAudio(byteArrayOf(1))
+        }
+    }
+
+    @Test
+    fun `읽지 못하는 메시지 하나는 버리고 다음 메시지를 읽는다`() = runTest {
+        val events = collect {
+            sockets[0].server("""{"usageMetadata":{"promptTokensDetails":[{"tokenCount":1}]}}""")
+            sockets[0].server("""{"serverContent":{"modelTurn":{"parts":[{"inlineData":{"data":"not base64!"}}]}}}""")
+            sockets[0].server("""{"serverContent":{"turnComplete":true}}""")
+        }
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.TurnComplete), events)
     }
 
     @Test
@@ -274,11 +278,16 @@ class LiveSessionTest {
 private class FakeSocket : LiveSocket {
     val sent = mutableListOf<String>()
     var closedByClient = false
+    var sendError: Exception? = null
     private val frames = Channel<String>(Channel.UNLIMITED)
     override var closeReason: LiveEvent.Disconnected? = null
 
     fun server(text: String) {
         frames.trySend(text)
+    }
+
+    fun serverFail(error: Exception) {
+        frames.close(error)
     }
 
     fun serverClose(code: Int, reason: String) {
@@ -287,10 +296,12 @@ private class FakeSocket : LiveSocket {
     }
 
     override suspend fun send(text: String) {
+        sendError?.let { throw it }
         sent += text
     }
 
-    override suspend fun receive(): String? = frames.receiveCatching().getOrNull()
+    /** 원인 없이 닫히면 null, 원인을 담아 닫히면 그 예외를 던진다. */
+    override suspend fun receive(): String? = frames.receiveCatching().let { result -> result.exceptionOrNull()?.let { throw it } ?: result.getOrNull() }
 
     override suspend fun close() {
         closedByClient = true

@@ -1,19 +1,24 @@
 package io.github.nosorae.aiopic.engine.coach
 
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
+import kotlinx.coroutines.CompletableJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -38,7 +43,7 @@ class LiveCoach(
     private var connection: Job? = null
     private var connectedPhase: CoachPhase? = null
 
-    suspend fun start(id: String, questionId: String, targetGrade: String) = lock.withLock { set(CoachState(id, questionId, targetGrade, clock.now())) }
+    suspend fun start(id: String, questionId: String, question: String, targetGrade: String) = lock.withLock { set(CoachState(id, questionId, question, targetGrade, clock.now())) }
 
     /** 저장된 세션을 되살려 이어 간다. 진행 중이던 세션이면 바로 다시 연결한다. 없으면 false. */
     suspend fun open(id: String): Boolean = lock.withLock {
@@ -69,7 +74,7 @@ class LiveCoach(
     private suspend fun dispatch(event: CoachEvent) = lock.withLock {
         val before = _state.value ?: return@withLock
         val after = reduce(before, event)
-        store.append(before.id, before.phase, event)
+        store.append(before.id, event)
         if (after != before) set(after)
     }
 
@@ -88,7 +93,13 @@ class LiveCoach(
         connection = if (live) {
             scope.launch {
                 old?.join()
-                talk(state)
+                // 예외가 scope(화면의 viewModelScope)까지 가면 앱이 꺼진다. 끊김으로 남겨 다시 연결할 수 있게 한다.
+                try {
+                    talk(state)
+                } catch (e: Exception) {
+                    ensureActive()
+                    dispatch(CoachEvent.Dropped(TransportEvent.Disconnected.NETWORK))
+                }
             }
         } else {
             null
@@ -107,6 +118,8 @@ class LiveCoach(
                 dispatch(CoachEvent.TimePassed(clock.now() - from))
             }
         }
+        // 코치가 단계를 넘기면 그 턴(넘긴다는 말과 사용량)을 다 받은 뒤 넘긴다. 바로 닫으면 그 말과 사용량을 잃는다.
+        var turnEnd: CompletableJob? = null
         transport.connect(instruction(profile, state), profile.tools, handle).collect { event ->
             when (event) {
                 is TransportEvent.Audio -> audio.play(event.pcm)
@@ -121,8 +134,19 @@ class LiveCoach(
                     // 버린 호출에도 답해야 모델이 기다리지 않고 이어 말한다.
                     val error = toolError(event.name, event.args)
                     transport.sendToolResponse(event.id, event.name, buildJsonObject { if (error == null) put("ok", true) else put("error", error) })
-                    dispatch(CoachEvent.ToolCalled(event.name, event.args))
+                    val called = CoachEvent.ToolCalled(event.name, event.args)
+                    if (event.name != CoachTools.ADVANCE_PHASE) {
+                        dispatch(called)
+                    } else if (turnEnd == null) {
+                        val end = Job().also { turnEnd = it }
+                        launch {
+                            withTimeoutOrNull(ADVANCE_WAIT) { end.join() }
+                            dispatch(called)
+                        }
+                    }
                 }
+
+                TransportEvent.TurnComplete -> turnEnd?.complete()
 
                 is TransportEvent.Usage -> dispatch(CoachEvent.Used(event.usage))
 
@@ -133,21 +157,39 @@ class LiveCoach(
         }
     }
 
-    /** 말소리 조각만 보낸다. 말하다 침묵이 시작되면 오디오 끝을 한 번 보낸다. */
+    /**
+     * 말소리 조각과 말이 멈춘 뒤 [SPEECH_END_GRACE] 동안의 침묵 조각을 보내고, 그 뒤 오디오 끝을 한 번 보낸다.
+     * 다음 말소리까지는 보내지 않는다. 생각하는 동안의 침묵을 보내지 않아야 입력 토큰이 늘지 않는다.
+     */
     private suspend fun forwardMic() {
-        var speaking = false
-        audio.mic.collect { chunk ->
+        // 말이 멈춘 뒤 보낸 침묵 길이. 오디오 끝을 보냈으면 INFINITE 다.
+        var silence = Duration.INFINITE
+        audio.mic.catch { dispatch(CoachEvent.Dropped(TransportEvent.Disconnected.MIC)) }.collect { chunk ->
             if (chunk.speech) {
                 transport.sendAudio(chunk.pcm)
-                speaking = true
-            } else if (speaking) {
-                transport.sendAudioEnd()
-                speaking = false
+                silence = Duration.ZERO
+            } else if (silence.isFinite()) {
+                transport.sendAudio(chunk.pcm)
+                silence += (chunk.pcm.size / 2).seconds / DuplexAudio.MIC_SAMPLE_RATE
+                if (silence >= SPEECH_END_GRACE) {
+                    transport.sendAudioEnd()
+                    silence = Duration.INFINITE
+                }
             }
         }
     }
 
     private companion object {
         val LIVE_PHASES = setOf(CoachPhase.Explore, CoachPhase.Express, CoachPhase.Feedback)
+
+        /** 단계를 넘긴 턴이 끝나기를 기다리는 상한. 넘긴다는 말 한 턴은 몇 초라 넉넉히 두고, 턴 끝이 안 와도 사용자가 오래 기다리지 않게 한다. */
+        val ADVANCE_WAIT = 8.seconds
+
+        /**
+         * 서버 음성 감지는 말 뒤의 침묵을 들어야 말이 끝났다고 보고 코치가 답한다. 침묵 조각 하나(40ms)에 바로 오디오 끝을 보내면
+         * 문장 사이 숨 고르기에도 말이 끊긴다. 1초는 숨 고르기보다 길고 코치 답이 늦다고 느끼기 전이다.
+         */
+        // ponytail: 실기기에서 말 끝 판단이 이르거나 늦으면 이 값만 고친다.
+        val SPEECH_END_GRACE = 1.seconds
     }
 }

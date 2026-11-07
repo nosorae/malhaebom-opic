@@ -8,8 +8,6 @@ import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmRequest
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 
 /**
  * Gemini 로 한 회차의 질문을 만든다(F6.1). [prompt] 본문은 부르는 쪽이 주제, 수준, 재조정, 약점 유형, 문항 순서를 채운 글이다.
@@ -23,20 +21,10 @@ class GeminiQuestionWriter(private val client: GeminiClient, private val apiKey:
         val key = apiKey() ?: return null
         val result = client.generate(LlmRequest(apiKey = key, model = model.id, prompt = prompt.text, responseSchema = prompt.responseSchema))
         val text = (result as? LlmResult.Success)?.text ?: return null
-        val wire = try {
-            json.decodeFromString(QuestionsWire.serializer(), text)
-        } catch (_: SerializationException) {
-            return null
-        } catch (_: IllegalArgumentException) {
-            return null
-        }
+        val wire = text.decodeOrNull(QuestionsWire.serializer()) ?: return null
         return wire.questions.sortedBy { it.number }
             .map { Question(id = "$idPrefix${it.number}", text = it.text, type = QuestionType(it.type), topic = it.topic) }
             .takeIf { questions -> questions.map { it.type } == order }
-    }
-
-    private companion object {
-        val json = Json { ignoreUnknownKeys = true }
     }
 }
 

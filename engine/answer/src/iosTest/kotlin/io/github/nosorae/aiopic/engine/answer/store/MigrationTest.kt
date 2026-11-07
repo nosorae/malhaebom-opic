@@ -91,11 +91,11 @@ class MigrationTest {
 
         val db = Room.databaseBuilder<OpicDatabase>(name = path).setDriver(BundledSQLiteDriver()).addMigrations(*OPIC_MIGRATIONS).build()
         val dao = db.coachDao()
-        dao.save(CoachSessionRow("c1", "q1", "IH", 0, "Explore", 0, null, null, "Active"))
-        dao.append("c1", "Explore", "transcript", "{}")
+        dao.save(CoachSessionRow("c1", "q1", "Tell me.", "IH", 0, "Explore", 0, null, null, "Active"))
+        dao.append("c1", "{}")
 
         assertEquals(mapOf("weakness" to 3), OpicStore(db).seen().first())
-        assertEquals("q1", dao.session("c1")?.questionId)
+        assertEquals("Tell me.", dao.session("c1")?.question)
         assertEquals(listOf(0), dao.events("c1").map { it.seq })
         assertNull(dao.script("c1").first())
         db.close()

@@ -21,7 +21,6 @@ import kotlin.concurrent.Volatile
 class GeminiLiveTransport(
     private val apiKey: suspend () -> String?,
     private val voice: String,
-    private val model: String = GeminiModels.liveModel.id,
     private val newSession: () -> LiveSession = { LiveSession() },
 ) : LiveCoachTransport {
     @Volatile private var session: LiveSession? = null
@@ -30,8 +29,8 @@ class GeminiLiveTransport(
         val key = apiKey() ?: return@flow emit(TransportEvent.Disconnected(TransportEvent.Disconnected.NO_KEY))
         val live = newSession().also { session = it }
         var usage = TurnUsage()
-        // 핸들 나이는 엔진이 이미 따졌다(RESUME_LIMIT). 받은 시각을 넘기지 않으면 세션이 지금 받은 것으로 본다.
-        live.connect(key, LiveConfig(model, instruction, voice, tools), resumeHandle).collect { event ->
+        // 핸들 나이는 엔진이 따진다(RESUME_LIMIT).
+        live.connect(key, LiveConfig(GeminiModels.liveModel.id, instruction, voice, tools), resumeHandle).collect { event ->
             when (event) {
                 // GoAway 로 소켓을 바꿔 이어 붙이면 서버의 사용량 셈도 새로 시작할 수 있어 새로 센다.
                 LiveEvent.Connected, LiveEvent.Resumed -> usage = TurnUsage()
@@ -46,16 +45,15 @@ class GeminiLiveTransport(
 
                 LiveEvent.Interrupted -> emit(TransportEvent.Interrupted)
 
+                LiveEvent.TurnComplete -> emit(TransportEvent.TurnComplete)
+
                 is LiveEvent.ResumeHandle -> emit(TransportEvent.ResumeHandle(event.handle))
 
                 is LiveEvent.Usage -> emit(TransportEvent.Usage(usage.next(TokenUsage(event.promptByModality.modalities(), event.responseByModality.modalities()))))
 
-                is LiveEvent.Disconnected -> emit(TransportEvent.Disconnected(TransportEvent.Disconnected.NETWORK))
+                is LiveEvent.Disconnected -> emit(TransportEvent.Disconnected(dropReason(null, event.reason)))
 
-                is LiveEvent.Failed -> emit(TransportEvent.Disconnected(if (event.status == 429) TransportEvent.Disconnected.RATE_LIMITED else TransportEvent.Disconnected.NETWORK))
-
-                // 핸들 만료는 엔진이 먼저 걸러 새 대화로 연다. 도구 취소, 턴 끝, GoAway 는 엔진이 할 일이 없다.
-                LiveEvent.ResumeExpired, is LiveEvent.ToolCallCancelled, LiveEvent.TurnComplete, is LiveEvent.GoAway -> Unit
+                is LiveEvent.Failed -> emit(TransportEvent.Disconnected(dropReason(event.status, event.message)))
             }
         }
     }
@@ -70,6 +68,20 @@ class GeminiLiveTransport(
 
     override suspend fun sendToolResponse(id: String, name: String, result: JsonElement) {
         session?.sendToolResponse(id, name, result)
+    }
+}
+
+/**
+ * 핸드셰이크 상태와 닫힘 이유 글로 화면이 보일 끊김 이유를 고른다. 키 오류와 모델 없음은 setup 을 받은 서버가 1008(정책 위반)로 닫으며 이유 글에 싣는다.
+ */
+// ponytail: 이유 글은 REST 오류 글과 같다고 보고 글로 가른다. 실제 Live 닫힘 글을 기기 기록으로 확인하지 못해서, 모르는 글은 네트워크로 둬 다시 연결을 권한다.
+private fun dropReason(status: Int?, text: String): String {
+    val lower = text.lowercase()
+    return when {
+        status == 429 || "resource_exhausted" in lower || "quota" in lower -> TransportEvent.Disconnected.RATE_LIMITED
+        "api key" in lower -> TransportEvent.Disconnected.INVALID_KEY
+        "not found" in lower -> TransportEvent.Disconnected.MODEL_UNAVAILABLE
+        else -> TransportEvent.Disconnected.NETWORK
     }
 }
 

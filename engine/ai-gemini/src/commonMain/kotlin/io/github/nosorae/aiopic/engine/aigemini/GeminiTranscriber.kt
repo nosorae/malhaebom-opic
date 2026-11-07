@@ -10,7 +10,6 @@ import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.llmgemini.api.AudioPart
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmRequest
-import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
 
 /**
  * Gemini 로 녹음의 받아쓰기만 받는다(ADR 0019 의 받아쓰기 포트). 코치 리허설이 쓴다(F13.1). 답변 분석과 달리 채점은 하지 않는다.
@@ -20,12 +19,10 @@ import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
 class GeminiTranscriber(private val client: GeminiClient, private val apiKey: suspend () -> String?, private val model: ModelInfo) : Transcriber {
     override suspend fun transcribe(recording: Recording): AnalysisResult<Transcript> {
         val key = apiKey() ?: return AnalysisResult.Failed(AnalysisError.InvalidKey)
-        return when (val result = client.generate(LlmRequest(apiKey = key, model = model.id, prompt = PROMPT, audio = listOf(AudioPart(recording.bytes, recording.mimeType)), thinkingLevel = "low"))) {
-            is LlmResult.Success -> result.text.trim().let { if (it.isEmpty()) AnalysisResult.Unscorable(UnscorableReason.Silent) else AnalysisResult.Success(Transcript(it, emptyList())) }
-            is LlmResult.Retryable -> AnalysisResult.Failed(if (result.httpStatus == null) AnalysisError.Offline else AnalysisError.Retryable)
-            LlmResult.InvalidKey -> AnalysisResult.Failed(AnalysisError.InvalidKey)
-            LlmResult.ModelNotFound -> AnalysisResult.Failed(AnalysisError.ModelUnavailable)
-            is LlmResult.Rejected -> AnalysisResult.Failed(AnalysisError.Rejected)
+        return when (val result = client.generate(LlmRequest(apiKey = key, model = model.id, prompt = PROMPT, audio = listOf(AudioPart(recording.bytes, recording.mimeType)), thinkingLevel = "low")).toAnalysis()) {
+            is AnalysisResult.Success -> result.value.trim().let { if (it.isEmpty()) AnalysisResult.Unscorable(UnscorableReason.Silent) else AnalysisResult.Success(Transcript(it, emptyList())) }
+            is AnalysisResult.Failed -> result
+            is AnalysisResult.Unscorable -> result
         }
     }
 

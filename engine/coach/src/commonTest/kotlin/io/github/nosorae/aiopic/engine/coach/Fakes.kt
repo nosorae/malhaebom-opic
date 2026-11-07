@@ -6,6 +6,7 @@ import io.github.nosorae.aiopic.libs.duplexaudio.api.MicChunk
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -24,6 +25,9 @@ class FakeTransport : LiveCoachTransport {
     val audio = mutableListOf<ByteArray>()
     var audioEnds = 0
     val responses = mutableListOf<Pair<String, JsonElement>>()
+
+    /** 있으면 연결이 이 예외로 끝난다. */
+    var connectError: Exception? = null
     private var events = Channel<TransportEvent>(Channel.UNLIMITED)
 
     fun server(event: TransportEvent) {
@@ -33,6 +37,7 @@ class FakeTransport : LiveCoachTransport {
     override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?): Flow<TransportEvent> = flow {
         connects += Connect(instruction, tools, resumeHandle)
         events = Channel(Channel.UNLIMITED)
+        connectError?.let { throw it }
         for (event in events) {
             emit(event)
             if (event is TransportEvent.Disconnected) break
@@ -57,7 +62,13 @@ class FakeAudio : DuplexAudio {
     private val spoken = Channel<ByteArray>(Channel.UNLIMITED)
     val queued = mutableListOf<ByteArray>()
 
-    override val mic: Flow<MicChunk> = spoken.receiveAsFlow().map(::MicChunk)
+    /** 있으면 마이크를 열지 못하고 이 예외로 끝난다. */
+    var micError: Exception? = null
+
+    override val mic: Flow<MicChunk> = flow {
+        micError?.let { throw it }
+        emitAll(spoken.receiveAsFlow().map(::MicChunk))
+    }
     override val micLevel = MutableStateFlow(0f)
     override val playbackLevel = MutableStateFlow(0f)
 
@@ -72,6 +83,6 @@ class FakeAudio : DuplexAudio {
     override fun flush() = queued.clear()
 }
 
-/** 가장 큰 표본이 최대값인 조각과 무음 조각. */
-val LOUD = byteArrayOf(0xFF.toByte(), 0x7F)
-val SILENT = ByteArray(2)
+/** 실제 마이크처럼 40ms 길이의, 모든 표본이 최대값인 조각과 무음 조각. */
+val LOUD = ByteArray(DuplexAudio.MIC_CHUNK_BYTES) { if (it % 2 == 0) 0xFF.toByte() else 0x7F }
+val SILENT = ByteArray(DuplexAudio.MIC_CHUNK_BYTES)

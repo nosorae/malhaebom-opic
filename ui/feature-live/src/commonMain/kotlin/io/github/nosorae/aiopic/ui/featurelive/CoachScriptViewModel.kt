@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
+import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.coach.CoachScript
 import io.github.nosorae.aiopic.engine.coach.ScriptLength
 import io.github.nosorae.aiopic.engine.coach.ScriptParts
-import io.github.nosorae.aiopic.engine.coach.ScriptResult
 import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,8 +104,12 @@ class CoachScriptViewModel(
             val result = openScriptUseCase(sessionId, question)
             _uiState.update {
                 when (result) {
-                    is ScriptResult.Success -> it.copy(writing = false, script = result.value)
-                    is ScriptResult.Failed -> it.copy(writing = false, error = result.error)
+                    is AnalysisResult.Success -> it.copy(writing = false, script = result.value)
+
+                    is AnalysisResult.Failed -> it.copy(writing = false, error = result.error)
+
+                    // 스크립트 포트는 내지 않는다. 내면 못 쓰는 응답으로 보인다.
+                    is AnalysisResult.Unscorable -> it.copy(writing = false, error = AnalysisError.Rejected)
                 }
             }
         }
@@ -130,8 +134,9 @@ class CoachScriptViewModel(
             val result = polishScriptUseCase(_uiState.value.script ?: script, question, state.targetGrade)
             _uiState.update {
                 when (result) {
-                    is ScriptResult.Success -> it.copy(polishing = false, script = result.value)
-                    is ScriptResult.Failed -> it.copy(polishing = false, error = result.error)
+                    is AnalysisResult.Success -> it.copy(polishing = false, script = result.value)
+                    is AnalysisResult.Failed -> it.copy(polishing = false, error = result.error)
+                    is AnalysisResult.Unscorable -> it.copy(polishing = false, error = AnalysisError.Rejected)
                 }
             }
         }

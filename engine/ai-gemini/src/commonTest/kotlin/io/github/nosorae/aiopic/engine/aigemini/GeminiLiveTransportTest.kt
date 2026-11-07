@@ -48,13 +48,14 @@ class GeminiLiveTransportTest {
     private fun setup(index: Int = 0) = Json.parseToJsonElement(sockets[index].sent.first()).jsonObject["setup"]!!.jsonObject
 
     @Test
-    fun `받아쓰기와 도구 호출과 끼어들기와 핸들을 코치 이벤트로 바꾼다`() = runTest {
+    fun `받아쓰기와 도구 호출과 끼어들기와 턴 끝과 핸들을 코치 이벤트로 바꾼다`() = runTest {
         val events = collect {
             server("""{"setupComplete":{}}""")
             server("""{"serverContent":{"inputTranscription":{"text":"I went"}}}""")
             server("""{"serverContent":{"outputTranscription":{"text":"Where?"}}}""")
             server("""{"toolCall":{"functionCalls":[{"id":"t1","name":"save_material","args":{"kind":"place"}}]}}""")
             server("""{"serverContent":{"interrupted":true}}""")
+            server("""{"serverContent":{"turnComplete":true}}""")
             server("""{"sessionResumptionUpdate":{"newHandle":"h1","resumable":true}}""")
         }
 
@@ -64,6 +65,7 @@ class GeminiLiveTransportTest {
                 TransportEvent.CoachSaid("Where?"),
                 TransportEvent.ToolCall("t1", "save_material", buildJsonObject { put("kind", "place") }),
                 TransportEvent.Interrupted,
+                TransportEvent.TurnComplete,
                 TransportEvent.ResumeHandle("h1"),
             ),
             events,
@@ -100,6 +102,27 @@ class GeminiLiveTransportTest {
         }
 
         assertEquals(listOf(TransportEvent.Disconnected(TransportEvent.Disconnected.NETWORK)), events)
+    }
+
+    @Test
+    fun `닫힘 이유 글로 키 오류와 모델 없음과 한도를 가르고 모르는 이유는 네트워크로 둔다`() = runTest {
+        val cases = listOf(
+            Triple(1008, "API key not valid. Please pass a valid API key.", TransportEvent.Disconnected.INVALID_KEY),
+            Triple(1008, "models/x is not found for API version v1beta, or is not supported for bidiGenerateContent.", TransportEvent.Disconnected.MODEL_UNAVAILABLE),
+            Triple(1011, "You exceeded your current quota, please check your plan and billing details.", TransportEvent.Disconnected.RATE_LIMITED),
+            Triple(1011, "RESOURCE_EXHAUSTED", TransportEvent.Disconnected.RATE_LIMITED),
+            Triple(1008, "Request contains an invalid argument.", TransportEvent.Disconnected.NETWORK),
+            Triple(1006, "", TransportEvent.Disconnected.NETWORK),
+        )
+
+        val reasons = cases.map { (code, text, _) ->
+            collect {
+                server("""{"setupComplete":{}}""")
+                sockets.last().serverClose(code, text)
+            }.single()
+        }
+
+        assertEquals(cases.map { TransportEvent.Disconnected(it.third) }, reasons)
     }
 
     @Test
@@ -191,8 +214,8 @@ private class FakeSocket : LiveSocket {
         frames.trySend(text)
     }
 
-    fun serverClose() {
-        closeReason = LiveEvent.Disconnected(1011, "internal")
+    fun serverClose(code: Int = 1011, reason: String = "internal") {
+        closeReason = LiveEvent.Disconnected(code, reason)
         frames.close()
     }
 
