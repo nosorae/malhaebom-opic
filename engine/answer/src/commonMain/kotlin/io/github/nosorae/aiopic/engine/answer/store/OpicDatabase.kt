@@ -5,6 +5,8 @@ import androidx.room3.Dao
 import androidx.room3.Database
 import androidx.room3.Entity
 import androidx.room3.Index
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
 import androidx.room3.PrimaryKey
 import androidx.room3.Query
 import androidx.room3.RoomDatabase
@@ -22,10 +24,20 @@ import kotlinx.coroutines.flow.Flow
  */
 // ponytail: exportSchema 를 끈다. 이전은 표를 더하는 것뿐이라 손으로 쓴 SQL 하나([OPIC_MIGRATIONS])와 iOS 이전 테스트로 확인한다.
 // 표를 고치는 이전이 생기면 room3 Gradle 플러그인으로 스키마를 내보낸다.
-@Database(entities = [SessionRow::class, AnswerRow::class, FlagRow::class, JobRow::class, ResponseRow::class, SeenRow::class], version = 3, exportSchema = false)
+@Database(
+    entities = [
+        SessionRow::class, AnswerRow::class, FlagRow::class, JobRow::class, ResponseRow::class, SeenRow::class,
+        CoachSessionRow::class, CoachEventRow::class, CoachScriptRow::class,
+    ],
+    version = 4,
+    exportSchema = false,
+)
 @ConstructedBy(OpicDatabaseConstructor::class)
 abstract class OpicDatabase : RoomDatabase() {
     internal abstract fun dao(): OpicDao
+
+    /** 코치 세션 표(#262). `engine/coach` 의 저장소만 쓴다. */
+    abstract fun coachDao(): CoachDao
 }
 
 @Suppress("KotlinNoActualForExpect")
@@ -67,6 +79,7 @@ internal data class SeenRow(@PrimaryKey val key: String, val value: Int)
 
 /**
  * 앱 DB 빌더가 넣는 이전. version 2 는 분석 작업 표와 응답 원문 표를 더한다(#205). version 3 은 본 표시 표를 더한다(#198).
+ * version 4 는 코치 세션, 코치 이벤트, 코치 스크립트 표를 더한다(#262).
  * 기다리던 답변을 작업 표로 옮기는 일은 앱을 켤 때마다 도는 `AnalysisJobs.recover` 가 한다. 이전 뒤 첫 실행도 그 길을 탄다.
  */
 val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
@@ -87,7 +100,77 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
             connection.execSQL("CREATE TABLE IF NOT EXISTS `seen_mark` (`key` TEXT NOT NULL, `value` INTEGER NOT NULL, PRIMARY KEY(`key`))")
         }
     },
+    object : Migration(3, 4) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS `coach_session` (`id` TEXT NOT NULL, `questionId` TEXT NOT NULL, `targetGrade` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, " +
+                    "`phase` TEXT NOT NULL, `talkTimeMs` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `status` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            )
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS `coach_event` (`sessionId` TEXT NOT NULL, `seq` INTEGER NOT NULL, `phase` TEXT NOT NULL, `kind` TEXT NOT NULL, `json` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`sessionId`, `seq`))",
+            )
+            connection.execSQL(
+                "CREATE TABLE IF NOT EXISTS `coach_script` (`sessionId` TEXT NOT NULL, `intro` TEXT NOT NULL, `body` TEXT NOT NULL, `closing` TEXT NOT NULL, " +
+                    "`expressions` TEXT NOT NULL, `edited` TEXT, `editedAt` INTEGER, `promptVersion` TEXT NOT NULL, `model` TEXT NOT NULL, PRIMARY KEY(`sessionId`))",
+            )
+        }
+    },
 )
+
+/** 코치 세션 하나(#262). 시각은 epoch 밀리초, 대화 시간은 밀리초다. 받아쓰기와 메모는 [CoachEventRow] 에서 다시 계산한다. */
+@Entity(tableName = "coach_session")
+data class CoachSessionRow(
+    @PrimaryKey val id: String,
+    val questionId: String,
+    val targetGrade: String,
+    val startedAt: Long,
+    val phase: String,
+    val talkTimeMs: Long,
+    val resumeHandle: String?,
+    val handleAt: Long?,
+    val status: String,
+)
+
+/** 코치 세션에 일어난 일 하나(#262). [seq] 는 세션 안 순번, [kind] 는 받아쓰기, 도구 호출, 사용량, 단계 전환 중 하나다. */
+@Entity(tableName = "coach_event", primaryKeys = ["sessionId", "seq"])
+data class CoachEventRow(val sessionId: String, val seq: Int, val phase: String, val kind: String, val json: String)
+
+/** 세션이 만든 스크립트(#262). [expressions] 는 표현 목록 JSON, [edited] 는 사용자가 고친 판이다. */
+@Entity(tableName = "coach_script")
+data class CoachScriptRow(
+    @PrimaryKey val sessionId: String,
+    val intro: String,
+    val body: String,
+    val closing: String,
+    val expressions: String,
+    val edited: String?,
+    val editedAt: Long?,
+    val promptVersion: String,
+    val model: String,
+)
+
+@Dao
+interface CoachDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun save(row: CoachSessionRow)
+
+    @Query("SELECT * FROM coach_session WHERE id = :id")
+    suspend fun session(id: String): CoachSessionRow?
+
+    /** 세션의 다음 순번으로 붙인다. */
+    @Query("INSERT INTO coach_event (sessionId, seq, phase, kind, json) SELECT :sessionId, COALESCE(MAX(seq) + 1, 0), :phase, :kind, :json FROM coach_event WHERE sessionId = :sessionId")
+    suspend fun append(sessionId: String, phase: String, kind: String, json: String)
+
+    @Query("SELECT * FROM coach_event WHERE sessionId = :sessionId ORDER BY seq")
+    suspend fun events(sessionId: String): List<CoachEventRow>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun save(row: CoachScriptRow)
+
+    @Query("SELECT * FROM coach_script WHERE sessionId = :sessionId")
+    fun script(sessionId: String): Flow<CoachScriptRow?>
+}
 
 @Dao
 internal interface OpicDao {
