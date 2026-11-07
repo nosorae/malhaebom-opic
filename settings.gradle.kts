@@ -46,6 +46,7 @@ include(
     ":engine:question",
     ":engine:ai-gemini",
     ":libs:recorder",
+    ":libs:duplex-audio",
     ":libs:llm-gemini",
     ":libs:work-queue",
     ":libs:keyvault",
