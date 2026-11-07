@@ -15,6 +15,16 @@ class PickPracticeQuestionUseCaseTest {
     private suspend fun pick(repository: FakePracticeRepository) = PickPracticeQuestionUseCase(repository, typeNames = mapOf(QuestionType("roleplay") to "롤플레이"))()
 
     @Test
+    fun `F14_5 질문 id 를 주면 약점과 상관없이 그 질문을 낸다`() = runTest {
+        val repository = FakePracticeRepository(
+            pool = listOf(routine, roleplay),
+            answers = mutableListOf(scored("a1", routine, 80), scored("a2", roleplay, 40)),
+        )
+
+        assertEquals(PracticePick(routine, weakness = null), PickPracticeQuestionUseCase(repository, typeNames = emptyMap())("r1"))
+    }
+
+    @Test
     fun `약점 점수가 가장 낮은 유형에서 낸다`() = runTest {
         val repository = FakePracticeRepository(
             pool = listOf(routine, roleplay),

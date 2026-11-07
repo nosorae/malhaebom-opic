@@ -81,6 +81,9 @@ object CoachTools {
 @Serializable
 data class ScriptParts(val intro: String, val body: String, val closing: String)
 
+/** 목표 등급 하나의 스크립트 길이(F14.2). 시간이 "안팎" 하나면 [shortest] 와 [longest] 가 같다. 값은 시험 팩이 정한다. */
+data class ScriptLength(val shortest: Duration, val longest: Duration, val sentences: IntRange)
+
 /** 세션이 만든 스크립트. 만드는 일은 [ScriptWriter] 다(#267). [edited] 는 사용자가 고친 판이고 [original] 은 되돌리기용으로 남긴다(F14.3). */
 data class CoachScript(
     val sessionId: String,

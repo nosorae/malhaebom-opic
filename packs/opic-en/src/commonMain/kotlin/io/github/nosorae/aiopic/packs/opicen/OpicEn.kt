@@ -1,5 +1,6 @@
 package io.github.nosorae.aiopic.packs.opicen
 
+import io.github.nosorae.aiopic.engine.coach.ScriptLength
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.QuestionType
 import io.github.nosorae.aiopic.engine.question.model.Survey
@@ -14,7 +15,6 @@ import io.github.nosorae.aiopic.engine.session.model.GradeScale
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.MissingResourceException
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -165,9 +165,6 @@ object OpicEn {
         null
     }
 }
-
-/** 말하는 시간과 문장 수. 시간이 "안팎" 하나면 [shortest] 와 [longest] 가 같다. */
-data class ScriptLength(val shortest: Duration, val longest: Duration, val sentences: IntRange)
 
 /** 오픽 등급, 낮은 것부터. 회차 등급 응답 스키마가 이 값만 고르게 한다(F5.3). */
 @Serializable

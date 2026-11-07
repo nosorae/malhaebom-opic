@@ -55,6 +55,15 @@ internal object HistorySamples {
 
     val empty = HistoryUiState(loading = false)
 
+    /** 같은 질문으로 만든 스크립트 둘과 만들지 못한 세션 하나가 맨 위에 있다(F14.6). */
+    val withScripts = filled.copy(
+        entries = listOf(
+            HistoryScript("c2", "q1", "Tell me about a memorable trip you took recently.", "AL"),
+            HistoryScript("c1", "q1", "Tell me about a memorable trip you took recently.", "IH"),
+            HistoryScript("c0", "q2", "Describe your favorite park.", "IH", written = false),
+        ) + filled.entries,
+    )
+
     /** 지난번에 본 것보다 "과거 경험" 점수가 오른 약점 목록(#198). 축하가 화면 안에서 보이게 기록 줄은 비운다. */
     val weaknessRose = HistoryUiState(
         loading = false,

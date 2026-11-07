@@ -39,14 +39,18 @@ sealed class AppRoute {
     /**
      * 한 문항 연습. 녹음하는 화면이라 탭이 없지만 시험이 아니라서 뒤로가기는 막지 않는다. 녹음 중 뒤로가기는 화면이 받아 나갈지 묻는다.
      * 연습 탭의 Play 로 열리고 열리자마자 질문을 읽는다. [answerId] 는 들어올 때마다 새로 만든다.
+     * 스크립트 화면의 "이 스크립트로 연습" 은 [questionId] 질문과 [script] 글을 실어 연다(F14.5).
      */
-    @Serializable data class Practice(val answerId: String) : AppRoute()
+    @Serializable data class Practice(val answerId: String, val questionId: String? = null, val script: String? = null) : AppRoute()
 
     /**
      * 코치 대화(F11, F12). 시작 시트가 질문(id 와 글)과 목표 등급을 정해 연다. 질문 글을 같이 실어 다시 열 때 문항 풀에서 찾지 않는다. 같은 [sessionId] 로 다시 열면 저장된 세션을 이어 간다(F11.8).
      * 말하는 화면이라 탭이 없고 화면 안 X 로 닫는다. 세션은 저장돼 있어 뒤로가기도 막지 않는다.
      */
     @Serializable data class Coach(val sessionId: String, val questionId: String, val question: String, val targetGrade: String) : AppRoute()
+
+    /** 코치 세션의 스크립트(F14). 코치 대화가 끝나면 대화 화면 자리에 열리고, 기록 탭의 스크립트 줄로 다시 연다. 질문 글은 다듬기 요청에 쓴다. */
+    @Serializable data class CoachScript(val sessionId: String, val questionId: String, val question: String) : AppRoute()
 
     /** 설정의 제공사별 키 관리에서 여는 키 입력. [provider] 는 제공사 이름(`gemini`)이다. */
     @Serializable data class KeyEntry(val provider: String) : AppRoute()
@@ -72,7 +76,7 @@ sealed class AppRoute {
     private val chrome: Chrome
         get() = when (this) {
             ExamTab, PracticeTab, History, Settings -> Chrome.TopLevel
-            is ReportDetail, is AnswerReport, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo -> Chrome.Sub
+            is ReportDetail, is AnswerReport, is CoachScript, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo -> Chrome.Sub
             is Exam, is Practice, is Coach -> Chrome.FullScreen
             StartKeyEntry, StartConsent -> Chrome.Start
         }
@@ -88,6 +92,7 @@ sealed class AppRoute {
             is Exam -> "모의고사"
             is Practice -> "한 문항 연습"
             is Coach -> "코치와 스크립트 만들기"
+            is CoachScript -> "스크립트"
             is KeyEntry, StartKeyEntry -> "API 키 넣기"
             FreeTierNotice, StartConsent -> "음성 전송 동의"
             Survey -> "서베이"

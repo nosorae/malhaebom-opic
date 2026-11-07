@@ -28,6 +28,7 @@ class RouteContentTest {
         AppRoute.Survey -> "지금 하는 일은 어느 쪽에"
         is AppRoute.Practice -> "피드백"
         is AppRoute.Coach -> "실시간 음성 전송 동의"
+        is AppRoute.CoachScript -> "다시 시도"
         is AppRoute.KeyEntry, AppRoute.StartKeyEntry -> "키 확인하고 저장"
         AppRoute.FreeTierNotice, AppRoute.StartConsent -> "동의하고 계속하기"
         AppRoute.FlagExport -> "아직 \"틀림\"을 누른 교정이 없습니다"
@@ -58,6 +59,8 @@ class RouteContentTest {
     @Test fun practice() = assertDraws(AppRoute.Practice("a"))
 
     @Test fun coach() = assertDraws(AppRoute.Coach("c", "q", "Tell me about a trip.", "IH"))
+
+    @Test fun coachScript() = assertDraws(AppRoute.CoachScript("c", "q", "Tell me about a trip."))
 
     @Test fun keyEntry() = assertDraws(AppRoute.KeyEntry("gemini"))
 

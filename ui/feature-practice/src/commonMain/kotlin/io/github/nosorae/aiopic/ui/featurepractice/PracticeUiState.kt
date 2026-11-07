@@ -28,6 +28,8 @@ data class PracticeUiState(
     /** 그 저장이 Next 로 낸 답변이다. 이때만 Next 가 진행 표시를 보이고 단계가 피드백으로 넘어간다. 나가기의 저장은 아니다. */
     val submitting: Boolean = false,
     val navigation: PracticeDestination? = null,
+    /** 스크립트로 연습할 때 녹음 화면에 접었다 펴는 스크립트 글(F14.5). 아니면 null 이다. */
+    val script: String? = null,
 ) {
     val canPlay: Boolean get() = question != null && phase == PracticePhase.Ready
 

@@ -87,6 +87,41 @@ class HistoryScreenshotTest {
     }
 
     @Test
+    fun `F14_6 스크립트 필터를 고르면 스크립트 줄만 남고 누르면 그 스크립트를 연다`() {
+        var opened: HistoryScript? = null
+        show(HistorySamples.withScripts, onOpenScript = { opened = it })
+
+        rule.onNodeWithTag("history-filter-script").performClick()
+        rule.mainClock.advanceTimeBy(SETTLE_MILLIS)
+
+        rule.onAllNodesWithTag("history-session").assertCountEquals(0)
+        rule.onAllNodesWithTag("history-practice").assertCountEquals(0)
+        rule.onAllNodesWithTag("history-script").assertCountEquals(3)
+        rule.onAllNodesWithTag("history-script")[0].performClick()
+        assertEquals(HistorySamples.withScripts.entries.first(), opened)
+    }
+
+    @Test
+    fun `F14_6 스크립트를 만들지 못한 세션은 다시 만들기 줄로 보이고 누르면 그 세션을 연다`() {
+        var opened: HistoryScript? = null
+        show(HistorySamples.withScripts, onOpenScript = { opened = it })
+        rule.onNodeWithTag("history-filter-script").performClick()
+        rule.mainClock.advanceTimeBy(SETTLE_MILLIS)
+
+        rule.onNodeWithText("스크립트 만들기 다시").performClick()
+
+        assertEquals("c0", opened?.sessionId)
+    }
+
+    @Test
+    fun withScripts_scriptFilter() {
+        show(HistorySamples.withScripts)
+        rule.onNodeWithTag("history-filter-script").performClick()
+        rule.mainClock.advanceTimeBy(SETTLE_MILLIS)
+        rule.onRoot().captureRoboImage()
+    }
+
+    @Test
     fun `F7_4 연결을 기다리는 연습은 연결되면 분석한다고 보인다`() {
         val row = HistoryPractice("p", "습관", null, AnswerAnalysis.Pending, JobState.WaitingNetwork)
         show(HistoryUiState(loading = false, entries = listOf(row)))
@@ -139,10 +174,10 @@ class HistoryScreenshotTest {
         rule.onNodeWithText("분석 대기 중").assertDoesNotExist()
     }
 
-    private fun show(state: HistoryUiState, dark: Boolean = false, reduceMotion: Boolean = false, onOpenAnswer: (String) -> Unit = {}) {
+    private fun show(state: HistoryUiState, dark: Boolean = false, reduceMotion: Boolean = false, onOpenAnswer: (String) -> Unit = {}, onOpenScript: (HistoryScript) -> Unit = {}) {
         rule.mainClock.autoAdvance = false
         rule.setContent {
-            MontageTheme(darkTheme = dark, reduceMotion = reduceMotion) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = onOpenAnswer, onOpenCoach = {}, onIntent = {}) }
+            MontageTheme(darkTheme = dark, reduceMotion = reduceMotion) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = onOpenAnswer, onOpenCoach = {}, onIntent = {}, onOpenScript = onOpenScript) }
         }
     }
 

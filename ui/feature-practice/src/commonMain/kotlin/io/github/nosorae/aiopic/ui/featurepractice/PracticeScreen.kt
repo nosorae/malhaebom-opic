@@ -1,11 +1,14 @@
 package io.github.nosorae.aiopic.ui.featurepractice
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -26,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -176,7 +180,10 @@ fun PracticeScreen(state: PracticeUiState, onIntent: (PracticeIntent) -> Unit, m
                 withFeedback = true,
                 modifier = Modifier.padding(horizontal = Gutter + MontageSpacing.spacing8),
             )
-            if (state.question != null) WhyThisQuestion(state.weakness)
+            when {
+                state.script != null -> ScriptPanel(state.script)
+                state.question != null -> WhyThisQuestion(state.weakness)
+            }
             Spacer(Modifier.height(MontageSpacing.spacing16))
             when {
                 recording -> MontageVoiceRibbon(state.voiceLevel)
@@ -274,6 +281,42 @@ internal fun WhyThisQuestion(weakness: PracticeWeakness?) {
     }
 }
 
+/** 스크립트로 연습할 때 보는 스크립트(F14.5). 제목 줄을 눌러 접고 펴며 처음엔 펴 둔다. */
+@Composable
+internal fun ScriptPanel(script: String) {
+    var open by rememberSaveable { mutableStateOf(true) }
+    val colors = MontageTheme.colors
+    val toggle = stringResource(if (open) Res.string.practice_script_open else Res.string.practice_script_closed)
+    Column(
+        Modifier
+            .padding(horizontal = Gutter)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(MontageRadius.radius12))
+            .background(colors.surfaceNeutralSecondary),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = MontageSpacing.spacing48)
+                .clickable(role = Role.Button) { open = !open }
+                .padding(horizontal = MontageSpacing.spacing12)
+                .testTag("practice-script-toggle"),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(Res.string.practice_script), style = MontageTheme.typography.label1.bold, color = colors.foregroundNeutralPrimary, modifier = Modifier.weight(1f))
+            Text(toggle, style = MontageTheme.typography.label1.medium, color = colors.foregroundBrandPrimary)
+        }
+        if (open) {
+            Text(
+                script,
+                style = MontageTheme.typography.body2.regular,
+                color = colors.foregroundNeutralPrimary,
+                modifier = Modifier.padding(start = MontageSpacing.spacing12, end = MontageSpacing.spacing12, bottom = MontageSpacing.spacing12),
+            )
+        }
+    }
+}
+
 internal val Gutter = MontageSpacing.spacing20
 
 /** 분:초. 녹음 시간에 쓴다. */
@@ -308,6 +351,12 @@ internal object PracticeSamples {
     val micError = ready.copy(error = PracticeError.MicDenied)
     val recordingError = ready.copy(error = PracticeError.RecordingFailed)
     val noQuestion = PracticeUiState(error = PracticeError.QuestionUnavailable)
+    val scriptRecording = replayable.copy(
+        weakness = null,
+        script = "I want to talk about a trip to Busan that I took with my sister last summer.\n\n" +
+            "We stayed near Haeundae beach for three days. On the last night we watched fireworks over the sea, and it was an absolute blast.\n\n" +
+            "That trip was special because I spent real time with my sister.",
+    )
 }
 
 @Preview

@@ -168,7 +168,8 @@ class AppGraphTest {
         graph.flagExportViewModel
         graph.keyEntryViewModelFactory.create(KeyProvider.Gemini)
         graph.examViewModelFactory.create("session")
-        graph.practiceViewModelFactory.create("answer")
+        graph.practiceViewModelFactory.create("answer", null, null)
+        graph.coachScriptViewModelFactory.create("coach", "Tell me about a trip.")
         graph.sessionReportViewModelFactory.create("session")
         graph.answerReportViewModelFactory.create("answer")
         graph.analysisJobs

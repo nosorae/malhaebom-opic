@@ -21,11 +21,14 @@ import kotlin.time.Duration.Companion.seconds
  * Next 를 누르면 답변을 저장하고 그 답변의 리포트로 간다(F4.2). [answerId] 는 화면 인자로, 연습 탭이 들어올 때마다 새로 만든다.
  *
  * 다시 듣기와 Next 의 5초, 10초는 단조 시계 [timer] 로 잰다. 40분 타이머는 없다.
+ * 스크립트 화면에서 "이 스크립트로 연습" 으로 들어오면 [questionId] 질문을 내고 [script] 를 녹음 화면에 보인다(F14.5).
  */
 // ponytail: 연습 중 앱이 꺼지면 녹음을 버리고 처음부터 다시 한다. 질문 하나라 이어 보기를 두지 않았다.
 @AssistedInject
 class PracticeViewModel(
     @Assisted private val answerId: String,
+    @Assisted private val questionId: String?,
+    @Assisted script: String?,
     private val pickPracticeQuestionUseCase: PickPracticeQuestionUseCase,
     private val playPracticeQuestionUseCase: PlayPracticeQuestionUseCase,
     private val submitPracticeAnswerUseCase: SubmitPracticeAnswerUseCase,
@@ -33,7 +36,7 @@ class PracticeViewModel(
     private val observeVoiceLevelUseCase: ObserveVoiceLevelUseCase,
     private val timer: MonotonicTimer,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(PracticeUiState())
+    private val _uiState = MutableStateFlow(PracticeUiState(script = script))
     val uiState: StateFlow<PracticeUiState> = _uiState.asStateFlow()
 
     /** 지금 녹음이 시작된 단조 시계 값. 녹음 중이 아니면 null 이다. */
@@ -49,7 +52,7 @@ class PracticeViewModel(
 
     init {
         viewModelScope.launch {
-            val pick = pickPracticeQuestionUseCase()
+            val pick = pickPracticeQuestionUseCase(questionId)
             _uiState.update { it.copy(question = pick?.question, weakness = pick?.weakness, error = if (pick == null) PracticeError.QuestionUnavailable else null) }
         }
     }
@@ -150,7 +153,7 @@ class PracticeViewModel(
 
     @AssistedFactory
     fun interface Factory {
-        fun create(answerId: String): PracticeViewModel
+        fun create(answerId: String, questionId: String?, script: String?): PracticeViewModel
     }
 
     private companion object {

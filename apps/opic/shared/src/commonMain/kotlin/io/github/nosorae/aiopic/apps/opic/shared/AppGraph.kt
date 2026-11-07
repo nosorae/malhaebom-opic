@@ -13,6 +13,7 @@ import io.github.nosorae.aiopic.engine.aigemini.GeminiAnalyzer
 import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
+import io.github.nosorae.aiopic.engine.aigemini.GeminiScriptWriter
 import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
@@ -37,6 +38,8 @@ import io.github.nosorae.aiopic.engine.answer.store.OpicStore
 import io.github.nosorae.aiopic.engine.answer.weakness.weaknessScores
 import io.github.nosorae.aiopic.engine.coach.CoachStore
 import io.github.nosorae.aiopic.engine.coach.LiveCoach
+import io.github.nosorae.aiopic.engine.coach.ScriptLength
+import io.github.nosorae.aiopic.engine.coach.ScriptWriter
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.QuestionType
 import io.github.nosorae.aiopic.engine.question.pick.parseQuestions
@@ -61,16 +64,20 @@ import io.github.nosorae.aiopic.packs.opicen.OpicPrompt
 import io.github.nosorae.aiopic.packs.opicen.OpicQuestionType
 import io.github.nosorae.aiopic.packs.opicen.PromptFile
 import io.github.nosorae.aiopic.packs.opicen.coachProfile
+import io.github.nosorae.aiopic.packs.opicen.polishPrompt
+import io.github.nosorae.aiopic.packs.opicen.scriptPrompt
 import io.github.nosorae.aiopic.ui.featureexam.ExamContent
 import io.github.nosorae.aiopic.ui.featureexam.ExamRepository
 import io.github.nosorae.aiopic.ui.featureexam.ExamViewModel
 import io.github.nosorae.aiopic.ui.featureexam.SurveyStore
 import io.github.nosorae.aiopic.ui.featureexam.SurveyViewModel
+import io.github.nosorae.aiopic.ui.featurehistory.HistoryScript
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryStore
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
 import io.github.nosorae.aiopic.ui.featurehome.ExamSessionSource
 import io.github.nosorae.aiopic.ui.featurehome.HomeViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachFactory
+import io.github.nosorae.aiopic.ui.featurelive.CoachScriptViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
@@ -106,7 +113,9 @@ import io.github.nosorae.aiopic.ui.featuresettings.voice.QuestionVoiceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.MissingResourceException
 import kotlin.time.Clock
@@ -156,6 +165,8 @@ interface AppGraph {
     val pickPracticeQuestionUseCase: PickPracticeQuestionUseCase
 
     val liveCoachViewModelFactory: LiveCoachViewModel.Factory
+
+    val coachScriptViewModelFactory: CoachScriptViewModel.Factory
 
     val flagExportViewModel: FlagExportViewModel
 
@@ -234,6 +245,23 @@ interface AppGraph {
         }
     }
 
+    @Provides fun coachStore(database: OpicDatabase): CoachStore = CoachStore(database)
+
+    /**
+     * 코치 세션으로 스크립트를 만들고 다듬는다(F14.1, F14.4). 설정에서 고른 분석 모델로 보내고, 프롬프트는 시험 팩 파일을 채운다.
+     */
+    @Provides
+    fun scriptWriter(client: GeminiClient, keyVault: KeyVault, settings: AppSettings): ScriptWriter = GeminiScriptWriter(
+        client = client,
+        apiKey = { keyVault.get(GeminiModels.PROVIDER) },
+        model = { GeminiModels.choose(settings.selectedModelId()).model },
+        scriptPrompt = { session, question -> scriptPrompt(OpicPrompt.Script.load(), question, session) },
+        polishPrompt = { edited, expressions, question, grade -> polishPrompt(OpicPrompt.ScriptPolish.load(), question, edited, expressions, grade) },
+    )
+
+    /** 목표 등급별 스크립트 길이(F14.2). */
+    @Provides fun scriptLengths(): Map<String, ScriptLength> = OpicEn.scriptLengths
+
     @Provides fun pendingAnalysis(jobs: AnalysisJobs): PendingAnalysis = PendingAnalysis(jobs::cancelAll)
 
     @Provides
@@ -289,7 +317,7 @@ interface AppGraph {
 
     @SingleIn(AppScope::class)
     @Provides
-    fun storeReads(store: OpicStore, jobs: AnalysisJobs): StoreReads = StoreReads(store, jobs)
+    fun storeReads(store: OpicStore, jobs: AnalysisJobs, coach: CoachStore, settings: AppSettings): StoreReads = StoreReads(store, jobs, scriptRows(coach, settings))
 
     @Provides fun examSessionSource(reads: StoreReads): ExamSessionSource = reads
 
@@ -570,4 +598,10 @@ private object NoTwoStepPath : Transcriber, TranscriptAnalyzer {
     override suspend fun transcribe(recording: Recording): AnalysisResult<Transcript> = AnalysisResult.Failed(AnalysisError.Rejected)
 
     override suspend fun analyze(model: ModelInfo, prompt: Prompt, question: Question, transcript: Transcript): AnalysisResult<TextAnalysis> = AnalysisResult.Failed(AnalysisError.Rejected)
+}
+
+/** 기록 탭의 스크립트 줄(F14.6). 만들지 못한 끝난 세션도 다시 만들기 줄로 낸다. 세션에는 질문 id 만 있어 연습 풀에서 질문 글을 찾는다. 풀에서 빠진 질문은 글이 비어 목표 등급만 보인다. */
+private fun scriptRows(coach: CoachStore, settings: AppSettings): Flow<List<HistoryScript>> = coach.scriptSessions().map { sessions ->
+    val texts = if (sessions.isEmpty()) emptyMap() else practicePool(settings).associate { it.id to it.text }
+    sessions.map { (session, written) -> HistoryScript(session.id, session.questionId, texts[session.questionId].orEmpty(), session.targetGrade, written) }
 }

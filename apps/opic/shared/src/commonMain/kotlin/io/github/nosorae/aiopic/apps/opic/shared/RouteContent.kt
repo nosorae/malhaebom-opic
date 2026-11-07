@@ -16,6 +16,7 @@ import io.github.nosorae.aiopic.ui.featureexam.ExamRoute
 import io.github.nosorae.aiopic.ui.featureexam.SurveyRoute
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryRoute
 import io.github.nosorae.aiopic.ui.featurehome.HomeRoute
+import io.github.nosorae.aiopic.ui.featurelive.CoachScriptRoute
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartRoute
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.ConsentRoute
@@ -92,6 +93,7 @@ internal fun RouteContent(
             onOpenSession = { onOpen(AppRoute.ReportDetail(it)) },
             onOpenAnswer = { onOpen(AppRoute.AnswerReport(it)) },
             onOpenCoach = { coachOpen = true },
+            onOpenScript = { onOpen(AppRoute.CoachScript(it.sessionId, it.questionId, it.question)) },
             modifier = modifier,
         )
 
@@ -132,7 +134,7 @@ internal fun RouteContent(
         )
 
         is AppRoute.Practice -> PracticeRoute(
-            viewModel = viewModel(key = route.toString()) { graph.practiceViewModelFactory.create(route.answerId) },
+            viewModel = viewModel(key = route.toString()) { graph.practiceViewModelFactory.create(route.answerId, route.questionId, route.script) },
             onExit = onBack,
             onFeedback = {
                 onBack()
@@ -144,6 +146,17 @@ internal fun RouteContent(
         is AppRoute.Coach -> LiveCoachRoute(
             viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.question, route.targetGrade) },
             onExit = onBack,
+            modifier = modifier,
+            // 세션이 끝나면 대화 화면을 빼고 그 자리에 스크립트를 연다. 뒤로가기로 끝난 대화에 돌아가지 않는다(F14.1).
+            onFinish = {
+                onBack()
+                onOpen(AppRoute.CoachScript(route.sessionId, route.questionId, route.question))
+            },
+        )
+
+        is AppRoute.CoachScript -> CoachScriptRoute(
+            viewModel = viewModel(key = route.toString()) { graph.coachScriptViewModelFactory.create(route.sessionId, route.question) },
+            onPractice = { onOpen(AppRoute.Practice(newId(), route.questionId, it)) },
             modifier = modifier,
         )
 

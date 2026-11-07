@@ -35,8 +35,10 @@ class PracticeViewModelTest {
 
     private val created = mutableListOf<PracticeViewModel>()
 
-    private fun viewModel() = PracticeViewModel(
+    private fun viewModel(questionId: String? = null, script: String? = null) = PracticeViewModel(
         answerId = "a1",
+        questionId = questionId,
+        script = script,
         pickPracticeQuestionUseCase = PickPracticeQuestionUseCase(repository, typeNames = emptyMap()),
         playPracticeQuestionUseCase = PlayPracticeQuestionUseCase(repository, tts, recorder),
         submitPracticeAnswerUseCase = SubmitPracticeAnswerUseCase(repository, recorder),
@@ -64,6 +66,15 @@ class PracticeViewModelTest {
     private fun TestScope.advance(duration: Duration) {
         advanceTimeBy(duration)
         runCurrent()
+    }
+
+    @Test
+    fun `F14_5 스크립트로 연습하면 그 질문을 내고 스크립트를 보인다`() = practiceTest {
+        val question = repository.pool().last()
+        val viewModel = viewModel(questionId = question.id, script = "I went to Busan.")
+        runCurrent()
+
+        assertEquals(question to "I went to Busan.", viewModel.uiState.value.question to viewModel.uiState.value.script)
     }
 
     @Test

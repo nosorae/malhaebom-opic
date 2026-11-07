@@ -6,6 +6,7 @@ import io.github.nosorae.aiopic.engine.coach.Expression
 import io.github.nosorae.aiopic.engine.coach.Line
 import io.github.nosorae.aiopic.engine.coach.Material
 import io.github.nosorae.aiopic.engine.coach.MaterialKind
+import io.github.nosorae.aiopic.engine.coach.ScriptLength
 import io.github.nosorae.aiopic.engine.coach.ScriptParts
 import io.github.nosorae.aiopic.engine.coach.Speaker
 import kotlinx.serialization.json.Json

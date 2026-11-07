@@ -1,7 +1,10 @@
 package io.github.nosorae.aiopic.ui.featurepractice
 
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.nosorae.aiopic.ui.design.MontageTheme
@@ -34,12 +37,27 @@ class PracticeRecordingScreenshotTest {
     @Test
     fun replayable_fontScale200() = still(PracticeSamples.replayable)
 
+    /** F14.5 스크립트로 연습하면 녹음 중에 스크립트가 보인다. */
+    @Test fun scriptRecording() = still(PracticeSamples.scriptRecording)
+
+    @Test fun scriptRecording_dark() = still(PracticeSamples.scriptRecording, dark = true)
+
+    @Test
+    fun `F14_5 스크립트 제목 줄을 누르면 스크립트를 접는다`() {
+        still(PracticeSamples.scriptRecording, capture = false)
+
+        rule.onNodeWithTag("practice-script-toggle").performClick()
+        rule.mainClock.advanceTimeByFrame()
+
+        rule.onNodeWithText("We stayed", substring = true).assertDoesNotExist()
+    }
+
     /** 물결은 점이 모인 장면이 보이게 [millis] 만큼 넘긴다. 0 이면 첫 장면이다. */
-    private fun still(state: PracticeUiState, dark: Boolean = false, millis: Long = 0) {
+    private fun still(state: PracticeUiState, dark: Boolean = false, millis: Long = 0, capture: Boolean = true) {
         rule.mainClock.autoAdvance = false
         rule.setContent { MontageTheme(darkTheme = dark) { PracticeScreen(state = state, onIntent = {}) } }
         rule.mainClock.advanceTimeByFrame()
         if (millis > 0) rule.mainClock.advanceTimeBy(millis)
-        rule.onRoot().captureRoboImage()
+        if (capture) rule.onRoot().captureRoboImage()
     }
 }

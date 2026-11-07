@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="script_title">스크립트</string>
+    <string name="script_writing">코치와 나눈 말로 답변 스크립트를 쓰고 있습니다. 도입, 본문, 마무리와 쓴 표현이 나옵니다.</string>
+    <string name="script_retry">다시 시도</string>
+    <string name="script_transcript_kept">코치와 나눈 받아쓰기와 메모는 남아 있습니다.</string>
+    <string name="script_error_key">API 키가 없거나 맞지 않습니다. 설정에서 키를 확인한 뒤 다시 시도하세요.</string>
+    <string name="script_error_offline">인터넷에 연결되어 있지 않습니다. 연결한 뒤 다시 시도하세요.</string>
+    <string name="script_error_busy">요청이 많아 받지 못했습니다. 잠시 뒤 다시 시도하세요.</string>
+    <string name="script_error_model">설정에서 고른 분석 모델을 쓸 수 없습니다. 설정에서 다른 모델을 고른 뒤 다시 시도하세요.</string>
+    <string name="script_error_rejected">스크립트를 받지 못했습니다. 다시 시도하세요.</string>
+    <string name="script_length">목표 %1$s: %2$d~%3$d문장, 말하는 시간 %4$s</string>
+    <string name="script_time_about">%1$s 안팎</string>
+    <string name="script_minutes">%1$d분</string>
+    <string name="script_minutes_seconds">%1$d분 %2$d초</string>
+    <string name="script_intro">도입</string>
+    <string name="script_body">본문</string>
+    <string name="script_closing">마무리</string>
+    <string name="script_show_original">원본 보기</string>
+    <string name="script_hide_original">원본 닫기</string>
+    <string name="script_revert">원본으로 돌리기</string>
+    <string name="script_original">코치가 처음 쓴 원본</string>
+    <string name="script_expressions">쓴 표현</string>
+    <string name="script_expressions_empty">이 스크립트에 쓴 표현 카드가 없습니다.</string>
+    <string name="script_polish">목표 등급에 맞게 다듬기</string>
+    <string name="script_practice">이 스크립트로 연습</string>
+</resources>
