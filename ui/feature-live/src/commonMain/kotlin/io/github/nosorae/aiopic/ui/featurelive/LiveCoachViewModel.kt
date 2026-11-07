@@ -25,6 +25,8 @@ import kotlinx.coroutines.launch
  * 목소리 크기는 마이크와 스피커가 열린 동안만 0 보다 크다.
  */
 data class LiveCoachUiState(
+    /** 지금 답을 만드는 질문 글. */
+    val question: String = "",
     val consented: Boolean? = null,
     val micDenied: Boolean = false,
     val coach: CoachState? = null,
@@ -64,7 +66,7 @@ sealed interface LiveCoachIntent {
 }
 
 /**
- * 코치 대화 화면(F11, F12). [sessionId] 세션이 저장돼 있으면 이어 가고 없으면 [questionId], [targetGrade] 로 시작한다.
+ * 코치 대화 화면(F11, F12). [sessionId] 세션이 저장돼 있으면 이어 가고 없으면 [questionId] 질문과 [targetGrade] 로 시작한다. [question] 은 화면에 보일 질문 글이다.
  * 동의(F15.1)와 마이크 권한을 받기 전에는 세션을 열지 않는다. 연결은 이 ViewModel 의 범위에서 돌아서 화면을 떠나면 닫히고,
  * 세션은 저장소에 남아 다시 들어오면 이어 간다.
  */
@@ -72,13 +74,14 @@ sealed interface LiveCoachIntent {
 class LiveCoachViewModel(
     @Assisted private val sessionId: String,
     @Assisted private val questionId: String,
+    @Assisted private val question: String,
     @Assisted private val targetGrade: String,
     private val checkLiveConsentUseCase: CheckLiveConsentUseCase,
     private val giveLiveConsentUseCase: GiveLiveConsentUseCase,
     private val openCoachUseCase: OpenCoachUseCase,
     observeCoachLevelsUseCase: ObserveCoachLevelsUseCase,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(LiveCoachUiState())
+    private val _uiState = MutableStateFlow(LiveCoachUiState(question = question))
     val uiState: StateFlow<LiveCoachUiState> = _uiState.asStateFlow()
 
     private var opening: Job? = null
@@ -138,7 +141,7 @@ class LiveCoachViewModel(
         if (_uiState.value.consented != true || opening != null) return
         _uiState.update { it.copy(micDenied = false) }
         opening = viewModelScope.launch {
-            val opened = openCoachUseCase(sessionId, questionId, targetGrade, viewModelScope)
+            val opened = openCoachUseCase(sessionId, questionId, question, targetGrade, viewModelScope)
             coach = opened
             opened.state.filterNotNull().onEach { state -> _uiState.update { it.copy(coach = state) } }.launchIn(viewModelScope)
         }
@@ -151,6 +154,6 @@ class LiveCoachViewModel(
 
     @AssistedFactory
     fun interface Factory {
-        fun create(sessionId: String, questionId: String, targetGrade: String): LiveCoachViewModel
+        fun create(sessionId: String, questionId: String, question: String, targetGrade: String): LiveCoachViewModel
     }
 }

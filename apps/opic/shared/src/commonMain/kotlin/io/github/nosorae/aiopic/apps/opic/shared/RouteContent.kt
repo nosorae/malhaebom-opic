@@ -65,7 +65,7 @@ internal fun RouteContent(
                 scope.launch {
                     val pick = graph.pickPracticeQuestionUseCase()
                     coachOpen = false
-                    pick?.let { onOpen(AppRoute.Coach(newId(), it.question.id, graph.settings.targetGrade.value)) }
+                    pick?.let { onOpen(AppRoute.Coach(newId(), it.question.id, it.question.text, graph.settings.targetGrade.value)) }
                 }
             },
             onDismiss = { coachOpen = false },
@@ -142,7 +142,7 @@ internal fun RouteContent(
         )
 
         is AppRoute.Coach -> LiveCoachRoute(
-            viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.targetGrade) },
+            viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.question, route.targetGrade) },
             onExit = onBack,
             modifier = modifier,
         )

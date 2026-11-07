@@ -57,7 +57,7 @@ class RouteContentTest {
 
     @Test fun practice() = assertDraws(AppRoute.Practice("a"))
 
-    @Test fun coach() = assertDraws(AppRoute.Coach("c", "q", "IH"))
+    @Test fun coach() = assertDraws(AppRoute.Coach("c", "q", "Tell me about a trip.", "IH"))
 
     @Test fun keyEntry() = assertDraws(AppRoute.KeyEntry("gemini"))
 

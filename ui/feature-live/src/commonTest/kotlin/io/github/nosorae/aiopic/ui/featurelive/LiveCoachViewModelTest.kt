@@ -68,6 +68,7 @@ class LiveCoachViewModelTest {
     private fun TestScope.viewModel(db: OpicDatabase) = LiveCoachViewModel(
         sessionId = "c1",
         questionId = "q1",
+        question = "Tell me about a trip.",
         targetGrade = "IH",
         checkLiveConsentUseCase = CheckLiveConsentUseCase(consent),
         giveLiveConsentUseCase = GiveLiveConsentUseCase(consent),
@@ -249,5 +250,12 @@ class LiveCoachViewModelTest {
         runCurrent()
 
         assertTrue(viewModel.uiState.value.coachSpeaking)
+    }
+
+    @Test
+    fun `조립 때 받은 질문 글을 화면 상태에 둔다`() = test { db ->
+        val viewModel = viewModel(db)
+
+        assertEquals("Tell me about a trip.", viewModel.uiState.value.question)
     }
 }

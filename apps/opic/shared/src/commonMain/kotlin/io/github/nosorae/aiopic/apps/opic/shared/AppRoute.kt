@@ -43,10 +43,10 @@ sealed class AppRoute {
     @Serializable data class Practice(val answerId: String) : AppRoute()
 
     /**
-     * 코치 대화(F11, F12). 시작 시트가 질문과 목표 등급을 정해 연다. 같은 [sessionId] 로 다시 열면 저장된 세션을 이어 간다(F11.8).
+     * 코치 대화(F11, F12). 시작 시트가 질문(id 와 글)과 목표 등급을 정해 연다. 질문 글을 같이 실어 다시 열 때 문항 풀에서 찾지 않는다. 같은 [sessionId] 로 다시 열면 저장된 세션을 이어 간다(F11.8).
      * 말하는 화면이라 탭이 없고 화면 안 X 로 닫는다. 세션은 저장돼 있어 뒤로가기도 막지 않는다.
      */
-    @Serializable data class Coach(val sessionId: String, val questionId: String, val targetGrade: String) : AppRoute()
+    @Serializable data class Coach(val sessionId: String, val questionId: String, val question: String, val targetGrade: String) : AppRoute()
 
     /** 설정의 제공사별 키 관리에서 여는 키 입력. [provider] 는 제공사 이름(`gemini`)이다. */
     @Serializable data class KeyEntry(val provider: String) : AppRoute()

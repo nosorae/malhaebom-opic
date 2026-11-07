@@ -196,12 +196,10 @@ interface AppGraph {
 
     /**
      * 코치 세션 하나를 돌릴 코치(F11). 시험 팩의 코치 프로필, 사용자 키로 여는 Gemini Live 연결, 플랫폼 오디오, 앱 DB 의 코치 표를 묶는다.
-     * 코치 음성은 질문 음성과 같은 목소리다. 질문은 한 문항 연습 풀에서 찾는다.
+     * 코치 음성은 질문 음성과 같은 목소리다. 질문 글은 시작 시트가 고른 문항에서 경로로 받는다.
      */
     @Provides
-    fun coachFactory(database: OpicDatabase, audio: DuplexAudio, keyVault: KeyVault, settings: AppSettings, clock: Clock): CoachFactory = CoachFactory { questionId, targetGrade, scope ->
-        // ponytail: 불러온 문항 파일을 지워 질문을 못 찾으면 빈 질문으로 연다. 코치가 질문 없이 경험을 묻는다. 자주 생기면 세션에 질문 글을 같이 저장한다.
-        val question = practicePool(settings).firstOrNull { it.id == questionId }?.text.orEmpty()
+    fun coachFactory(database: OpicDatabase, audio: DuplexAudio, keyVault: KeyVault, clock: Clock): CoachFactory = CoachFactory { question, targetGrade, scope ->
         LiveCoach(
             profile = coachProfile(question, targetGrade),
             transport = GeminiLiveTransport(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME),

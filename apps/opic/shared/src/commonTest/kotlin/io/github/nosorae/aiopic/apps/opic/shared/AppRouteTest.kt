@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 
 class AppRouteTest {
     private val subScreens = listOf(AppRoute.ReportDetail("s"), AppRoute.AnswerReport("a"), AppRoute.KeyEntry("gemini"), AppRoute.FreeTierNotice, AppRoute.Survey, AppRoute.FlagExport, AppRoute.AppInfo)
-    private val everyRoute = AppRoute.tabs + subScreens + listOf(AppRoute.Exam("s"), AppRoute.Practice("a"), AppRoute.Coach("c", "q", "IH"), AppRoute.StartKeyEntry, AppRoute.StartConsent)
+    private val everyRoute = AppRoute.tabs + subScreens + listOf(AppRoute.Exam("s"), AppRoute.Practice("a"), AppRoute.Coach("c", "q", "Tell me about a trip.", "IH"), AppRoute.StartKeyEntry, AppRoute.StartConsent)
 
     private fun tabBar(platform: Platform) = everyRoute.filter { it.showsTabBar(platform) }
 
@@ -28,7 +28,7 @@ class AppRouteTest {
 
     @Test
     fun `시험 진행 녹음 첫 실행 화면은 두 플랫폼 모두 탭이 없다`() {
-        val fullScreens = listOf(AppRoute.Exam("s"), AppRoute.Practice("a"), AppRoute.Coach("c", "q", "IH"), AppRoute.StartKeyEntry, AppRoute.StartConsent)
+        val fullScreens = listOf(AppRoute.Exam("s"), AppRoute.Practice("a"), AppRoute.Coach("c", "q", "Tell me about a trip.", "IH"), AppRoute.StartKeyEntry, AppRoute.StartConsent)
 
         assertEquals(emptyList(), fullScreens.filter { it.showsTabBar(Platform.Android) || it.showsTabBar(Platform.Ios) })
     }
