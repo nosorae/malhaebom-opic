@@ -73,14 +73,26 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `F11 침묵 조각은 보내지 않고 말하다 침묵이 시작되면 오디오 끝을 한 번 보낸다`() = test { db ->
+    fun `F11 말하기 전 침묵은 보내지 않고 말이 멈춘 뒤 1초는 침묵도 보낸 다음 오디오 끝을 한 번 보낸다`() = test { db ->
         started(db)
 
-        listOf(SILENT, LOUD, LOUD, SILENT, SILENT).forEach(audio::say)
+        // 40ms 조각이라 1초는 25개다.
+        (listOf(SILENT, LOUD, LOUD) + List(30) { SILENT }).forEach(audio::say)
         runCurrent()
 
-        assertEquals(2, transport.audio.size)
+        assertEquals(2 + 25, transport.audio.size)
         assertEquals(1, transport.audioEnds)
+    }
+
+    @Test
+    fun `F11 침묵 1초가 되기 전에 다시 말하면 오디오 끝을 보내지 않는다`() = test { db ->
+        started(db)
+
+        (listOf(LOUD) + List(10) { SILENT } + LOUD).forEach(audio::say)
+        runCurrent()
+
+        assertEquals(12, transport.audio.size)
+        assertEquals(0, transport.audioEnds)
     }
 
     @Test

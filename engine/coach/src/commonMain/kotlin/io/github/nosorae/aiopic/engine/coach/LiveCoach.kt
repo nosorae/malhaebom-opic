@@ -16,6 +16,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -141,21 +142,36 @@ class LiveCoach(
         }
     }
 
-    /** 말소리 조각만 보낸다. 말하다 침묵이 시작되면 오디오 끝을 한 번 보낸다. */
+    /**
+     * 말소리 조각과 말이 멈춘 뒤 [SPEECH_END_GRACE] 동안의 침묵 조각을 보내고, 그 뒤 오디오 끝을 한 번 보낸다.
+     * 다음 말소리까지는 보내지 않는다. 생각하는 동안의 침묵을 보내지 않아야 입력 토큰이 늘지 않는다.
+     */
     private suspend fun forwardMic() {
-        var speaking = false
+        // 말이 멈춘 뒤 보낸 침묵 길이. 오디오 끝을 보냈으면 INFINITE 다.
+        var silence = Duration.INFINITE
         audio.mic.catch { dispatch(CoachEvent.Dropped(TransportEvent.Disconnected.MIC)) }.collect { chunk ->
             if (chunk.speech) {
                 transport.sendAudio(chunk.pcm)
-                speaking = true
-            } else if (speaking) {
-                transport.sendAudioEnd()
-                speaking = false
+                silence = Duration.ZERO
+            } else if (silence.isFinite()) {
+                transport.sendAudio(chunk.pcm)
+                silence += (chunk.pcm.size / 2).seconds / DuplexAudio.MIC_SAMPLE_RATE
+                if (silence >= SPEECH_END_GRACE) {
+                    transport.sendAudioEnd()
+                    silence = Duration.INFINITE
+                }
             }
         }
     }
 
     private companion object {
         val LIVE_PHASES = setOf(CoachPhase.Explore, CoachPhase.Express, CoachPhase.Feedback)
+
+        /**
+         * 서버 음성 감지는 말 뒤의 침묵을 들어야 말이 끝났다고 보고 코치가 답한다. 침묵 조각 하나(40ms)에 바로 오디오 끝을 보내면
+         * 문장 사이 숨 고르기에도 말이 끊긴다. 1초는 숨 고르기보다 길고 코치 답이 늦다고 느끼기 전이다.
+         */
+        // ponytail: 실기기에서 말 끝 판단이 이르거나 늦으면 이 값만 고친다.
+        val SPEECH_END_GRACE = 1.seconds
     }
 }

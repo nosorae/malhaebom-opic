@@ -83,6 +83,6 @@ class FakeAudio : DuplexAudio {
     override fun flush() = queued.clear()
 }
 
-/** 가장 큰 표본이 최대값인 조각과 무음 조각. */
-val LOUD = byteArrayOf(0xFF.toByte(), 0x7F)
-val SILENT = ByteArray(2)
+/** 실제 마이크처럼 40ms 길이의, 모든 표본이 최대값인 조각과 무음 조각. */
+val LOUD = ByteArray(DuplexAudio.MIC_CHUNK_BYTES) { if (it % 2 == 0) 0xFF.toByte() else 0x7F }
+val SILENT = ByteArray(DuplexAudio.MIC_CHUNK_BYTES)
