@@ -41,6 +41,8 @@ dependencies {
     implementation(project(":libs:recorder"))
     implementation(project(":libs:tts"))
     implementation(project(":libs:work-queue"))
+    // 코치 대화의 말하면서 듣는 오디오를 그래프에 넘긴다.
+    implementation(project(":libs:duplex-audio"))
     // 시작 분기(F1.0)가 끝날 때까지 시스템 스플래시를 잡아 두고, 그 결정을 맡은 ViewModel 을 Activity 가 만든다.
     implementation(project(":ui:feature-onboarding"))
     implementation(libs.androidx.core.splashscreen)

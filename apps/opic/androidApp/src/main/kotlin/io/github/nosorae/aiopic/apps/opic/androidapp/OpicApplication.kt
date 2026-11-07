@@ -14,6 +14,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.registerDebugPanels
 import io.github.nosorae.aiopic.apps.opic.shared.withDebugTools
 import io.github.nosorae.aiopic.libs.debug.DebugTools
 import io.github.nosorae.aiopic.libs.debug.install
+import io.github.nosorae.aiopic.libs.duplexaudio.api.AndroidDuplexAudio
 import io.github.nosorae.aiopic.libs.keyvault.api.KeystoreKeyVault
 import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.recorder.api.AndroidRecorder
@@ -53,6 +54,7 @@ open class OpicApplication : Application() {
             recorder = recorder(),
             tts = AndroidTts(this),
             workQueue = workQueue,
+            duplexAudio = AndroidDuplexAudio(this),
             gemini = gemini(),
         )
         graph.registerDebugPanels(audio = ::audioRows)

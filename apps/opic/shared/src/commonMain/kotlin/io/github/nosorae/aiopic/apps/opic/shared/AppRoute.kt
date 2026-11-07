@@ -42,6 +42,12 @@ sealed class AppRoute {
      */
     @Serializable data class Practice(val answerId: String) : AppRoute()
 
+    /**
+     * 코치 대화(F11, F12). 시작 시트가 질문과 목표 등급을 정해 연다. 같은 [sessionId] 로 다시 열면 저장된 세션을 이어 간다(F11.8).
+     * 말하는 화면이라 탭이 없고 화면 안 X 로 닫는다. 세션은 저장돼 있어 뒤로가기도 막지 않는다.
+     */
+    @Serializable data class Coach(val sessionId: String, val questionId: String, val targetGrade: String) : AppRoute()
+
     /** 설정의 제공사별 키 관리에서 여는 키 입력. [provider] 는 제공사 이름(`gemini`)이다. */
     @Serializable data class KeyEntry(val provider: String) : AppRoute()
 
@@ -67,7 +73,7 @@ sealed class AppRoute {
         get() = when (this) {
             ExamTab, PracticeTab, History, Settings -> Chrome.TopLevel
             is ReportDetail, is AnswerReport, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo -> Chrome.Sub
-            is Exam, is Practice -> Chrome.FullScreen
+            is Exam, is Practice, is Coach -> Chrome.FullScreen
             StartKeyEntry, StartConsent -> Chrome.Start
         }
 
@@ -81,6 +87,7 @@ sealed class AppRoute {
             is AnswerReport -> "답변 리포트"
             is Exam -> "모의고사"
             is Practice -> "한 문항 연습"
+            is Coach -> "코치와 스크립트 만들기"
             is KeyEntry, StartKeyEntry -> "API 키 넣기"
             FreeTierNotice, StartConsent -> "음성 전송 동의"
             Survey -> "서베이"

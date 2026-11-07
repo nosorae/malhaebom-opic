@@ -11,6 +11,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.recordingsRoot
 import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import io.github.nosorae.aiopic.libs.debug.DebugTools
 import io.github.nosorae.aiopic.libs.debug.install
+import io.github.nosorae.aiopic.libs.duplexaudio.api.IosDuplexAudio
 import io.github.nosorae.aiopic.libs.haptics.api.iosHaptics
 import io.github.nosorae.aiopic.libs.keyvault.api.KeychainKeyVault
 import io.github.nosorae.aiopic.libs.llmgemini.BackgroundUpload
@@ -84,6 +85,7 @@ class IosShell {
         recorder = IosRecorder().withDebugTools(),
         tts = IosTts(),
         workQueue = workQueue,
+        duplexAudio = IosDuplexAudio(),
         gemini = debugGeminiClient(upload = upload),
     ).apply {
         registerDebugPanels(audio = ::audioSessionRows)

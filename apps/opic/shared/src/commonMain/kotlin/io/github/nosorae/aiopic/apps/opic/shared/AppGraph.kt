@@ -10,6 +10,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.StoreExamRepository
 import io.github.nosorae.aiopic.apps.opic.shared.data.StorePracticeRepository
 import io.github.nosorae.aiopic.apps.opic.shared.data.StoreReads
 import io.github.nosorae.aiopic.engine.aigemini.GeminiAnalyzer
+import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
@@ -32,6 +33,8 @@ import io.github.nosorae.aiopic.engine.answer.route.AnswerRouter
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import io.github.nosorae.aiopic.engine.answer.store.OpicStore
 import io.github.nosorae.aiopic.engine.answer.weakness.weaknessScores
+import io.github.nosorae.aiopic.engine.coach.CoachStore
+import io.github.nosorae.aiopic.engine.coach.LiveCoach
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.QuestionType
 import io.github.nosorae.aiopic.engine.question.pick.parseQuestions
@@ -41,6 +44,7 @@ import io.github.nosorae.aiopic.engine.session.model.ExamSpec
 import io.github.nosorae.aiopic.engine.session.model.GradeScale
 import io.github.nosorae.aiopic.libs.debug.DebugLevel
 import io.github.nosorae.aiopic.libs.debug.DebugTools
+import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
 import io.github.nosorae.aiopic.libs.keyvault.api.KeyVault
 import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmRequest
@@ -54,6 +58,7 @@ import io.github.nosorae.aiopic.packs.opicen.OpicEn
 import io.github.nosorae.aiopic.packs.opicen.OpicPrompt
 import io.github.nosorae.aiopic.packs.opicen.OpicQuestionType
 import io.github.nosorae.aiopic.packs.opicen.PromptFile
+import io.github.nosorae.aiopic.packs.opicen.coachProfile
 import io.github.nosorae.aiopic.ui.featureexam.ExamContent
 import io.github.nosorae.aiopic.ui.featureexam.ExamRepository
 import io.github.nosorae.aiopic.ui.featureexam.ExamViewModel
@@ -63,7 +68,10 @@ import io.github.nosorae.aiopic.ui.featurehistory.HistoryStore
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
 import io.github.nosorae.aiopic.ui.featurehome.ExamSessionSource
 import io.github.nosorae.aiopic.ui.featurehome.HomeViewModel
+import io.github.nosorae.aiopic.ui.featurelive.CoachFactory
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
+import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
+import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainError
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainResult
@@ -73,6 +81,7 @@ import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyChecker
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyEntryViewModel
 import io.github.nosorae.aiopic.ui.featureonboarding.start.DecideStartUseCase
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartViewModel
+import io.github.nosorae.aiopic.ui.featurepractice.PickPracticeQuestionUseCase
 import io.github.nosorae.aiopic.ui.featurepractice.PracticeRepository
 import io.github.nosorae.aiopic.ui.featurepractice.PracticeTabViewModel
 import io.github.nosorae.aiopic.ui.featurepractice.PracticeViewModel
@@ -102,7 +111,7 @@ import kotlin.time.DurationUnit
 
 /**
  * 앱 하나의 DI 그래프. 화면은 여기서 ViewModel 이나 assisted 팩토리를 꺼낸다(ADR 0004, 0007).
- * 기기에 묶인 것(키 보관소, DB, 녹음기, 음성, 대기열)은 플랫폼 진입점이 만들어 [Factory] 인자로 넘긴다.
+ * 기기에 묶인 것(키 보관소, DB, 녹음기, 음성, 대기열, 코치 오디오)은 플랫폼 진입점이 만들어 [Factory] 인자로 넘긴다.
  * 그래서 공통 테스트가 메모리 가짜로 같은 그래프를 만든다.
  */
 @DependencyGraph(AppScope::class)
@@ -139,6 +148,11 @@ interface AppGraph {
     val settingsViewModel: SettingsViewModel
 
     val coachStartViewModel: CoachStartViewModel
+
+    /** 코치 시작 시트가 코치와 이야기할 질문을 고른다. */
+    val pickPracticeQuestionUseCase: PickPracticeQuestionUseCase
+
+    val liveCoachViewModelFactory: LiveCoachViewModel.Factory
 
     val flagExportViewModel: FlagExportViewModel
 
@@ -177,6 +191,26 @@ interface AppGraph {
     @Provides fun surveyStore(settings: AppSettings): SurveyStore = settings
 
     @Provides fun targetGradeStore(settings: AppSettings): TargetGradeStore = settings
+
+    @Provides fun liveConsent(settings: AppSettings): LiveConsent = settings
+
+    /**
+     * 코치 세션 하나를 돌릴 코치(F11). 시험 팩의 코치 프로필, 사용자 키로 여는 Gemini Live 연결, 플랫폼 오디오, 앱 DB 의 코치 표를 묶는다.
+     * 코치 음성은 질문 음성과 같은 목소리다. 질문은 한 문항 연습 풀에서 찾는다.
+     */
+    @Provides
+    fun coachFactory(database: OpicDatabase, audio: DuplexAudio, keyVault: KeyVault, settings: AppSettings, clock: Clock): CoachFactory = CoachFactory { questionId, targetGrade, scope ->
+        // ponytail: 불러온 문항 파일을 지워 질문을 못 찾으면 빈 질문으로 연다. 코치가 질문 없이 경험을 묻는다. 자주 생기면 세션에 질문 글을 같이 저장한다.
+        val question = practicePool(settings).firstOrNull { it.id == questionId }?.text.orEmpty()
+        LiveCoach(
+            profile = coachProfile(question, targetGrade),
+            transport = GeminiLiveTransport(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME),
+            audio = audio,
+            store = CoachStore(database),
+            clock = clock,
+            scope = scope,
+        )
+    }
 
     @Provides fun pendingAnalysis(jobs: AnalysisJobs): PendingAnalysis = PendingAnalysis(jobs::cancelAll)
 
@@ -314,6 +348,7 @@ interface AppGraph {
             @Provides recorder: Recorder,
             @Provides @Named(DEVICE_TTS) tts: Tts,
             @Provides workQueue: WorkQueue,
+            @Provides duplexAudio: DuplexAudio,
             @Provides gemini: GeminiClient,
             @Provides timer: MonotonicTimer,
             @Provides pack: ExamPack,
@@ -401,10 +436,11 @@ fun createAppGraph(
     recorder: Recorder,
     tts: Tts,
     workQueue: WorkQueue,
+    duplexAudio: DuplexAudio,
     gemini: GeminiClient = GeminiClient(),
     timer: MonotonicTimer = deviceMonotonicTimer(),
     pack: ExamPack = ExamPack(),
-): AppGraph = createGraphFactory<AppGraph.Factory>().create(settings, keyVault, database, recordingsRoot, recorder, tts, workQueue, gemini, timer, pack)
+): AppGraph = createGraphFactory<AppGraph.Factory>().create(settings, keyVault, database, recordingsRoot, recorder, tts, workQueue, duplexAudio, gemini, timer, pack)
 
 /** 키 확인 요청 결과를 키 입력 화면의 결과로 옮긴다(F1.1). 모델이 없다는 답도 키는 통과했다는 뜻이다. */
 internal fun geminiKeyCheck(result: LlmResult): DomainResult<Unit> = when (result) {

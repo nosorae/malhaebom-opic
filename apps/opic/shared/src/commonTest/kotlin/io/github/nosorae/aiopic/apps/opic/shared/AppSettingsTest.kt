@@ -66,6 +66,15 @@ class AppSettingsTest {
     }
 
     @Test
+    fun `F15_1 실시간 음성 전송 동의는 녹음 전송 동의와 따로 남는다`() = runTest {
+        reopen().give()
+
+        assertFalse(reopen().isLiveGiven())
+        reopen().giveLive()
+        assertTrue(reopen().isLiveGiven())
+    }
+
+    @Test
     fun `F2_7 답변 타이머는 기본으로 꺼져 있고 켜면 다시 켜도 남아 시험 화면 조립에 쓰인다`() = runTest {
         assertFalse(reopen().answerTimer)
 

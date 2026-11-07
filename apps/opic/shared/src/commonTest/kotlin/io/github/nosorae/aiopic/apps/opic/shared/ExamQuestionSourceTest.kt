@@ -123,6 +123,7 @@ class ExamQuestionSourceTest {
             recorder = FakeRecorder,
             tts = SpeechLog(spoken),
             workQueue = FakeWorkQueue(),
+            duplexAudio = FakeDuplexAudio,
             gemini = GeminiClient(
                 HttpClient(
                     MockEngine {
