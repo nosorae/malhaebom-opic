@@ -1,6 +1,8 @@
 package io.github.nosorae.aiopic.ui.featurelive
 
 import androidx.lifecycle.viewModelScope
+import io.github.nosorae.aiopic.engine.answer.model.UnscorableReason
+import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import io.github.nosorae.aiopic.engine.coach.CoachPhase
 import io.github.nosorae.aiopic.engine.coach.CoachProfile
@@ -12,12 +14,15 @@ import io.github.nosorae.aiopic.engine.coach.LiveCoach
 import io.github.nosorae.aiopic.engine.coach.Material
 import io.github.nosorae.aiopic.engine.coach.MaterialKind
 import io.github.nosorae.aiopic.engine.coach.TransportEvent
+import io.github.nosorae.aiopic.engine.session.model.AnalysisError
+import io.github.nosorae.aiopic.libs.timer.api.MonotonicTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -31,6 +36,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class LiveCoachViewModelTest {
@@ -38,6 +45,8 @@ class LiveCoachViewModelTest {
     private val transport = FakeTransport()
     private val audio = FakeAudio()
     private val consent = FakeLiveConsent(given = true)
+    private val recorder = FakeRecorder()
+    private val files = FakeRehearsalFiles(recorder, heard("I went to Busan."))
     private val profile = CoachProfile(instructions = CoachPhase.entries.associateWith { it.name }, tools = emptyList())
 
     @BeforeTest fun setUp() = Dispatchers.setMain(dispatcher)
@@ -65,7 +74,7 @@ class LiveCoachViewModelTest {
         scope = scope,
     )
 
-    private fun TestScope.viewModel(db: OpicDatabase) = LiveCoachViewModel(
+    private fun TestScope.viewModel(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files) = LiveCoachViewModel(
         sessionId = "c1",
         questionId = "q1",
         question = "Tell me about a trip.",
@@ -74,9 +83,14 @@ class LiveCoachViewModelTest {
         giveLiveConsentUseCase = GiveLiveConsentUseCase(consent),
         openCoachUseCase = OpenCoachUseCase { _, _, scope -> coach(db, scope) },
         observeCoachLevelsUseCase = ObserveCoachLevelsUseCase(audio),
+        startRehearsalUseCase = StartRehearsalUseCase(recorder, files),
+        stopRehearsalUseCase = StopRehearsalUseCase(recorder),
+        transcribeRehearsalUseCase = TranscribeRehearsalUseCase(files),
+        observeRehearsalLevelUseCase = ObserveRehearsalLevelUseCase(recorder),
+        timer = MonotonicTimer { testScheduler.currentTime.milliseconds },
     ).also { backgroundScope.coroutineContext[Job]!!.invokeOnCompletion { _ -> it.viewModelScope.cancel() } }
 
-    private fun TestScope.connected(db: OpicDatabase) = viewModel(db).also {
+    private fun TestScope.connected(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files) = viewModel(db, files).also {
         runCurrent()
         it.onIntent(LiveCoachIntent.Connect)
         runCurrent()
@@ -208,6 +222,112 @@ class LiveCoachViewModelTest {
         assertEquals(1, dropped?.lines?.size)
         assertNull(viewModel.uiState.value.coach?.disconnected)
         assertEquals(2, transport.connects.size)
+    }
+
+    private fun TestScope.rehearsing(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files) = connected(db, files).also {
+        repeat(2) { _ ->
+            it.onIntent(LiveCoachIntent.NextPhase)
+            runCurrent()
+        }
+    }
+
+    private fun TestScope.rehearse(viewModel: LiveCoachViewModel) {
+        viewModel.onIntent(RehearsalIntent.StartRecording)
+        runCurrent()
+        viewModel.onIntent(RehearsalIntent.StopRecording)
+        runCurrent()
+    }
+
+    @Test
+    fun `F13_1 녹음하는 동안 목소리 크기와 녹음 시간이 보이고 코치 연결은 열지 않는다`() = test { db ->
+        val viewModel = rehearsing(db)
+
+        viewModel.onIntent(RehearsalIntent.StartRecording)
+        runCurrent()
+        recorder.level.value = 0.5f
+        advanceTimeBy(3_001)
+
+        assertEquals(RehearsalUiState(RehearsalStep.Recording, 3.seconds, 0.5f), viewModel.uiState.value.rehearsal)
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F13_2 녹음을 끝내면 받아쓰기만 받아 코치에 넣고 피드백 단계로 새로 연결하며 녹음을 지운다`() = test { db ->
+        val viewModel = rehearsing(db)
+
+        rehearse(viewModel)
+
+        assertEquals(listOf("I went to Busan."), viewModel.uiState.value.coach?.rehearsals)
+        assertEquals(CoachPhase.Feedback, viewModel.uiState.value.coach?.phase)
+        assertEquals(3, transport.connects.size)
+        assertEquals(RehearsalUiState(), viewModel.uiState.value.rehearsal)
+        assertTrue(recorder.folders.isEmpty())
+    }
+
+    @Test
+    fun `F13_1 받아쓰기를 못 받으면 이유를 보이고 다시 시도하면 같은 녹음을 다시 보낸다`() = test { db ->
+        val files = FakeRehearsalFiles(recorder, AnalysisResult.Failed(AnalysisError.Offline), heard("Second try."))
+        val viewModel = rehearsing(db, files)
+
+        rehearse(viewModel)
+        val failed = viewModel.uiState.value.rehearsal
+        viewModel.onIntent(RehearsalIntent.RetryTranscript)
+        runCurrent()
+
+        assertEquals(RehearsalError.TranscriptFailed, failed.error)
+        assertTrue(failed.canRetryTranscript)
+        assertEquals(listOf(listOf("coach/c1/0.m4a"), listOf("coach/c1/0.m4a")), files.sent)
+        assertEquals(listOf("Second try."), viewModel.uiState.value.coach?.rehearsals)
+    }
+
+    @Test
+    fun `F13_1 말소리가 없으면 다시 녹음하게 하고 리허설 단계에 남는다`() = test { db ->
+        val viewModel = rehearsing(db, FakeRehearsalFiles(recorder, AnalysisResult.Unscorable(UnscorableReason.Silent)))
+
+        rehearse(viewModel)
+
+        assertEquals(RehearsalError.NoSpeech, viewModel.uiState.value.rehearsal.error)
+        assertEquals(CoachPhase.Rehearse, viewModel.uiState.value.coach?.phase)
+    }
+
+    @Test
+    fun `마이크를 못 열면 이유를 보이고 녹음 중이 되지 않는다`() = test { db ->
+        recorder.micAvailable = false
+        val viewModel = rehearsing(db)
+
+        viewModel.onIntent(RehearsalIntent.StartRecording)
+        runCurrent()
+
+        assertEquals(RehearsalUiState(error = RehearsalError.MicUnavailable), viewModel.uiState.value.rehearsal)
+    }
+
+    @Test
+    fun `F13_3 피드백에서 한 번 더 리허설하면 리허설 단계로 돌아가고 두 번 하면 더 돌아가지 않는다`() = test { db ->
+        val viewModel = rehearsing(db)
+        rehearse(viewModel)
+
+        viewModel.onIntent(RehearsalIntent.RehearseAgain)
+        runCurrent()
+        val again = viewModel.uiState.value.coach?.phase
+        rehearse(viewModel)
+        viewModel.onIntent(RehearsalIntent.RehearseAgain)
+        runCurrent()
+
+        assertEquals(CoachPhase.Rehearse, again)
+        assertEquals(CoachPhase.Feedback, viewModel.uiState.value.coach?.phase)
+        assertEquals(2, viewModel.uiState.value.coach?.rehearsals?.size)
+    }
+
+    @Test
+    fun `녹음 중에 화면을 떠나면 녹음을 멈춘다`() = test { db ->
+        val viewModel = rehearsing(db)
+        viewModel.onIntent(RehearsalIntent.StartRecording)
+        runCurrent()
+
+        viewModel.viewModelScope.cancel()
+        runCurrent()
+
+        assertNull(recorder.recording)
     }
 
     @Test

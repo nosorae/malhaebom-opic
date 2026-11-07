@@ -52,6 +52,7 @@ import io.github.nosorae.aiopic.engine.coach.Speaker
 import io.github.nosorae.aiopic.engine.coach.TALK_WARNING
 import io.github.nosorae.aiopic.engine.coach.TokenUsage
 import io.github.nosorae.aiopic.engine.coach.TransportEvent
+import io.github.nosorae.aiopic.engine.coach.canRehearseAgain
 import io.github.nosorae.aiopic.ui.design.MontageButton
 import io.github.nosorae.aiopic.ui.design.MontageButtonSize
 import io.github.nosorae.aiopic.ui.design.MontageButtonType
@@ -95,7 +96,7 @@ fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: 
 /**
  * 코치 대화 화면(F11, F12). 위에서부터 단계 표시, 세션 비용, 안내(끊김, 25분, 멈춤), 소재 메모 네 칸, 표현 카드, 받아쓰기다.
  * 받아쓰기는 말풍선 없이 위아래로 쌓고, 지금 말하는 쪽의 목소리 띠는 아래 버튼 위에 둔다. 메모와 카드는 눌러서 고친다.
- * 리허설 단계 화면(#266)과 스크립트 화면(#267)은 아직 없어서 단계 표시와 정리 중 안내만 보인다.
+ * 리허설 단계는 받아쓰기 대신 펼친 메모를 보이고 아래쪽이 녹음 조작으로 바뀐다(F13.1). 스크립트 화면(#267)은 아직 없어서 정리 중 안내만 보인다.
  */
 @Composable
 fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit, onExit: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {}) {
@@ -119,7 +120,13 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
                 MontageIconButton(icon = DesignRes.drawable.icon_normal_close, contentDescription = stringResource(Res.string.live_exit), onClick = onExit)
             }
         },
-        bottomBar = { if (coach != null && coach.status != CoachStatus.Finished) TalkControls(state, coach, onIntent) },
+        bottomBar = {
+            when {
+                coach == null || coach.status == CoachStatus.Finished -> Unit
+                coach.phase == CoachPhase.Rehearse -> RehearsalControls(state.rehearsal, onIntent)
+                else -> TalkControls(state, coach, onIntent)
+            }
+        },
     ) {
         when {
             state.consented == false -> ConsentContent(onAgree = { onIntent(LiveCoachIntent.GiveConsent) })
@@ -139,14 +146,16 @@ private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoa
     val atEnd = !list.canScrollForward
     val heard = coach.lines.size to coach.lines.lastOrNull()?.text?.length
     var seen by remember { mutableStateOf<Pair<Int, Int?>?>(null) }
+    // 리허설은 받아쓰기를 숨기고 메모를 펼쳐 위에서부터 보인다.
+    val rehearsing = coach.phase == CoachPhase.Rehearse
     LaunchedEffect(heard) {
-        if (seen == null || (heard != seen && atEnd)) {
+        if (!rehearsing && (seen == null || (heard != seen && atEnd))) {
             val count = snapshotFlow { list.layoutInfo.totalItemsCount }.first { it > 0 }
             list.scrollToItem(count - 1)
         }
         seen = heard
     }
-    var notesOpen by rememberSaveable { mutableStateOf(false) }
+    var notesOpen by rememberSaveable(rehearsing) { mutableStateOf(rehearsing) }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
         PhaseHeader(coach.phase)
         QuestionText(question)
@@ -192,9 +201,11 @@ private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoa
                     ExpressionCard(expression, onClick = { onEdit(Edit(Res.string.live_expressions, expression.english) { LiveCoachIntent.EditExpression(index, it) }) })
                 }
             }
-            item { SectionTitle(stringResource(Res.string.live_transcript)) }
-            if (coach.lines.isEmpty()) item { Body(stringResource(Res.string.live_transcript_empty)) }
-            itemsIndexed(coach.lines) { _, line -> TranscriptLine(line) }
+            if (!rehearsing) {
+                item { SectionTitle(stringResource(Res.string.live_transcript)) }
+                if (coach.lines.isEmpty()) item { Body(stringResource(Res.string.live_transcript_empty)) }
+                itemsIndexed(coach.lines) { _, line -> TranscriptLine(line) }
+            }
             item { Spacer(Modifier.height(MontageSpacing.spacing8)) }
         }
     }
@@ -247,10 +258,10 @@ private fun CostLine(costUsd: Double) {
     }
 }
 
-/** 지금 말하는 쪽의 목소리 띠와 "잠깐 생각할게요", "다음 단계" 버튼. 연결이 열려 있을 때만 띠를 보인다. */
+/** 지금 말하는 쪽의 목소리 띠와 "잠깐 생각할게요", "다음 단계" 버튼. 연결이 열려 있을 때만 띠를 보인다. 피드백 단계에서 리허설이 두 번 미만이면 "한 번 더 리허설" 도 보인다(F13.3). */
 @Composable
 private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onIntent: (LiveCoachIntent) -> Unit) {
-    val talking = coach.status == CoachStatus.Active && coach.disconnected == null && coach.phase != CoachPhase.Rehearse
+    val talking = coach.status == CoachStatus.Active && coach.disconnected == null
     Column(Modifier.padding(horizontal = Gutter, vertical = MontageSpacing.spacing12), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
         if (talking) {
             Text(
@@ -260,6 +271,15 @@ private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onIntent: (
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             MontageVoiceRibbon(if (state.coachSpeaking) state.playbackLevel else state.micLevel)
+        }
+        if (coach.canRehearseAgain) {
+            MontageButton(
+                text = stringResource(Res.string.live_rehearse_again),
+                onClick = { onIntent(RehearsalIntent.RehearseAgain) },
+                modifier = Modifier.fillMaxWidth(),
+                variant = MontageButtonVariant.Outlined,
+                type = MontageButtonType.Assistive,
+            )
         }
         val paused = coach.status == CoachStatus.Paused
         // 큰 글자에서는 나란히 두면 버튼 글이 잘려 위아래로 쌓는다.

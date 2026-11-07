@@ -13,6 +13,7 @@ import io.github.nosorae.aiopic.engine.aigemini.GeminiAnalyzer
 import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
+import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
 import io.github.nosorae.aiopic.engine.answer.analysis.GradeRequest
@@ -20,6 +21,7 @@ import io.github.nosorae.aiopic.engine.answer.check.choose
 import io.github.nosorae.aiopic.engine.answer.model.Answer
 import io.github.nosorae.aiopic.engine.answer.model.Feedback
 import io.github.nosorae.aiopic.engine.answer.model.ModelInfo
+import io.github.nosorae.aiopic.engine.answer.model.UnscorableReason
 import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.answer.port.AudioAnswerAnalyzer
 import io.github.nosorae.aiopic.engine.answer.port.ModelCatalog
@@ -72,6 +74,7 @@ import io.github.nosorae.aiopic.ui.featurelive.CoachFactory
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
+import io.github.nosorae.aiopic.ui.featurelive.RehearsalFiles
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainError
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainResult
@@ -208,6 +211,27 @@ interface AppGraph {
             clock = clock,
             scope = scope,
         )
+    }
+
+    /**
+     * 코치 리허설 녹음(F13.1). 녹음 폴더 아래 `coach/세션 id` 에 쓰고, 조각을 이어 붙여 Gemini 받아쓰기만 받는다.
+     * 이어 붙인 파일은 조각 이름 규칙과 겹치지 않아 다음 받아쓰기의 조각 목록에 섞이지 않는다.
+     */
+    @Provides
+    fun rehearsalFiles(@Named(RECORDINGS) recordingsRoot: String, recorder: Recorder, keyVault: KeyVault, client: GeminiClient): RehearsalFiles {
+        val transcriber = GeminiTranscriber(client, { keyVault.get(GeminiModels.PROVIDER) }, GeminiModels.transcriptModel)
+        return object : RehearsalFiles {
+            override fun directory(sessionId: String) = "$recordingsRoot/coach/$sessionId"
+
+            override suspend fun transcribe(directory: String): AnalysisResult<Transcript> {
+                val chunks = recorder.chunks(directory).ifEmpty { return AnalysisResult.Unscorable(UnscorableReason.Silent) }
+                val output = "$directory/rehearsal.m4a"
+                recorder.merge(chunks, output)
+                return transcriber.transcribe(Recording(readFile(output), "audio/mp4", emptyList()))
+            }
+
+            override suspend fun clear(directory: String) = listFiles(directory).forEach(::deleteFile)
+        }
     }
 
     @Provides fun pendingAnalysis(jobs: AnalysisJobs): PendingAnalysis = PendingAnalysis(jobs::cancelAll)
