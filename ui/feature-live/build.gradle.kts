@@ -7,7 +7,11 @@ kotlin {
         // 대화 화면이 코치 세션 상태를 그리고, 목소리 띠가 오디오의 목소리 크기를 읽는다.
         implementation(project(":engine:coach"))
     }
-    // 시작 시트는 따로 뜨는 창이라 화면 전체를 찍는다.
+    // 마이크 권한 요청 창을 띄운다.
+    sourceSets.androidMain.dependencies {
+        implementation(libs.androidx.activity.compose)
+    }
+    // 시작 시트는 따로 뜨는 창이라 화면 전체를 찍고, 목소리 띠가 계속 도는 대화 화면은 시계를 멈춘 테스트 규칙에서 찍는다.
     sourceSets.getByName("androidHostTest").dependencies {
         implementation(libs.compose.uiTestJunit4)
         implementation(libs.compose.uiTestManifest)
