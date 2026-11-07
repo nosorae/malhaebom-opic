@@ -81,13 +81,13 @@ fun CoachScriptScreen(state: CoachScriptUiState, onIntent: (CoachScriptIntent) -
                 )
             }
 
-            else -> ScriptContent(state, parts, onIntent)
+            else -> ScriptContent(state, parts, onEdit = { part, text -> onIntent(CoachScriptIntent.Edit(part, text)) }, onRevert = { onIntent(CoachScriptIntent.Revert) })
         }
     }
 }
 
 @Composable
-private fun ScriptContent(state: CoachScriptUiState, parts: ScriptParts, onIntent: (CoachScriptIntent) -> Unit) {
+private fun ScriptContent(state: CoachScriptUiState, parts: ScriptParts, onEdit: (ScriptPart, String) -> Unit, onRevert: () -> Unit) {
     var showOriginal by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = MontageSpacing.spacing16), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing12)) {
         if (state.question.isNotBlank()) Text(state.question, style = MontageTheme.typography.body1.medium, color = MontageTheme.colors.foregroundNeutralPrimary, modifier = Modifier.padding(horizontal = Gutter))
@@ -103,7 +103,7 @@ private fun ScriptContent(state: CoachScriptUiState, parts: ScriptParts, onInten
         ScriptPart.entries.forEach { part ->
             MontageTextField(
                 value = parts[part],
-                onValueChange = { onIntent(CoachScriptIntent.Edit(part, it)) },
+                onValueChange = { onEdit(part, it) },
                 title = stringResource(part.label),
                 enabled = !state.polishing,
                 singleLine = false,
@@ -124,7 +124,7 @@ private fun ScriptContent(state: CoachScriptUiState, parts: ScriptParts, onInten
                     text = stringResource(Res.string.script_revert),
                     onClick = {
                         showOriginal = false
-                        onIntent(CoachScriptIntent.Revert)
+                        onRevert()
                     },
                     variant = MontageButtonVariant.Outlined,
                     type = MontageButtonType.Assistive,

@@ -42,8 +42,9 @@ data class HistoryPractice(val answerId: String, val typeName: String, val model
 /**
  * 코치 세션의 스크립트 한 줄(F14.6). [question] 은 질문 글, [targetGrade] 는 그 세션의 목표 등급이다.
  * [written] 이 false 면 세션은 끝났는데 스크립트를 만들지 못했다. 누르면 스크립트 화면이 다시 만든다.
+ * [finished] 가 false 면 나가거나 앱이 꺼져 끝나지 않은 대화다. 누르면 그 대화를 이어 간다(F11.8).
  */
-data class HistoryScript(val sessionId: String, val questionId: String, val question: String, val targetGrade: String, val written: Boolean = true) : HistoryEntry
+data class HistoryScript(val sessionId: String, val questionId: String, val question: String, val targetGrade: String, val written: Boolean = true, val finished: Boolean = true) : HistoryEntry
 
 /**
  * 문항 유형별 약점 한 줄. [typeName] 은 사용자에게 보일 유형 이름이다. [rose] 는 지난번에 본 점수보다 오른 것을 아직 축하하지 않았거나 지금 축하하는 중이다(#198).

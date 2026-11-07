@@ -25,6 +25,13 @@ class PickPracticeQuestionUseCaseTest {
     }
 
     @Test
+    fun `F14_5 준 질문 id 가 풀에 없으면 다른 질문으로 바꾸지 않고 null 이다`() = runTest {
+        val repository = FakePracticeRepository(pool = listOf(routine, roleplay))
+
+        assertNull(PickPracticeQuestionUseCase(repository, typeNames = emptyMap())("gone"))
+    }
+
+    @Test
     fun `약점 점수가 가장 낮은 유형에서 낸다`() = runTest {
         val repository = FakePracticeRepository(
             pool = listOf(routine, roleplay),

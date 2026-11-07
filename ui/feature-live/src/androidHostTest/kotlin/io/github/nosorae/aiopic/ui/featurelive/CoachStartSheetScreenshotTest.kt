@@ -26,12 +26,21 @@ class CoachStartSheetScreenshotTest {
     @Test
     fun fontScale200() = open()
 
-    private fun open(dark: Boolean = false) {
+    /** 끝내지 못한 대화가 있으면 이어서 하기와 새 질문으로 시작을 고른다(F11.8). */
+    @Test fun unfinished() = open(CoachStartSamples.unfinished, button = "이어서 하기")
+
+    @Test fun unfinished_dark() = open(CoachStartSamples.unfinished, dark = true, button = "이어서 하기")
+
+    @Config(fontScale = 2f)
+    @Test
+    fun unfinished_fontScale200() = open(CoachStartSamples.unfinished, button = "이어서 하기")
+
+    private fun open(state: CoachStartUiState = CoachStartSamples.default, dark: Boolean = false, button: String = "시작") {
         rule.setContent {
-            MontageTheme(darkTheme = dark, reduceMotion = true) { CoachStartSheet(CoachStartSamples.default, onIntent = {}, onStart = {}, onDismiss = {}) }
+            MontageTheme(darkTheme = dark, reduceMotion = true) { CoachStartSheet(state, onIntent = {}, onResume = {}, onDismiss = {}) }
         }
         rule.waitForIdle()
-        rule.onNodeWithText("시작").assertExists()
+        rule.onNodeWithText(button).assertExists()
         captureScreenRoboImage()
     }
 }

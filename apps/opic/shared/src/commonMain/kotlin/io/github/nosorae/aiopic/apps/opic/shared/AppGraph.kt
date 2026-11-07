@@ -36,6 +36,7 @@ import io.github.nosorae.aiopic.engine.answer.route.AnswerRouter
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import io.github.nosorae.aiopic.engine.answer.store.OpicStore
 import io.github.nosorae.aiopic.engine.answer.weakness.weaknessScores
+import io.github.nosorae.aiopic.engine.coach.CoachStatus
 import io.github.nosorae.aiopic.engine.coach.CoachStore
 import io.github.nosorae.aiopic.engine.coach.LiveCoach
 import io.github.nosorae.aiopic.engine.coach.ScriptLength
@@ -77,11 +78,14 @@ import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
 import io.github.nosorae.aiopic.ui.featurehome.ExamSessionSource
 import io.github.nosorae.aiopic.ui.featurehome.HomeViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachFactory
+import io.github.nosorae.aiopic.ui.featurelive.CoachQuestion
+import io.github.nosorae.aiopic.ui.featurelive.CoachQuestionPicker
 import io.github.nosorae.aiopic.ui.featurelive.CoachScriptViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
 import io.github.nosorae.aiopic.ui.featurelive.RehearsalFiles
+import io.github.nosorae.aiopic.ui.featurelive.RunningCoach
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainError
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainResult
@@ -161,9 +165,6 @@ interface AppGraph {
 
     val coachStartViewModel: CoachStartViewModel
 
-    /** 코치 시작 시트가 코치와 이야기할 질문을 고른다. */
-    val pickPracticeQuestionUseCase: PickPracticeQuestionUseCase
-
     val liveCoachViewModelFactory: LiveCoachViewModel.Factory
 
     val coachScriptViewModelFactory: CoachScriptViewModel.Factory
@@ -223,6 +224,14 @@ interface AppGraph {
             scope = scope,
         )
     }
+
+    /** 코치 시작 시트가 한 문항 연습과 같이 가장 약한 유형에서 질문을 고른다(F4.1). */
+    @Provides fun coachQuestionPicker(pick: PickPracticeQuestionUseCase): CoachQuestionPicker = CoachQuestionPicker { pick()?.question?.let { CoachQuestion(it.id, it.text) } }
+
+    /** 지금 대화 화면이 돌리는 코치 하나. 대화 화면은 한 번에 하나만 열린다. */
+    @Provides
+    @SingleIn(AppScope::class)
+    fun runningCoach(factory: CoachFactory): RunningCoach = RunningCoach(factory)
 
     /**
      * 코치 리허설 녹음(F13.1). 녹음 폴더 아래 `coach/세션 id` 에 쓰고, 조각을 이어 붙여 Gemini 받아쓰기만 받는다.
@@ -317,7 +326,7 @@ interface AppGraph {
 
     @SingleIn(AppScope::class)
     @Provides
-    fun storeReads(store: OpicStore, jobs: AnalysisJobs, coach: CoachStore, settings: AppSettings): StoreReads = StoreReads(store, jobs, scriptRows(coach, settings))
+    fun storeReads(store: OpicStore, jobs: AnalysisJobs, coach: CoachStore): StoreReads = StoreReads(store, jobs, scriptRows(coach))
 
     @Provides fun examSessionSource(reads: StoreReads): ExamSessionSource = reads
 
@@ -600,8 +609,7 @@ private object NoTwoStepPath : Transcriber, TranscriptAnalyzer {
     override suspend fun analyze(model: ModelInfo, prompt: Prompt, question: Question, transcript: Transcript): AnalysisResult<TextAnalysis> = AnalysisResult.Failed(AnalysisError.Rejected)
 }
 
-/** 기록 탭의 스크립트 줄(F14.6). 만들지 못한 끝난 세션도 다시 만들기 줄로 낸다. 세션에는 질문 id 만 있어 연습 풀에서 질문 글을 찾는다. 풀에서 빠진 질문은 글이 비어 목표 등급만 보인다. */
-private fun scriptRows(coach: CoachStore, settings: AppSettings): Flow<List<HistoryScript>> = coach.scriptSessions().map { sessions ->
-    val texts = if (sessions.isEmpty()) emptyMap() else practicePool(settings).associate { it.id to it.text }
-    sessions.map { (session, written) -> HistoryScript(session.id, session.questionId, texts[session.questionId].orEmpty(), session.targetGrade, written) }
+/** 코치 세션 줄(F14.6, F11.8). 질문 글은 세션에 저장된 것을 써서 서베이 주제를 바꿔도 비지 않고, 대화 중 매초 문항 풀을 다시 읽지 않는다. */
+internal fun scriptRows(coach: CoachStore): Flow<List<HistoryScript>> = coach.sessions().map { sessions ->
+    sessions.map { (session, written) -> HistoryScript(session.id, session.questionId, session.question, session.targetGrade, written, finished = session.status == CoachStatus.Finished) }
 }

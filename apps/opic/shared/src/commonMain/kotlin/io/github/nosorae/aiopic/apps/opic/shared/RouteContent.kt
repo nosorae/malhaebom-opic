@@ -61,13 +61,13 @@ internal fun RouteContent(
     if (coachOpen) {
         CoachStartRoute(
             viewModel = viewModel { graph.coachStartViewModel },
-            // 질문은 한 문항 연습과 같이 가장 약한 유형에서 고른다(F4.1). 낼 질문이 없으면 시트만 닫는다.
-            onStart = {
-                scope.launch {
-                    val pick = graph.pickPracticeQuestionUseCase()
-                    coachOpen = false
-                    pick?.let { onOpen(AppRoute.Coach(newId(), it.question.id, it.question.text, graph.settings.targetGrade.value)) }
-                }
+            onStart = { questionId, question, targetGrade ->
+                coachOpen = false
+                onOpen(AppRoute.Coach(newId(), questionId, question, targetGrade))
+            },
+            onResume = { sessionId, questionId, question, targetGrade ->
+                coachOpen = false
+                onOpen(AppRoute.Coach(sessionId, questionId, question, targetGrade))
             },
             onDismiss = { coachOpen = false },
         )
@@ -93,7 +93,8 @@ internal fun RouteContent(
             onOpenSession = { onOpen(AppRoute.ReportDetail(it)) },
             onOpenAnswer = { onOpen(AppRoute.AnswerReport(it)) },
             onOpenCoach = { coachOpen = true },
-            onOpenScript = { onOpen(AppRoute.CoachScript(it.sessionId, it.questionId, it.question)) },
+            // 끝나지 않은 대화는 그 세션을 이어 간다(F11.8).
+            onOpenScript = { onOpen(if (it.finished) AppRoute.CoachScript(it.sessionId, it.questionId, it.question) else AppRoute.Coach(it.sessionId, it.questionId, it.question, it.targetGrade)) },
             modifier = modifier,
         )
 
@@ -147,6 +148,7 @@ internal fun RouteContent(
             viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.question, route.targetGrade) },
             onExit = onBack,
             modifier = modifier,
+            onOpenKeySettings = { onOpen(AppRoute.KeyEntry(KeyProvider.Gemini.id)) },
             // 세션이 끝나면 대화 화면을 빼고 그 자리에 스크립트를 연다. 뒤로가기로 끝난 대화에 돌아가지 않는다(F14.1).
             onFinish = {
                 onBack()

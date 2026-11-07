@@ -61,10 +61,13 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.RecordHaptics
+import io.github.nosorae.aiopic.ui.design.clockText
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
 import io.github.nosorae.aiopic.ui.design.icon_normal_play
 import io.github.nosorae.aiopic.ui.design.icon_normal_refresh
 import io.github.nosorae.aiopic.ui.design.rememberElapsedFraction
+import io.github.nosorae.aiopic.ui.design.rememberMicPermission
+import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -307,11 +310,15 @@ internal fun ScriptPanel(script: String) {
             Text(toggle, style = MontageTheme.typography.label1.medium, color = colors.foregroundBrandPrimary)
         }
         if (open) {
+            // AL 스크립트(16~20문장)를 다 펴면 녹음 상태와 목소리 띠가 화면 밖으로 밀린다. 칸 높이를 묶고 칸 안에서 스크롤한다.
             Text(
                 script,
                 style = MontageTheme.typography.body2.regular,
                 color = colors.foregroundNeutralPrimary,
-                modifier = Modifier.padding(start = MontageSpacing.spacing12, end = MontageSpacing.spacing12, bottom = MontageSpacing.spacing12),
+                modifier = Modifier
+                    .heightIn(max = ScriptMaxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = MontageSpacing.spacing12, end = MontageSpacing.spacing12, bottom = MontageSpacing.spacing12),
             )
         }
     }
@@ -319,11 +326,8 @@ internal fun ScriptPanel(script: String) {
 
 internal val Gutter = MontageSpacing.spacing20
 
-/** 분:초. 녹음 시간에 쓴다. */
-private fun Duration.clockText(): String {
-    val seconds = inWholeSeconds.coerceAtLeast(0)
-    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-}
+/** 펼친 스크립트 칸의 최대 높이. 360x640 화면에서 글자 200% 여도 녹음 상태가 보이는 높이다. */
+private val ScriptMaxHeight = MontageSpacing.spacing48 * 3
 
 /** 다시 녹음하면 풀리는 오류. 이때 Play 가 "다시 녹음" 이 된다. */
 private val RetryErrors = setOf(PracticeError.MicUnavailable, PracticeError.RecordingFailed)
@@ -335,6 +339,7 @@ private val PracticeError.message: StringResource
         PracticeError.RecordingFailed -> Res.string.practice_error_recording
         PracticeError.SpeechFailed -> Res.string.practice_error_speech
         PracticeError.QuestionUnavailable -> Res.string.practice_error_question
+        PracticeError.ScriptQuestionMissing -> Res.string.practice_error_script_question
     }
 
 /** 미리보기와 스크린샷 테스트가 함께 쓰는 고정 상태. 진행마다 하나다. */
@@ -357,6 +362,9 @@ internal object PracticeSamples {
             "We stayed near Haeundae beach for three days. On the last night we watched fireworks over the sea, and it was an absolute blast.\n\n" +
             "That trip was special because I spent real time with my sister.",
     )
+
+    /** AL 길이(16~20문장) 스크립트. 녹음 상태와 목소리 띠가 밀려나지 않는지 본다. */
+    val longScriptRecording = scriptRecording.copy(script = List(18) { "This is sentence number ${it + 1} of a long answer about my trip to Busan." }.joinToString(" "))
 }
 
 @Preview

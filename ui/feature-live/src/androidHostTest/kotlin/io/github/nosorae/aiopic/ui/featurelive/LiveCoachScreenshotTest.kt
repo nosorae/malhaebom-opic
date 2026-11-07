@@ -45,6 +45,15 @@ class LiveCoachScreenshotTest {
     @Test
     fun dropped_fontScale200() = still(LiveCoachSamples.dropped)
 
+    /** 키가 틀려 끊기면 다시 연결 대신 키 설정 열기를 보인다. */
+    @Test fun invalidKey() = still(LiveCoachSamples.invalidKey)
+
+    @Test fun invalidKey_dark() = still(LiveCoachSamples.invalidKey, dark = true)
+
+    @Config(fontScale = 2f)
+    @Test
+    fun invalidKey_fontScale200() = still(LiveCoachSamples.invalidKey)
+
     @Test fun timeWarning() = still(LiveCoachSamples.timeWarning)
 
     @Test fun timeWarning_dark() = still(LiveCoachSamples.timeWarning, dark = true)

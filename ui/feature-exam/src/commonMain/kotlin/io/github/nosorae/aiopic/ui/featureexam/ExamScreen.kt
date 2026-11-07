@@ -76,10 +76,13 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.RecordHaptics
+import io.github.nosorae.aiopic.ui.design.clockText
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
 import io.github.nosorae.aiopic.ui.design.icon_normal_play
 import io.github.nosorae.aiopic.ui.design.icon_normal_refresh
 import io.github.nosorae.aiopic.ui.design.rememberElapsedFraction
+import io.github.nosorae.aiopic.ui.design.rememberMicPermission
+import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
@@ -583,10 +586,6 @@ private fun NextButton(enabled: Boolean, loading: Boolean, onClick: () -> Unit) 
 private val Gutter = MontageSpacing.spacing20
 
 /** 분:초. 40분 타이머와 녹음 시간에 쓴다. */
-private fun Duration.clockText(): String {
-    val seconds = inWholeSeconds.coerceAtLeast(0)
-    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-}
 
 private val Recalibration.label: StringResource
     get() = when (this) {

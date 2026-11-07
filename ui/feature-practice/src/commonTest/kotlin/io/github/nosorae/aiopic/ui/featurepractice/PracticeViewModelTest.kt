@@ -78,6 +78,14 @@ class PracticeViewModelTest {
     }
 
     @Test
+    fun `F14_5 스크립트의 질문을 문항에서 찾을 수 없으면 다른 질문을 내지 않고 알린다`() = practiceTest {
+        val viewModel = viewModel(questionId = "gone", script = "I went to Busan.")
+        runCurrent()
+
+        assertEquals(null to PracticeError.ScriptQuestionMissing, viewModel.uiState.value.let { it.question to it.error })
+    }
+
+    @Test
     fun `녹음하는 동안만 마이크 음량을 목소리 띠에 넘기고 다시 듣기로 녹음을 멈추면 0 으로 돌린다`() = practiceTest {
         val viewModel = viewModel()
         recorder.level.value = 0.9f

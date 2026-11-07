@@ -15,10 +15,6 @@ kotlin {
             // 나가면 잃는 것이 있을 때 시스템 뒤로가기를 받아 먼저 묻는다.
             implementation(libs.compose.uiBackhandler)
         }
-        androidMain.dependencies {
-            // 마이크 권한 요청 창을 띄운다.
-            implementation(libs.androidx.activity.compose)
-        }
         // 처리 중인 버튼이 눌리지 않는지 화면을 띄워 누르는 테스트로 본다.
         getByName("androidHostTest").dependencies {
             implementation(libs.compose.uiTestJunit4)

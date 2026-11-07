@@ -19,6 +19,10 @@ kotlin {
         commonMain.dependencies {
             api(project(":libs:haptics"))
         }
+        // 모의고사, 연습, 코치 대화가 같이 쓰는 마이크 권한 요청 창을 띄운다.
+        androidMain.dependencies {
+            implementation(libs.androidx.activity.compose)
+        }
         // 움직임 부품을 테스트 시계로 멈춰 끝 장면과 동작 줄이기를 비교한다.
         getByName("androidHostTest").dependencies {
             implementation(libs.compose.uiTestJunit4)
