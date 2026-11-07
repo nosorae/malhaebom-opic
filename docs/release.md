@@ -61,4 +61,4 @@ TEST_RUNNER_STORE_SCREENSHOTS_DIR="$PWD/fastlane/screenshots/ios/ko" xcodebuild 
 
 앱 아이콘 원본은 `apps/opic/icon/app-icon.svg` 이고 `python3 apps/opic/icon/make_icon.py` 가 PNG(iOS 기본·다크·틴트, Play 512)를 다시 만든다. 규격과 원본 일치는 `python3 -m unittest scripts/test_store_assets.py` 가 본다.
 
-스크린샷 폴더가 비어 있으면 문구만 올리고 콘솔에 있는 이미지는 건드리지 않는다. 글자 수 제한은 `python3 -m unittest scripts/test_store_metadata.py` 가 키 없이 미리 확인한다. Data safety, 포그라운드 서비스 신고처럼 콘솔에서 직접 넣는 답은 `fastlane/store-declarations.md` 에 있다.
+스크린샷 폴더가 비어 있으면 문구만 올리고 콘솔에 있는 이미지는 건드리지 않는다. 글자 수 제한은 `python3 -m unittest scripts/test_store_metadata.py` 가 키 없이 미리 확인한다. Data safety, 포그라운드 서비스 신고처럼 콘솔에서 직접 넣는 답은 `fastlane/store-declarations.md` 에 있다. 라이브 코치의 실시간 음성 전송에 더할 신고 항목은 그 문서 5절에 표로 있다. 콘솔 입력은 사람이 한다.
