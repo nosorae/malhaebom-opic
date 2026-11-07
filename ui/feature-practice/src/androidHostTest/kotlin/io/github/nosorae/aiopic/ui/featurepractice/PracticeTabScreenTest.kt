@@ -20,7 +20,7 @@ class PracticeTabScreenTest {
     @Test
     fun `Play 를 누르면 한 문항 연습을 연다`() {
         var started = 0
-        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabSamples.weak, onStart = { started++ }) } }
+        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabSamples.weak, onStart = { started++ }, onOpenCoach = {}) } }
 
         rule.onNodeWithText("Play").performClick()
 
@@ -29,14 +29,14 @@ class PracticeTabScreenTest {
 
     @Test
     fun `약한 유형과 점수를 보인다`() {
-        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabSamples.weak, onStart = {}) } }
+        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabSamples.weak, onStart = {}, onOpenCoach = {}) } }
 
         rule.onNodeWithText("42점").assertExists()
     }
 
     @Test
     fun `읽기 전에는 모든 유형 안내를 잠깐 보였다 지우지 않는다`() {
-        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabUiState(), onStart = {}) } }
+        rule.setContent { MontageTheme { PracticeTabScreen(PracticeTabUiState(), onStart = {}, onOpenCoach = {}) } }
 
         rule.onNodeWithText("모든 유형에서 골랐어요").assertDoesNotExist()
     }

@@ -24,6 +24,6 @@ class PracticeTabScreenshotTest {
     @Test fun anyType() = shot(PracticeTabSamples.anyType)
 
     private fun shot(state: PracticeTabUiState, dark: Boolean = false) = captureRoboImage {
-        MontageTheme(darkTheme = dark) { PracticeTabScreen(state = state, onStart = {}) }
+        MontageTheme(darkTheme = dark) { PracticeTabScreen(state = state, onStart = {}, onOpenCoach = {}) }
     }
 }

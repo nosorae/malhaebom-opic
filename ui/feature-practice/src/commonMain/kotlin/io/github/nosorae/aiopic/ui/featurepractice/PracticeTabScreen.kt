@@ -25,21 +25,25 @@ import io.github.nosorae.aiopic.ui.design.MontageScreen
 import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
+import io.github.nosorae.aiopic.ui.featurelive.CoachStartButton
 import org.jetbrains.compose.resources.stringResource
 
-/** 연습 탭의 바깥 겹. [onStart] 는 한 문항 연습 화면을 연다. 그 화면이 열리자마자 질문을 읽어서 Play 는 한 번만 누른다. */
+/**
+ * 연습 탭의 바깥 겹. [onStart] 는 한 문항 연습 화면을 연다. 그 화면이 열리자마자 질문을 읽어서 Play 는 한 번만 누른다.
+ * [onOpenCoach] 는 코치 시작 시트를 연다(F10.1).
+ */
 @Composable
-fun PracticeTabRoute(viewModel: PracticeTabViewModel, onStart: () -> Unit, modifier: Modifier = Modifier) {
+fun PracticeTabRoute(viewModel: PracticeTabViewModel, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PracticeTabScreen(state, onStart, modifier)
+    PracticeTabScreen(state, onStart, onOpenCoach, modifier)
 }
 
 /**
  * 연습 탭의 안쪽 겹. 한 문항 연습 화면의 Play 전 모습과 같게 그려서, Play 를 누르면 같은 자리에서 질문 읽기가 이어지는 것처럼 보인다.
- * 위에서부터 단계 표시, 다음 문항을 낼 약한 유형, Play, 규칙 한 줄이다.
+ * 위에서부터 단계 표시, 다음 문항을 낼 약한 유형, 코치 시작 버튼, Play, 규칙 한 줄이다.
  */
 @Composable
-fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, modifier: Modifier = Modifier) {
+fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier) {
     val haptics = LocalHaptics.current
     MontageScreen(modifier = modifier, topBar = { MontageTopBar(title = stringResource(Res.string.practice_tab_title)) }) {
         Column(
@@ -49,7 +53,10 @@ fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, modifier: 
         ) {
             MontageAnswerSteps(current = AnswerStep.Listen, withFeedback = true, modifier = Modifier.padding(horizontal = Gutter + MontageSpacing.spacing8))
             // 읽기 전에 "모든 유형" 을 보였다가 약한 유형으로 바꾸지 않는다.
-            if (state.loaded) WhyThisQuestion(state.weakness)
+            if (state.loaded) {
+                WhyThisQuestion(state.weakness)
+                CoachStartButton(onClick = onOpenCoach)
+            }
             Spacer(Modifier.height(MontageSpacing.spacing16))
             MontagePlayButton(
                 text = stringResource(Res.string.practice_play),
@@ -79,5 +86,5 @@ internal object PracticeTabSamples {
 @Preview
 @Composable
 private fun PracticeTabScreenPreview() {
-    MontageTheme { PracticeTabScreen(state = PracticeTabSamples.weak, onStart = {}) }
+    MontageTheme { PracticeTabScreen(state = PracticeTabSamples.weak, onStart = {}, onOpenCoach = {}) }
 }
