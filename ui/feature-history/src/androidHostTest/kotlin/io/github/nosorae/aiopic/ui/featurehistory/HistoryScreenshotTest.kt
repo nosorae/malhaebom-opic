@@ -96,9 +96,21 @@ class HistoryScreenshotTest {
 
         rule.onAllNodesWithTag("history-session").assertCountEquals(0)
         rule.onAllNodesWithTag("history-practice").assertCountEquals(0)
-        rule.onAllNodesWithTag("history-script").assertCountEquals(2)
+        rule.onAllNodesWithTag("history-script").assertCountEquals(3)
         rule.onAllNodesWithTag("history-script")[0].performClick()
         assertEquals(HistorySamples.withScripts.entries.first(), opened)
+    }
+
+    @Test
+    fun `F14_6 스크립트를 만들지 못한 세션은 다시 만들기 줄로 보이고 누르면 그 세션을 연다`() {
+        var opened: HistoryScript? = null
+        show(HistorySamples.withScripts, onOpenScript = { opened = it })
+        rule.onNodeWithTag("history-filter-script").performClick()
+        rule.mainClock.advanceTimeBy(SETTLE_MILLIS)
+
+        rule.onNodeWithText("스크립트 만들기 다시").performClick()
+
+        assertEquals("c0", opened?.sessionId)
     }
 
     @Test

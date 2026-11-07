@@ -4,6 +4,7 @@ import io.github.nosorae.aiopic.engine.answer.store.CoachScriptRow
 import io.github.nosorae.aiopic.engine.answer.store.CoachSessionRow
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.milliseconds
@@ -70,8 +71,14 @@ class CoachStore(db: OpicDatabase) {
         ),
     )
 
-    /** 스크립트가 있는 세션, 최근 것부터(F14.6). 질문, 목표 등급, 시작 시각만 채우고 받아쓰기와 메모는 비어 있다. */
-    fun scriptSessions(): Flow<List<CoachState>> = dao.scriptedSessions().map { rows -> rows.map { it.start() } }
+    /**
+     * 끝난 세션과 스크립트가 있는 세션, 최근 것부터(F14.6). 둘째 값은 스크립트를 만들었는지다. 만들지 못한 세션도 내서 기록 탭에서 다시 만들 수 있게 한다.
+     * 세션은 질문, 목표 등급, 시작 시각만 채우고 받아쓰기와 메모는 비어 있다.
+     */
+    fun scriptSessions(): Flow<List<Pair<CoachState, Boolean>>> = combine(dao.scriptSessions(), dao.scriptIds()) { rows, ids ->
+        val written = ids.toSet()
+        rows.map { it.start() to (it.id in written) }
+    }
 
     private fun CoachSessionRow.start() = CoachState(id, questionId, targetGrade, Instant.fromEpochMilliseconds(startedAt))
 
