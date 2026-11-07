@@ -14,6 +14,9 @@ public sealed interface LiveEvent {
     /** 핸들을 받은 지 2시간이 지나 이어 붙이지 못하고 새 대화로 연다. 앞의 맥락은 모델이 모른다. */
     public data object ResumeExpired : LiveEvent
 
+    /** 새 이어 붙이기 핸들을 받았다. 앱이 저장해 두면 앱이 죽었다 살아나도 [LiveSession.connect] 에 넣어 이어 붙인다. */
+    public data class ResumeHandle(val handle: String) : LiveEvent
+
     /** 모델 음성 조각. 24kHz 모노 16비트 리틀엔디언 PCM 이다. */
     public class AudioChunk(public val pcm: ByteArray) : LiveEvent
 
