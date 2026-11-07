@@ -100,7 +100,7 @@ fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: 
 /**
  * 코치 대화 화면(F11, F12). 위에서부터 단계 표시, 세션 비용, 안내(끊김, 25분, 멈춤), 소재 메모 네 칸, 표현 카드, 받아쓰기다.
  * 받아쓰기는 말풍선 없이 위아래로 쌓고, 지금 말하는 쪽의 목소리 띠는 아래 버튼 위에 둔다. 메모와 카드는 눌러서 고친다.
- * 리허설 단계는 받아쓰기 대신 펼친 메모를 보이고 아래쪽이 녹음 조작으로 바뀐다(F13.1). 스크립트 화면(#267)은 아직 없어서 정리 중 안내만 보인다.
+ * 리허설 단계는 받아쓰기 대신 펼친 메모를 보이고 아래쪽이 녹음 조작으로 바뀐다(F13.1). 세션이 끝나면 바깥 겹이 곧바로 스크립트 화면으로 바꾸므로, 끝난 상태의 정리 중 안내는 그 사이 잠깐만 보인다.
  */
 @Composable
 fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit, onExit: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {}) {
@@ -136,6 +136,7 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
             state.consented == false -> ConsentContent(onAgree = { onIntent(LiveCoachIntent.GiveConsent) })
             state.micDenied -> Notice(stringResource(Res.string.live_mic_denied), action = stringResource(Res.string.live_open_settings), onAction = onOpenSettings)
             coach == null -> if (state.consented == true) Waiting(stringResource(Res.string.live_connecting))
+            // 바깥 겹이 스크립트 화면으로 바꾸기 전 한 프레임 남짓 보인다. 스크립트는 스크립트 화면이 만든다.
             coach.status == CoachStatus.Finished -> Waiting(stringResource(Res.string.live_script_wait))
             else -> Conversation(state.question, coach, onIntent, onEdit = { editing = it })
         }
