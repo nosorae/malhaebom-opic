@@ -58,6 +58,11 @@ class LiveCoach(
     /** 리허설 녹음의 받아쓰기를 넣는다(F13). 피드백 단계 지시에 들어간다. */
     suspend fun rehearsed(transcript: String) = dispatch(CoachEvent.Rehearsed(transcript))
 
+    /** 사용자가 소재 칸을 고친다(F12.2). 다음 연결 지시부터 고친 글이 들어간다. */
+    suspend fun editMaterial(kind: MaterialKind, text: String) = dispatch(CoachEvent.MaterialEdited(kind, text))
+
+    suspend fun editExpression(index: Int, expression: Expression) = dispatch(CoachEvent.ExpressionEdited(index, expression))
+
     private suspend fun dispatch(event: CoachEvent) = lock.withLock {
         val before = _state.value ?: return@withLock
         val after = reduce(before, event)

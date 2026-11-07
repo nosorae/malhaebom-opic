@@ -35,6 +35,11 @@ fun reduce(state: CoachState, event: CoachEvent): CoachState {
         is CoachEvent.Rehearsed ->
             if (state.phase == CoachPhase.Rehearse && state.rehearsals.size < MAX_REHEARSALS && event.text.isNotBlank()) state.copy(rehearsals = state.rehearsals + event.text) else state
 
+        is CoachEvent.MaterialEdited -> state.copy(materials = state.materials.filter { it.kind != event.kind } + listOfNotNull(Material(event.kind, event.text.trim()).takeIf { it.text.isNotEmpty() }))
+
+        is CoachEvent.ExpressionEdited ->
+            if (event.index in state.expressions.indices) state.copy(expressions = state.expressions.toMutableList().apply { set(event.index, event.expression) }) else state
+
         is CoachEvent.TimePassed -> (state.talkTime + event.duration).let { if (it >= TALK_LIMIT) state.copy(talkTime = it).finish() else state.copy(talkTime = it) }
 
         CoachEvent.Paused -> state.copy(status = CoachStatus.Paused)

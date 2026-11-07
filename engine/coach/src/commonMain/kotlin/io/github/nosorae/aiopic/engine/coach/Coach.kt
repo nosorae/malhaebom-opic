@@ -112,6 +112,14 @@ sealed interface CoachEvent {
     @Serializable
     data class Rehearsed(val text: String) : CoachEvent
 
+    /** 사용자가 소재 칸을 고쳤다(F12.2). 그 종류의 메모를 이 글 하나로 바꾸고, 비었으면 지운다. */
+    @Serializable
+    data class MaterialEdited(val kind: MaterialKind, val text: String) : CoachEvent
+
+    /** 사용자가 [index] 번째 표현 카드를 고쳤다(F12.2). */
+    @Serializable
+    data class ExpressionEdited(val index: Int, val expression: Expression) : CoachEvent
+
     @Serializable
     data class TimePassed(val duration: Duration) : CoachEvent
 
