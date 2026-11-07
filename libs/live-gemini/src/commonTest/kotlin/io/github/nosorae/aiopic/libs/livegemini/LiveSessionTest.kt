@@ -180,6 +180,15 @@ class LiveSessionTest {
     }
 
     @Test
+    fun `한 메시지에 턴 끝과 사용량이 함께 오면 사용량을 먼저 내 턴 끝에 닫아도 사용량이 남는다`() = runTest {
+        val events = collect {
+            sockets.single().server("""{"serverContent":{"turnComplete":true},"usageMetadata":{"promptTokenCount":1,"responseTokenCount":2}}""")
+        }
+
+        assertEquals(listOf(LiveEvent.Usage(1, 2, emptyMap(), emptyMap()), LiveEvent.TurnComplete), events)
+    }
+
+    @Test
     fun `GoAway 를 받으면 마지막 핸들로 새 연결을 열고 이어 붙었음을 알린다`() = runTest {
         val events = collect {
             sockets[0].server("""{"setupComplete":{}}""")

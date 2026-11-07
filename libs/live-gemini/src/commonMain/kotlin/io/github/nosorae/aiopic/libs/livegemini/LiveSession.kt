@@ -202,6 +202,17 @@ private fun events(message: JsonObject): List<LiveEvent> = buildList {
         // resumable 이 false 면 handle 이 비어 온다. 앞서 받은 핸들은 그대로 쓸 수 있어 지우지 않는다.
         if (update["resumable"]?.jsonPrimitive?.booleanOrNull == true && !newHandle.isNullOrEmpty()) add(LiveEvent.ResumeHandle(newHandle))
     }
+    // 사용량을 턴 끝보다 먼저 낸다. 턴 끝에 연결을 닫는 쪽이 같은 메시지의 사용량을 잃지 않는다.
+    message["usageMetadata"]?.jsonObject?.let { usage ->
+        add(
+            LiveEvent.Usage(
+                promptTokens = usage["promptTokenCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                responseTokens = usage["responseTokenCount"]?.jsonPrimitive?.intOrNull ?: 0,
+                promptByModality = usage.byModality("promptTokensDetails"),
+                responseByModality = usage.byModality("responseTokensDetails"),
+            ),
+        )
+    }
     message["serverContent"]?.jsonObject?.let { content ->
         content["modelTurn"]?.jsonObject?.get("parts")?.jsonArray?.forEach { part ->
             part.jsonObject["inlineData"]?.jsonObject?.get("data")?.jsonPrimitive?.contentOrNull?.let { add(LiveEvent.AudioChunk(Base64.decode(it))) }
@@ -216,16 +227,6 @@ private fun events(message: JsonObject): List<LiveEvent> = buildList {
         add(LiveEvent.ToolCall(c["id"]?.jsonPrimitive?.contentOrNull.orEmpty(), c["name"]?.jsonPrimitive?.contentOrNull.orEmpty(), c["args"]?.jsonObject ?: JsonObject(emptyMap())))
     }
     message["toolCallCancellation"]?.jsonObject?.get("ids")?.jsonArray?.let { ids -> add(LiveEvent.ToolCallCancelled(ids.map { it.jsonPrimitive.content })) }
-    message["usageMetadata"]?.jsonObject?.let { usage ->
-        add(
-            LiveEvent.Usage(
-                promptTokens = usage["promptTokenCount"]?.jsonPrimitive?.intOrNull ?: 0,
-                responseTokens = usage["responseTokenCount"]?.jsonPrimitive?.intOrNull ?: 0,
-                promptByModality = usage.byModality("promptTokensDetails"),
-                responseByModality = usage.byModality("responseTokensDetails"),
-            ),
-        )
-    }
     message["goAway"]?.jsonObject?.let { add(LiveEvent.GoAway(parseDuration(it["timeLeft"]?.jsonPrimitive?.contentOrNull))) }
 }
 

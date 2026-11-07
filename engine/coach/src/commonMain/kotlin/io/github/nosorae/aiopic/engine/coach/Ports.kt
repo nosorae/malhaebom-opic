@@ -32,6 +32,9 @@ sealed interface TransportEvent {
 
     data class ToolCall(val id: String, val name: String, val args: JsonObject) : TransportEvent
 
+    /** 코치의 한 턴(음성, 받아쓰기, 사용량)이 끝났다. */
+    data object TurnComplete : TransportEvent
+
     /** 사용자가 끼어들어 코치가 말을 멈췄다. */
     data object Interrupted : TransportEvent
 

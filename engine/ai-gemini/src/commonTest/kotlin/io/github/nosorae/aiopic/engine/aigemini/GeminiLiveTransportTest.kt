@@ -48,13 +48,14 @@ class GeminiLiveTransportTest {
     private fun setup(index: Int = 0) = Json.parseToJsonElement(sockets[index].sent.first()).jsonObject["setup"]!!.jsonObject
 
     @Test
-    fun `받아쓰기와 도구 호출과 끼어들기와 핸들을 코치 이벤트로 바꾼다`() = runTest {
+    fun `받아쓰기와 도구 호출과 끼어들기와 턴 끝과 핸들을 코치 이벤트로 바꾼다`() = runTest {
         val events = collect {
             server("""{"setupComplete":{}}""")
             server("""{"serverContent":{"inputTranscription":{"text":"I went"}}}""")
             server("""{"serverContent":{"outputTranscription":{"text":"Where?"}}}""")
             server("""{"toolCall":{"functionCalls":[{"id":"t1","name":"save_material","args":{"kind":"place"}}]}}""")
             server("""{"serverContent":{"interrupted":true}}""")
+            server("""{"serverContent":{"turnComplete":true}}""")
             server("""{"sessionResumptionUpdate":{"newHandle":"h1","resumable":true}}""")
         }
 
@@ -64,6 +65,7 @@ class GeminiLiveTransportTest {
                 TransportEvent.CoachSaid("Where?"),
                 TransportEvent.ToolCall("t1", "save_material", buildJsonObject { put("kind", "place") }),
                 TransportEvent.Interrupted,
+                TransportEvent.TurnComplete,
                 TransportEvent.ResumeHandle("h1"),
             ),
             events,

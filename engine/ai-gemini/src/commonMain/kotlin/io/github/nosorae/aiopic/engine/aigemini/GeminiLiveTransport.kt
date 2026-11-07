@@ -46,6 +46,8 @@ class GeminiLiveTransport(
 
                 LiveEvent.Interrupted -> emit(TransportEvent.Interrupted)
 
+                LiveEvent.TurnComplete -> emit(TransportEvent.TurnComplete)
+
                 is LiveEvent.ResumeHandle -> emit(TransportEvent.ResumeHandle(event.handle))
 
                 is LiveEvent.Usage -> emit(TransportEvent.Usage(usage.next(TokenUsage(event.promptByModality.modalities(), event.responseByModality.modalities()))))
@@ -54,8 +56,8 @@ class GeminiLiveTransport(
 
                 is LiveEvent.Failed -> emit(TransportEvent.Disconnected(if (event.status == 429) TransportEvent.Disconnected.RATE_LIMITED else TransportEvent.Disconnected.NETWORK))
 
-                // 핸들 만료는 엔진이 먼저 걸러 새 대화로 연다. 도구 취소, 턴 끝, GoAway 는 엔진이 할 일이 없다.
-                LiveEvent.ResumeExpired, is LiveEvent.ToolCallCancelled, LiveEvent.TurnComplete, is LiveEvent.GoAway -> Unit
+                // 핸들 만료는 엔진이 먼저 걸러 새 대화로 연다. 도구 취소, GoAway 는 엔진이 할 일이 없다.
+                LiveEvent.ResumeExpired, is LiveEvent.ToolCallCancelled, is LiveEvent.GoAway -> Unit
             }
         }
     }

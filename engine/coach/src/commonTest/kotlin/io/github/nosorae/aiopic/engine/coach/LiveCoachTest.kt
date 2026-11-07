@@ -126,10 +126,59 @@ class LiveCoachTest {
 
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("a cafe")))
         transport.server(TransportEvent.ToolCall("t2", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        transport.server(TransportEvent.TurnComplete)
         runCurrent()
 
         assertEquals("Express.\n\nNotes so far:\nplace: a cafe", transport.connects.last().instruction)
         assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_5 코치가 단계를 넘기면 그 턴의 음성과 사용량을 앞 단계로 받은 뒤 턴이 끝나면 새로 연결한다`() = test { db ->
+        val coach = started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        transport.server(TransportEvent.CoachSaid("Let's practice."))
+        transport.server(TransportEvent.Usage(TokenUsage(output = mapOf(Modality.Audio to 50))))
+        runCurrent()
+        val connectsDuringTurn = transport.connects.size
+        transport.server(TransportEvent.TurnComplete)
+        runCurrent()
+        val state = coach.state.value!!
+
+        assertEquals(1, connectsDuringTurn)
+        assertEquals(2, transport.connects.size)
+        assertEquals(CoachPhase.Express, state.phase)
+        assertEquals(listOf(Line(CoachPhase.Explore, Speaker.Coach, "Let's practice.")), state.lines)
+        assertEquals(TokenUsage(output = mapOf(Modality.Audio to 50)), state.usage[CoachPhase.Explore])
+    }
+
+    @Test
+    fun `F11_5 단계를 넘긴 턴이 8초 안에 끝나지 않으면 그때 새로 연결한다`() = test { db ->
+        started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        advanceTimeBy(7.seconds)
+        runCurrent()
+        val connectsBefore = transport.connects.size
+        advanceTimeBy(1.seconds)
+        runCurrent()
+
+        assertEquals(1, connectsBefore)
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_5 코치가 단계를 넘긴 턴 중에 사용자가 다음 단계를 누르면 한 단계만 넘어간다`() = test { db ->
+        val coach = started(db)
+
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
+        runCurrent()
+        coach.nextPhase()
+        advanceTimeBy(10.seconds)
+        runCurrent()
+
+        assertEquals(CoachPhase.Express, coach.state.value?.phase)
     }
 
     @Test
