@@ -1,5 +1,6 @@
 package io.github.nosorae.aiopic.ui.featurepractice
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -51,6 +52,23 @@ class PracticeRecordingScreenshotTest {
 
         rule.onNodeWithText("We stayed", substring = true).assertDoesNotExist()
     }
+
+    /** F14.5 AL 길이 스크립트도 녹음 상태와 목소리 띠를 화면 밖으로 밀지 않는다. 스크립트는 칸 안에서 스크롤한다. */
+    @Config(fontScale = 2f)
+    @Test
+    fun `F14_5 긴 스크립트를 펴도 녹음 상태가 화면 안에 보인다`() {
+        still(PracticeSamples.longScriptRecording, capture = false)
+
+        rule.onNodeWithText("녹음 중", substring = true).assertIsDisplayed()
+    }
+
+    @Test fun longScriptRecording() = still(PracticeSamples.longScriptRecording)
+
+    @Test fun longScriptRecording_dark() = still(PracticeSamples.longScriptRecording, dark = true)
+
+    @Config(fontScale = 2f)
+    @Test
+    fun longScriptRecording_fontScale200() = still(PracticeSamples.longScriptRecording)
 
     /** 물결은 점이 모인 장면이 보이게 [millis] 만큼 넘긴다. 0 이면 첫 장면이다. */
     private fun still(state: PracticeUiState, dark: Boolean = false, millis: Long = 0, capture: Boolean = true) {
