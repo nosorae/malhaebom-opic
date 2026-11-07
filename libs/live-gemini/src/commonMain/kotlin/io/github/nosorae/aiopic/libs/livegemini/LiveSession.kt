@@ -3,6 +3,8 @@ package io.github.nosorae.aiopic.libs.livegemini
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.ProducerScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.channelFlow
@@ -78,12 +80,17 @@ public class LiveSession(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                send(LiveEvent.Failed((e as? LiveConnectException)?.status, e.message.orEmpty()))
+                send(LiveEvent.Failed((e as? LiveConnectException)?.status, hideKey(e.message)))
                 return@channelFlow
             }
             val reconnect = try {
                 socket.send(setup(config, handle).toString())
                 read(socket, resuming = handle != null)
+            } catch (e: Exception) {
+                // 망이 끊기면 엔진이 받기 채널을 예외로 닫는다. 엔진에 따라 취소 예외로 오기도 해서, 모으는 쪽이 멈춘 것이 아니면 끊김으로 본다.
+                ensureActive()
+                send(LiveEvent.Disconnected(null, hideKey(e.message)))
+                false
             } finally {
                 ready.value = null
                 // 모으기를 멈춰 취소된 뒤에도 닫기 프레임은 보내야 서버가 연결을 바로 놓는다.
@@ -125,32 +132,34 @@ public class LiveSession(
     private suspend fun sendRealtime(body: JsonObjectBuilder.() -> Unit) = sendJson(buildJsonObject { putJsonObject("realtimeInput", body) })
 
     // ponytail: 연결 전과 다시 여는 1초 남짓 동안 보낸 것은 버린다. 도구 응답을 잃는 일이 생기면 그때 쌓아 뒀다 보낸다.
+    // 끊긴 소켓에 보내다 난 예외도 같은 규칙으로 버린다. 끊김은 받는 쪽이 알린다.
     private suspend fun sendJson(message: JsonObject) {
-        ready.value?.send(message.toString())
+        try {
+            ready.value?.send(message.toString())
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+        }
     }
 
     /** 연결이 끝날 때까지 읽는다. GoAway 뒤 이어 붙일 핸들이 있으면 true 를 돌려 새 연결을 열게 한다. */
     private suspend fun ProducerScope<LiveEvent>.read(socket: LiveSocket, resuming: Boolean): Boolean {
         while (true) {
             val text = socket.receive() ?: break
+            // 모양이 다른 메시지 하나(빠진 필드, 깨진 base64)는 버리고 다음 메시지를 읽는다.
             val message = runCatching { Json.parseToJsonElement(text).jsonObject }.getOrNull() ?: continue
+            val events = runCatching { events(message) }.getOrNull() ?: continue
             if ("setupComplete" in message) {
                 ready.value = socket
                 send(if (resuming) LiveEvent.Resumed else LiveEvent.Connected)
             }
-            message["sessionResumptionUpdate"]?.jsonObject?.let { update ->
-                val newHandle = update["newHandle"]?.jsonPrimitive?.contentOrNull
-                // resumable 이 false 면 handle 이 비어 온다. 앞서 받은 핸들은 그대로 쓸 수 있어 지우지 않는다.
-                if (update["resumable"]?.jsonPrimitive?.booleanOrNull == true && !newHandle.isNullOrEmpty()) {
-                    handle = newHandle
+            for (event in events) {
+                if (event is LiveEvent.ResumeHandle) {
+                    handle = event.handle
                     handleAt = clock.now()
-                    send(LiveEvent.ResumeHandle(newHandle))
                 }
+                send(event)
             }
-            events(message).forEach { send(it) }
-            val goAway = message["goAway"]?.jsonObject ?: continue
-            send(LiveEvent.GoAway(parseDuration(goAway["timeLeft"]?.jsonPrimitive?.contentOrNull)))
-            if (handle != null) return true
+            if (events.any { it is LiveEvent.GoAway } && handle != null) return true
         }
         send(socket.closeReason ?: LiveEvent.Disconnected(null, ""))
         return false
@@ -186,8 +195,13 @@ public class LiveSession(
     }
 }
 
-/** 서버 메시지 하나를 바깥에 알릴 일로 바꾼다. 한 메시지에 여러 필드가 함께 온다. */
+/** 서버 메시지 하나를 바깥에 알릴 일로 바꾼다. 한 메시지에 여러 필드가 함께 온다. 모양이 다르면 예외를 던진다. */
 private fun events(message: JsonObject): List<LiveEvent> = buildList {
+    message["sessionResumptionUpdate"]?.jsonObject?.let { update ->
+        val newHandle = update["newHandle"]?.jsonPrimitive?.contentOrNull
+        // resumable 이 false 면 handle 이 비어 온다. 앞서 받은 핸들은 그대로 쓸 수 있어 지우지 않는다.
+        if (update["resumable"]?.jsonPrimitive?.booleanOrNull == true && !newHandle.isNullOrEmpty()) add(LiveEvent.ResumeHandle(newHandle))
+    }
     message["serverContent"]?.jsonObject?.let { content ->
         content["modelTurn"]?.jsonObject?.get("parts")?.jsonArray?.forEach { part ->
             part.jsonObject["inlineData"]?.jsonObject?.get("data")?.jsonPrimitive?.contentOrNull?.let { add(LiveEvent.AudioChunk(Base64.decode(it))) }
@@ -212,7 +226,11 @@ private fun events(message: JsonObject): List<LiveEvent> = buildList {
             ),
         )
     }
+    message["goAway"]?.jsonObject?.let { add(LiveEvent.GoAway(parseDuration(it["timeLeft"]?.jsonPrimitive?.contentOrNull))) }
 }
+
+/** 엔진 예외 글에 연결 주소가 실려 올 수 있다(Darwin). 키가 화면이나 기록에 남지 않게 key 쿼리를 지운다. */
+private fun hideKey(message: String?) = message.orEmpty().replace(Regex("""[?&]key=[^&\s'"]*"""), "")
 
 private fun JsonObject.text(key: String) = get(key)?.jsonObject?.get("text")?.jsonPrimitive?.contentOrNull
 

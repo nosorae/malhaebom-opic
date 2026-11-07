@@ -264,6 +264,43 @@ class LiveSessionTest {
     }
 
     @Test
+    fun `받다가 망이 끊겨 예외가 나면 키를 지운 이유로 끊김을 내고 끝난다`() = runTest {
+        val events = collect { sockets[0].serverFail(IllegalStateException("closed wss://host/ws?key=test-key")) }
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.Disconnected(null, "closed wss://host/ws")), events)
+    }
+
+    @Test
+    fun `열지 못한 이유에서 키를 지운다`() = runTest {
+        val failing = LiveSession(open = { throw LiveConnectException(null, "failed wss://host/ws?key=test-key&alt=1") }, clock = clock)
+
+        val events = failing.connect("test-key", config).toList()
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.Failed(null, "failed wss://host/ws&alt=1")), events)
+    }
+
+    @Test
+    fun `보내다 예외가 나도 던지지 않고 버린다`() = runTest {
+        collect {
+            sockets[0].server("""{"setupComplete":{}}""")
+            sockets[0].sendError = IllegalStateException("broken pipe")
+
+            session.sendAudio(byteArrayOf(1))
+        }
+    }
+
+    @Test
+    fun `읽지 못하는 메시지 하나는 버리고 다음 메시지를 읽는다`() = runTest {
+        val events = collect {
+            sockets[0].server("""{"usageMetadata":{"promptTokensDetails":[{"tokenCount":1}]}}""")
+            sockets[0].server("""{"serverContent":{"modelTurn":{"parts":[{"inlineData":{"data":"not base64!"}}]}}}""")
+            sockets[0].server("""{"serverContent":{"turnComplete":true}}""")
+        }
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.TurnComplete), events)
+    }
+
+    @Test
     fun `모으기를 멈추면 연결을 닫는다`() = runTest {
         collect { }
 
@@ -274,11 +311,16 @@ class LiveSessionTest {
 private class FakeSocket : LiveSocket {
     val sent = mutableListOf<String>()
     var closedByClient = false
+    var sendError: Exception? = null
     private val frames = Channel<String>(Channel.UNLIMITED)
     override var closeReason: LiveEvent.Disconnected? = null
 
     fun server(text: String) {
         frames.trySend(text)
+    }
+
+    fun serverFail(error: Exception) {
+        frames.close(error)
     }
 
     fun serverClose(code: Int, reason: String) {
@@ -287,10 +329,12 @@ private class FakeSocket : LiveSocket {
     }
 
     override suspend fun send(text: String) {
+        sendError?.let { throw it }
         sent += text
     }
 
-    override suspend fun receive(): String? = frames.receiveCatching().getOrNull()
+    /** 원인 없이 닫히면 null, 원인을 담아 닫히면 그 예외를 던진다. */
+    override suspend fun receive(): String? = frames.receiveCatching().let { result -> result.exceptionOrNull()?.let { throw it } ?: result.getOrNull() }
 
     override suspend fun close() {
         closedByClient = true
