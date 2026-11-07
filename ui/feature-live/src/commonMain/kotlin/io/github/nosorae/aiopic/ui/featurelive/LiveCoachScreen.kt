@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -79,11 +80,14 @@ import io.github.nosorae.aiopic.ui.design.Res as DesignRes
 
 /**
  * 대화 화면의 바깥 겹. 동의가 있으면 마이크 권한을 받고 세션을 연다. 앱이 뒤로 가면 멈추고 돌아오면 이어 간다(F11.8).
- * [onExit] 는 화면을 닫는다. 세션은 저장돼 있어 다시 들어오면 이어 간다.
+ * [onExit] 는 화면을 닫는다. 세션은 저장돼 있어 다시 들어오면 이어 간다. 세션이 끝나면(30분 또는 피드백 끝) [onFinish] 로 스크립트 화면을 연다(F14.1).
  */
 @Composable
-fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: Modifier = Modifier) {
+fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, onFinish: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val finished = state.coach?.status == CoachStatus.Finished
+    val currentOnFinish by rememberUpdatedState(onFinish)
+    LaunchedEffect(finished) { if (finished) currentOnFinish() }
     val requestMic = rememberMicPermission()
     LaunchedEffect(state.consented) {
         if (state.consented == true) viewModel.onIntent(if (requestMic()) LiveCoachIntent.Connect else LiveCoachIntent.MicDenied)

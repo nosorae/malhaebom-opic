@@ -187,7 +187,7 @@ class ExamE2eIosTest {
             assertEquals(listOf("s1"), second.viewModel<HistoryViewModel> { historyViewModel }.uiState.first { !it.loading }.sessions.map { it.session.id })
 
             // 한 문항 연습(F4): 답을 내면 그 답변 리포트로 가고 분석이 붙는다
-            val practice = second.viewModel { practiceViewModelFactory.create("p1") }
+            val practice = second.viewModel { practiceViewModelFactory.create("p1", null, null) }
             practice.uiState.first { it.canPlay }
             practice.onIntent(PracticeIntent.PlayQuestion)
             practice.uiState.first { it.phase == PracticePhase.Recording && it.voiceLevel > 0f }
