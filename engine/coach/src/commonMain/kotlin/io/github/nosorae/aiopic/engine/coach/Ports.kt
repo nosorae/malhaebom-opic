@@ -53,6 +53,12 @@ sealed interface TransportEvent {
             /** 넣어 둔 키가 없다. */
             const val NO_KEY = "no_key"
 
+            /** 서버가 키를 받지 않았다. */
+            const val INVALID_KEY = "invalid_key"
+
+            /** 서버가 Live 모델을 찾지 못했다. */
+            const val MODEL_UNAVAILABLE = "model_unavailable"
+
             const val NETWORK = "network"
 
             /** 마이크를 열지 못했다(권한, 다른 앱이 쓰는 중). 엔진이 낸다. */
