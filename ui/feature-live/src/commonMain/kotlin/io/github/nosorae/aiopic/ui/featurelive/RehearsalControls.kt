@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import io.github.nosorae.aiopic.engine.coach.CoachPhase
 import io.github.nosorae.aiopic.ui.design.MontageButton
+import io.github.nosorae.aiopic.ui.design.MontageButtonType
+import io.github.nosorae.aiopic.ui.design.MontageButtonVariant
 import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
@@ -20,7 +22,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * 리허설 단계의 아래쪽(F13.1). 코치 연결이 닫혀 있어 대화 버튼 대신 녹음 시작, 녹음 중 목소리 띠와 시간과 끝내기, 받아쓰는 중, 실패 이유와 다시 하기를 보인다.
+ * 리허설 단계의 아래쪽(F13.1). 코치 연결이 닫혀 있어 대화 버튼 대신 녹음 시작, 녹음 중 목소리 띠와 시간과 끝내기, 받아쓰는 중, 실패 이유와 다시 하기, 리허설 건너뛰기를 보인다.
  * 소재 메모와 표현 카드는 위쪽 대화 화면에 그대로 있다.
  */
 @Composable
@@ -53,6 +55,16 @@ internal fun RehearsalControls(state: RehearsalUiState, onIntent: (LiveCoachInte
             else -> Res.string.live_rehearse_start to RehearsalIntent.StartRecording
         }
         MontageButton(text = stringResource(text), onClick = { intent?.let(onIntent) }, loading = intent == null, modifier = Modifier.fillMaxWidth())
+        // 받아쓰기가 계속 실패하거나 리허설을 하기 싫을 때 빠져나간다. 첫 리허설이면 스크립트 정리로, 두 번째면 피드백으로 간다(F13.3).
+        if (state.step == RehearsalStep.Ready) {
+            MontageButton(
+                text = stringResource(Res.string.live_rehearse_skip),
+                onClick = { onIntent(LiveCoachIntent.NextPhase) },
+                modifier = Modifier.fillMaxWidth(),
+                variant = MontageButtonVariant.Outlined,
+                type = MontageButtonType.Assistive,
+            )
+        }
     }
 }
 

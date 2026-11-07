@@ -14,4 +14,5 @@
     <string name="live_rehearse_error_key">API 키가 없거나 맞지 않아 받아쓰지 못했습니다. 설정에서 키를 확인한 뒤 다시 받아쓰기를 누르세요.</string>
     <string name="live_rehearse_error_transcript">받아쓰기를 받지 못했습니다. 녹음은 남아 있습니다. 연결을 확인하고 다시 받아쓰기를 누르세요.</string>
     <string name="live_rehearse_again">한 번 더 리허설</string>
+    <string name="live_rehearse_skip">리허설 건너뛰기</string>
 </resources>

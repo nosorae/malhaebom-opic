@@ -95,7 +95,6 @@ class TranscribeRehearsalUseCase(private val files: RehearsalFiles) {
             is AnalysisResult.Failed -> return if (result.error == AnalysisError.InvalidKey) RehearsalError.InvalidKey else RehearsalError.TranscriptFailed
         }
         coach.rehearsed(text)
-        coach.nextPhase()
         files.clear(directory)
         return null
     }

@@ -291,6 +291,31 @@ class LiveCoachViewModelTest {
     }
 
     @Test
+    fun `F13_3 첫 리허설을 건너뛰면 피드백 없이 스크립트 정리로 간다`() = test { db ->
+        val viewModel = rehearsing(db)
+
+        viewModel.onIntent(LiveCoachIntent.NextPhase)
+        runCurrent()
+
+        assertEquals(CoachPhase.Script to CoachStatus.Finished, viewModel.uiState.value.coach?.let { it.phase to it.status })
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F13_3 두 번째 리허설을 건너뛰면 첫 받아쓰기로 피드백 단계에 다시 연결한다`() = test { db ->
+        val viewModel = rehearsing(db)
+        rehearse(viewModel)
+        viewModel.onIntent(RehearsalIntent.RehearseAgain)
+        runCurrent()
+
+        viewModel.onIntent(LiveCoachIntent.NextPhase)
+        runCurrent()
+
+        assertEquals(CoachPhase.Feedback to listOf("I went to Busan."), viewModel.uiState.value.coach?.let { it.phase to it.rehearsals })
+        assertEquals(4, transport.connects.size)
+    }
+
+    @Test
     fun `마이크를 못 열면 이유를 보이고 녹음 중이 되지 않는다`() = test { db ->
         recorder.micAvailable = false
         val viewModel = rehearsing(db)
