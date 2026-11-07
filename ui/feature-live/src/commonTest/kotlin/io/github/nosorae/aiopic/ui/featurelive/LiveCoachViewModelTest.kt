@@ -74,21 +74,27 @@ class LiveCoachViewModelTest {
         scope = scope,
     )
 
-    private fun TestScope.viewModel(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files) = LiveCoachViewModel(
-        sessionId = "c1",
-        questionId = "q1",
-        question = "Tell me about a trip.",
-        targetGrade = "IH",
-        checkLiveConsentUseCase = CheckLiveConsentUseCase(consent),
-        giveLiveConsentUseCase = GiveLiveConsentUseCase(consent),
-        openCoachUseCase = OpenCoachUseCase { _, _, scope -> coach(db, scope) },
-        observeCoachLevelsUseCase = ObserveCoachLevelsUseCase(audio),
-        startRehearsalUseCase = StartRehearsalUseCase(recorder, files),
-        stopRehearsalUseCase = StopRehearsalUseCase(recorder),
-        transcribeRehearsalUseCase = TranscribeRehearsalUseCase(files),
-        observeRehearsalLevelUseCase = ObserveRehearsalLevelUseCase(recorder),
-        timer = MonotonicTimer { testScheduler.currentTime.milliseconds },
-    ).also { backgroundScope.coroutineContext[Job]!!.invokeOnCompletion { _ -> it.viewModelScope.cancel() } }
+    private fun TestScope.viewModel(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files): LiveCoachViewModel {
+        val running = RunningCoach { _, _, scope -> coach(db, scope) }
+        val transcribe = TranscribeRehearsalUseCase(files, running)
+        return LiveCoachViewModel(
+            sessionId = "c1",
+            questionId = "q1",
+            question = "Tell me about a trip.",
+            targetGrade = "IH",
+            checkLiveConsentUseCase = CheckLiveConsentUseCase(consent),
+            giveLiveConsentUseCase = GiveLiveConsentUseCase(consent),
+            openCoachUseCase = OpenCoachUseCase(running),
+            applyCoachEventUseCase = ApplyCoachEventUseCase(running),
+            observeCoachLevelsUseCase = ObserveCoachLevelsUseCase(audio),
+            startRehearsalUseCase = StartRehearsalUseCase(recorder, files),
+            stopRehearsalUseCase = StopRehearsalUseCase(recorder),
+            finishRehearsalUseCase = FinishRehearsalUseCase(StopRehearsalUseCase(recorder), transcribe),
+            transcribeRehearsalUseCase = transcribe,
+            observeRehearsalLevelUseCase = ObserveRehearsalLevelUseCase(recorder),
+            timer = MonotonicTimer { testScheduler.currentTime.milliseconds },
+        ).also { backgroundScope.coroutineContext[Job]!!.invokeOnCompletion { _ -> it.viewModelScope.cancel() } }
+    }
 
     private fun TestScope.connected(db: OpicDatabase, files: RehearsalFiles = this@LiveCoachViewModelTest.files) = viewModel(db, files).also {
         runCurrent()
@@ -299,6 +305,19 @@ class LiveCoachViewModelTest {
 
         assertEquals(CoachPhase.Script to CoachStatus.Finished, viewModel.uiState.value.coach?.let { it.phase to it.status })
         assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F14_1 세션이 끝나면 스크립트로 가는 이동을 남기고 화면이 처리하면 지운다`() = test { db ->
+        val viewModel = rehearsing(db)
+        viewModel.onIntent(LiveCoachIntent.NextPhase)
+        runCurrent()
+        assertEquals(LiveCoachDestination.Script, viewModel.uiState.value.navigation)
+
+        viewModel.onIntent(LiveCoachIntent.NavigationHandled)
+        runCurrent()
+
+        assertNull(viewModel.uiState.value.navigation)
     }
 
     @Test

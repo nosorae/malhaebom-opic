@@ -14,16 +14,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -54,6 +50,7 @@ import io.github.nosorae.aiopic.engine.coach.TALK_WARNING
 import io.github.nosorae.aiopic.engine.coach.TokenUsage
 import io.github.nosorae.aiopic.engine.coach.TransportEvent
 import io.github.nosorae.aiopic.engine.coach.canRehearseAgain
+import io.github.nosorae.aiopic.ui.design.MontageBottomSheet
 import io.github.nosorae.aiopic.ui.design.MontageButton
 import io.github.nosorae.aiopic.ui.design.MontageButtonSize
 import io.github.nosorae.aiopic.ui.design.MontageButtonType
@@ -73,7 +70,6 @@ import io.github.nosorae.aiopic.ui.design.icon_normal_close
 import io.github.nosorae.aiopic.ui.design.rememberMicPermission
 import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -87,9 +83,13 @@ import io.github.nosorae.aiopic.ui.design.Res as DesignRes
 @Composable
 fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, onFinish: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val finished = state.coach?.status == CoachStatus.Finished
     val currentOnFinish by rememberUpdatedState(onFinish)
-    LaunchedEffect(finished) { if (finished) currentOnFinish() }
+    LaunchedEffect(state.navigation) {
+        if (state.navigation == LiveCoachDestination.Script) {
+            currentOnFinish()
+            viewModel.onIntent(LiveCoachIntent.NavigationHandled)
+        }
+    }
     val requestMic = rememberMicPermission()
     LaunchedEffect(state.consented) {
         if (state.consented == true) viewModel.onIntent(if (requestMic()) LiveCoachIntent.Connect else LiveCoachIntent.MicDenied)
@@ -119,6 +119,9 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
             onDismiss = { editing = null },
         )
     }
+    val onPause = { onIntent(LiveCoachIntent.Pause) }
+    val onResume = { onIntent(LiveCoachIntent.Resume) }
+    val onNextPhase = { onIntent(LiveCoachIntent.NextPhase) }
     MontageScreen(
         modifier = modifier,
         topBar = {
@@ -129,8 +132,16 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
         bottomBar = {
             when {
                 coach == null || coach.status == CoachStatus.Finished -> Unit
-                coach.phase == CoachPhase.Rehearse -> RehearsalControls(state.rehearsal, onIntent)
-                else -> TalkControls(state, coach, onIntent)
+
+                coach.phase == CoachPhase.Rehearse -> RehearsalControls(
+                    state.rehearsal,
+                    onStart = { onIntent(RehearsalIntent.StartRecording) },
+                    onStop = { onIntent(RehearsalIntent.StopRecording) },
+                    onRetry = { onIntent(RehearsalIntent.RetryTranscript) },
+                    onSkip = onNextPhase,
+                )
+
+                else -> TalkControls(state, coach, onRehearseAgain = { onIntent(RehearsalIntent.RehearseAgain) }, onPause = onPause, onResume = onResume, onNextPhase = onNextPhase)
             }
         },
     ) {
@@ -144,13 +155,19 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
             // 바깥 겹이 스크립트 화면으로 바꾸기 전 한 프레임 남짓 보인다. 스크립트는 스크립트 화면이 만든다.
             coach.status == CoachStatus.Finished -> Waiting(stringResource(Res.string.live_script_wait))
 
-            else -> Conversation(state.question, coach, onIntent, onEdit = { editing = it })
+            else -> Conversation(
+                state.question,
+                coach,
+                onReconnect = onResume,
+                onEditMaterial = { kind, text -> editing = Edit(kind.label, text) { LiveCoachIntent.EditMaterial(kind, it) } },
+                onEditExpression = { index, english -> editing = Edit(Res.string.live_expressions, english) { LiveCoachIntent.EditExpression(index, it) } },
+            )
         }
     }
 }
 
 @Composable
-private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoachIntent) -> Unit, onEdit: (Edit) -> Unit) {
+private fun Conversation(question: String, coach: CoachState, onReconnect: () -> Unit, onEditMaterial: (MaterialKind, String) -> Unit, onEditExpression: (Int, String) -> Unit) {
     val list = rememberLazyListState()
     // 받아쓰기가 대화의 중심이라 처음 열면 맨 아래 최근 줄을 보인다. 끝을 보고 있을 때 새 말이 들어오면 따라 내려가고,
     // 위로 올려 메모를 읽는 중이면 끌어내리지 않는다.
@@ -178,7 +195,7 @@ private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoa
             else -> null
         }
         coach.disconnected?.let { reason ->
-            Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = { onIntent(LiveCoachIntent.Resume) })
+            Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = onReconnect)
         }
         notice?.let { Notice(stringResource(it)) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
@@ -198,18 +215,17 @@ private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoa
                 item { SectionTitle(stringResource(Res.string.live_materials)) }
                 itemsIndexed(MaterialKind.entries) { _, kind ->
                     val text = coach.materials.filter { it.kind == kind }.joinToString(", ") { it.text }
-                    val title = kind.label
                     MontageListCell(
-                        title = stringResource(title),
+                        title = stringResource(kind.label),
                         caption = text.ifEmpty { stringResource(Res.string.live_material_empty) },
                         chevron = true,
-                        onClick = { onEdit(Edit(title, text) { LiveCoachIntent.EditMaterial(kind, it) }) },
+                        onClick = { onEditMaterial(kind, text) },
                     )
                 }
                 item { SectionTitle(stringResource(Res.string.live_expressions)) }
                 if (coach.expressions.isEmpty()) item { Body(stringResource(Res.string.live_expressions_empty)) }
                 itemsIndexed(coach.expressions) { index, expression ->
-                    ExpressionCard(expression, onClick = { onEdit(Edit(Res.string.live_expressions, expression.english) { LiveCoachIntent.EditExpression(index, it) }) })
+                    ExpressionCard(expression, onClick = { onEditExpression(index, expression.english) })
                 }
             }
             if (!rehearsing) {
@@ -271,7 +287,7 @@ private fun CostLine(costUsd: Double) {
 
 /** 지금 말하는 쪽의 목소리 띠와 "잠깐 생각할게요", "다음 단계" 버튼. 연결이 열려 있을 때만 띠를 보인다. 피드백 단계에서 리허설이 두 번 미만이면 "한 번 더 리허설" 도 보인다(F13.3). */
 @Composable
-private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onIntent: (LiveCoachIntent) -> Unit) {
+private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onRehearseAgain: () -> Unit, onPause: () -> Unit, onResume: () -> Unit, onNextPhase: () -> Unit) {
     val talking = coach.status == CoachStatus.Active && coach.disconnected == null
     Column(Modifier.padding(horizontal = Gutter, vertical = MontageSpacing.spacing12), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
         if (talking) {
@@ -286,7 +302,7 @@ private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onIntent: (
         if (coach.canRehearseAgain) {
             MontageButton(
                 text = stringResource(Res.string.live_rehearse_again),
-                onClick = { onIntent(RehearsalIntent.RehearseAgain) },
+                onClick = onRehearseAgain,
                 modifier = Modifier.fillMaxWidth(),
                 variant = MontageButtonVariant.Outlined,
                 type = MontageButtonType.Assistive,
@@ -298,13 +314,13 @@ private fun TalkControls(state: LiveCoachUiState, coach: CoachState, onIntent: (
         val buttons = @Composable { width: Modifier ->
             MontageButton(
                 text = stringResource(if (paused) Res.string.live_resume else Res.string.live_pause),
-                onClick = { onIntent(if (paused) LiveCoachIntent.Resume else LiveCoachIntent.Pause) },
+                onClick = if (paused) onResume else onPause,
                 modifier = width,
                 variant = MontageButtonVariant.Outlined,
                 type = MontageButtonType.Assistive,
                 enabled = coach.disconnected == null,
             )
-            MontageButton(text = stringResource(Res.string.live_next_phase), onClick = { onIntent(LiveCoachIntent.NextPhase) }, modifier = width)
+            MontageButton(text = stringResource(Res.string.live_next_phase), onClick = onNextPhase, modifier = width)
         }
         if (stacked) {
             Column(verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) { buttons(Modifier.fillMaxWidth()) }
@@ -409,20 +425,13 @@ private fun Body(text: String) {
 }
 
 /** 한 칸을 고치는 시트. 저장하면 고친 글을 넘긴다. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditSheet(title: String, initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var text by rememberSaveable { mutableStateOf(initial) }
-    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = MontageTheme.colors.surfaceElevatedPrimary) {
+    MontageBottomSheet(onDismissRequest = onDismiss) { close ->
         Column(Modifier.padding(horizontal = Gutter).padding(bottom = MontageSpacing.spacing16), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16)) {
             MontageTextField(value = text, onValueChange = { text = it }, title = title)
-            MontageButton(
-                text = stringResource(Res.string.live_edit_save),
-                onClick = { scope.launch { sheet.hide() }.invokeOnCompletion { onSave(text) } },
-                modifier = Modifier.fillMaxWidth(),
-            )
+            MontageButton(text = stringResource(Res.string.live_edit_save), onClick = { close { onSave(text) } }, modifier = Modifier.fillMaxWidth())
         }
     }
 }

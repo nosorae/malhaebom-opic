@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
 import dev.zacsweers.metro.AssistedInject
+import io.github.nosorae.aiopic.engine.coach.CoachEvent
 import io.github.nosorae.aiopic.engine.coach.CoachState
 import io.github.nosorae.aiopic.engine.coach.CoachStatus
 import io.github.nosorae.aiopic.engine.coach.Expression
-import io.github.nosorae.aiopic.engine.coach.LiveCoach
 import io.github.nosorae.aiopic.engine.coach.MaterialKind
 import io.github.nosorae.aiopic.libs.timer.api.MonotonicTimer
 import kotlinx.coroutines.Job
@@ -38,9 +38,17 @@ data class LiveCoachUiState(
     val micLevel: Float = 0f,
     val playbackLevel: Float = 0f,
     val rehearsal: RehearsalUiState = RehearsalUiState(),
+    /** 세션이 끝나 스크립트 화면으로 간다(30분, 피드백 끝, 리허설 없이 넘김). 화면이 옮긴 뒤 [LiveCoachIntent.NavigationHandled] 로 지운다. */
+    val navigation: LiveCoachDestination? = null,
 ) {
     /** 코치 목소리가 나오는 중이면 코치 쪽 띠를, 아니면 내 쪽 띠를 보인다(F12.1). */
     val coachSpeaking: Boolean get() = playbackLevel > 0f
+}
+
+/** 저장이 끝나야 가는 이동만 상태로 둔다(ADR 0009). */
+sealed interface LiveCoachDestination {
+    /** 세션이 끝났다. 스크립트 화면을 연다(F14.1). */
+    data object Script : LiveCoachDestination
 }
 
 sealed interface LiveCoachIntent {
@@ -69,6 +77,8 @@ sealed interface LiveCoachIntent {
 
     /** [index] 번째 표현 카드의 영어 표현을 고친다. 한 말과 등급은 코치가 정한 그대로 둔다. */
     data class EditExpression(val index: Int, val english: String) : LiveCoachIntent
+
+    data object NavigationHandled : LiveCoachIntent
 }
 
 /**
@@ -85,9 +95,11 @@ class LiveCoachViewModel(
     private val checkLiveConsentUseCase: CheckLiveConsentUseCase,
     private val giveLiveConsentUseCase: GiveLiveConsentUseCase,
     private val openCoachUseCase: OpenCoachUseCase,
+    private val applyCoachEventUseCase: ApplyCoachEventUseCase,
     observeCoachLevelsUseCase: ObserveCoachLevelsUseCase,
     private val startRehearsalUseCase: StartRehearsalUseCase,
     private val stopRehearsalUseCase: StopRehearsalUseCase,
+    private val finishRehearsalUseCase: FinishRehearsalUseCase,
     private val transcribeRehearsalUseCase: TranscribeRehearsalUseCase,
     private val observeRehearsalLevelUseCase: ObserveRehearsalLevelUseCase,
     private val timer: MonotonicTimer,
@@ -96,7 +108,6 @@ class LiveCoachViewModel(
     val uiState: StateFlow<LiveCoachUiState> = _uiState.asStateFlow()
 
     private var opening: Job? = null
-    private var coach: LiveCoach? = null
 
     /** 앱이 뒤로 가며 멈췄다. 사용자가 멈춘 것은 앱이 돌아와도 이어 가지 않는다. */
     private var pausedByApp = false
@@ -123,31 +134,29 @@ class LiveCoachViewModel(
 
             LiveCoachIntent.MicDenied -> _uiState.update { it.copy(micDenied = true) }
 
-            LiveCoachIntent.NextPhase -> run { it.nextPhase() }
+            LiveCoachIntent.NextPhase -> send(CoachEvent.NextPhase)
 
-            LiveCoachIntent.Pause -> run { it.pause() }
+            LiveCoachIntent.Pause -> send(CoachEvent.Paused)
 
-            LiveCoachIntent.Resume -> run { it.resume() }
+            LiveCoachIntent.Resume -> send(CoachEvent.Resumed)
 
-            LiveCoachIntent.LeaveApp -> run {
-                if (it.state.value?.status == CoachStatus.Active) {
-                    pausedByApp = true
-                    it.pause()
-                }
+            LiveCoachIntent.LeaveApp -> if (_uiState.value.coach?.status == CoachStatus.Active) {
+                pausedByApp = true
+                send(CoachEvent.Paused)
             }
 
-            LiveCoachIntent.ReturnToApp -> run {
-                if (pausedByApp) {
-                    pausedByApp = false
-                    it.resume()
-                }
+            LiveCoachIntent.ReturnToApp -> if (pausedByApp) {
+                pausedByApp = false
+                send(CoachEvent.Resumed)
             }
 
-            is LiveCoachIntent.EditMaterial -> run { it.editMaterial(intent.kind, intent.text) }
+            is LiveCoachIntent.EditMaterial -> send(CoachEvent.MaterialEdited(intent.kind, intent.text))
 
-            is LiveCoachIntent.EditExpression -> run { coach ->
-                coach.state.value?.expressions?.getOrNull(intent.index)?.let { coach.editExpression(intent.index, it.copy(english = intent.english.trim())) }
+            is LiveCoachIntent.EditExpression -> _uiState.value.coach?.expressions?.getOrNull(intent.index)?.let {
+                send(CoachEvent.ExpressionEdited(intent.index, it.copy(english = intent.english.trim())))
             }
+
+            LiveCoachIntent.NavigationHandled -> _uiState.update { it.copy(navigation = null) }
 
             is RehearsalIntent -> rehearse(intent)
         }
@@ -157,9 +166,13 @@ class LiveCoachViewModel(
         if (_uiState.value.consented != true || opening != null) return
         _uiState.update { it.copy(micDenied = false) }
         opening = viewModelScope.launch {
-            val opened = openCoachUseCase(sessionId, questionId, question, targetGrade, viewModelScope)
-            coach = opened
-            opened.state.filterNotNull().onEach { state -> _uiState.update { it.copy(coach = state) } }.launchIn(viewModelScope)
+            var finished = false
+            openCoachUseCase(sessionId, questionId, question, targetGrade, viewModelScope).collect { coach ->
+                // 끝난 것을 처음 볼 때 한 번만 스크립트로 보낸다. 끝난 세션은 더 바뀌지 않는다.
+                val justFinished = !finished && coach.status == CoachStatus.Finished
+                finished = finished || justFinished
+                _uiState.update { it.copy(coach = coach, navigation = if (justFinished) LiveCoachDestination.Script else it.navigation) }
+            }
         }
     }
 
@@ -169,25 +182,23 @@ class LiveCoachViewModel(
             RehearsalIntent.StartRecording -> if (step == RehearsalStep.Ready) startRecording()
 
             RehearsalIntent.StopRecording -> if (step == RehearsalStep.Recording) {
-                run { coach ->
-                    // 단계를 먼저 바꿔 녹음 일이 취소될 때 녹음기를 다시 멈추지 않게 한다.
-                    setRehearsal { RehearsalUiState(RehearsalStep.Transcribing) }
-                    recording?.cancel()
-                    stopRehearsalUseCase()?.let { error -> setRehearsal { RehearsalUiState(error = error) } } ?: transcribe(coach)
-                }
+                // 단계를 먼저 바꿔 녹음 일이 취소될 때 녹음기를 다시 멈추지 않게 한다.
+                setRehearsal { RehearsalUiState(RehearsalStep.Transcribing) }
+                recording?.cancel()
+                transcribe { finishRehearsalUseCase(sessionId) }
             }
 
-            RehearsalIntent.RetryTranscript -> if (_uiState.value.rehearsal.canRetryTranscript) run { transcribe(it) }
+            RehearsalIntent.RetryTranscript -> if (_uiState.value.rehearsal.canRetryTranscript) transcribe { transcribeRehearsalUseCase(sessionId) }
 
-            RehearsalIntent.RehearseAgain -> run { it.rehearseAgain() }
+            RehearsalIntent.RehearseAgain -> send(CoachEvent.RehearseAgain)
         }
     }
 
-    private fun startRecording() = run {
+    private fun startRecording() = viewModelScope.launch {
         setRehearsal { RehearsalUiState(RehearsalStep.Recording) }
         startRehearsalUseCase(sessionId)?.let { error ->
             setRehearsal { RehearsalUiState(error = error) }
-            return@run
+            return@launch
         }
         val startedAt = timer.elapsed()
         recording = viewModelScope.launch {
@@ -204,17 +215,19 @@ class LiveCoachViewModel(
         }
     }
 
-    private suspend fun transcribe(coach: LiveCoach) {
+    private fun transcribe(work: suspend () -> RehearsalError?) {
         setRehearsal { RehearsalUiState(RehearsalStep.Transcribing) }
-        val error = transcribeRehearsalUseCase(coach, sessionId)
-        setRehearsal { RehearsalUiState(error = error) }
+        viewModelScope.launch {
+            val error = work()
+            setRehearsal { RehearsalUiState(error = error) }
+        }
     }
 
     private fun setRehearsal(change: (RehearsalUiState) -> RehearsalUiState) = _uiState.update { it.copy(rehearsal = change(it.rehearsal)) }
 
-    private fun run(action: suspend (LiveCoach) -> Unit) {
-        val current = coach ?: return
-        viewModelScope.launch { action(current) }
+    private fun send(event: CoachEvent) {
+        if (_uiState.value.coach == null) return
+        viewModelScope.launch { applyCoachEventUseCase(sessionId, event) }
     }
 
     @AssistedFactory

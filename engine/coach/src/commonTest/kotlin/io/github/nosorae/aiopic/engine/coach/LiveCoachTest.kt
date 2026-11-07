@@ -174,7 +174,7 @@ class LiveCoachTest {
 
         transport.server(TransportEvent.ToolCall("t1", CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
         runCurrent()
-        coach.nextPhase()
+        coach.send(CoachEvent.NextPhase)
         advanceTimeBy(10.seconds)
         runCurrent()
 
@@ -185,11 +185,11 @@ class LiveCoachTest {
     fun `F13 리허설 단계에서는 연결을 닫고 리허설 받아쓰기를 피드백 지시에 넣는다`() = test { db ->
         val coach = started(db)
 
-        coach.nextPhase()
+        coach.send(CoachEvent.NextPhase)
         runCurrent()
-        coach.nextPhase()
+        coach.send(CoachEvent.NextPhase)
         runCurrent()
-        coach.rehearsed("I usually go to a cafe.")
+        coach.send(CoachEvent.Rehearsed("I usually go to a cafe."))
         runCurrent()
 
         assertEquals(listOf("Explore.", "Express.", "Feedback.\n\nNotes so far:\nrehearsal 1: I usually go to a cafe."), transport.connects.map { it.instruction })
@@ -200,16 +200,16 @@ class LiveCoachTest {
         val app = CoroutineScope(backgroundScope.coroutineContext + Job())
         val coach = started(db, app)
         repeat(2) {
-            coach.nextPhase()
+            coach.send(CoachEvent.NextPhase)
             runCurrent()
         }
-        coach.rehearsed("first")
+        coach.send(CoachEvent.Rehearsed("first"))
         runCurrent()
 
-        coach.rehearseAgain()
+        coach.send(CoachEvent.RehearseAgain)
         runCurrent()
         val closed = transport.connects.size
-        coach.rehearsed("second")
+        coach.send(CoachEvent.Rehearsed("second"))
         runCurrent()
         val saved = coach.state.value
         app.cancel()
@@ -225,9 +225,9 @@ class LiveCoachTest {
         val coach = started(db)
 
         advanceTimeBy(10.minutes)
-        coach.pause()
+        coach.send(CoachEvent.Paused)
         advanceTimeBy(5.minutes)
-        coach.resume()
+        coach.send(CoachEvent.Resumed)
         advanceTimeBy(16.minutes)
         runCurrent()
         val warned = coach.state.value!!
@@ -246,9 +246,9 @@ class LiveCoachTest {
 
         transport.server(TransportEvent.ResumeHandle("h1"))
         runCurrent()
-        coach.pause()
+        coach.send(CoachEvent.Paused)
         runCurrent()
-        coach.resume()
+        coach.send(CoachEvent.Resumed)
         runCurrent()
 
         assertEquals(listOf(null, "h1"), transport.connects.map { it.resumeHandle })
@@ -262,7 +262,7 @@ class LiveCoachTest {
         transport.server(TransportEvent.Disconnected("429"))
         runCurrent()
         val dropped = coach.state.value!!
-        coach.resume()
+        coach.send(CoachEvent.Resumed)
         runCurrent()
 
         assertEquals("429", dropped.disconnected)
@@ -278,7 +278,7 @@ class LiveCoachTest {
         val dropped = coach.state.value?.disconnected
         audio.micError = null
 
-        coach.resume()
+        coach.send(CoachEvent.Resumed)
         runCurrent()
 
         assertEquals(TransportEvent.Disconnected.MIC, dropped)
@@ -303,7 +303,7 @@ class LiveCoachTest {
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("Seoul")))
         transport.server(TransportEvent.Usage(TokenUsage(input = mapOf(Modality.Audio to 100))))
         runCurrent()
-        before.nextPhase()
+        before.send(CoachEvent.NextPhase)
         runCurrent()
         transport.server(TransportEvent.CoachSaid("Let's practice."))
         transport.server(TransportEvent.ResumeHandle("h2"))
@@ -342,8 +342,8 @@ class LiveCoachTest {
         val before = started(db, app)
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("Seoul")))
         runCurrent()
-        before.editMaterial(MaterialKind.Place, "Busan")
-        before.editExpression(0, Expression("a", "b", "IH"))
+        before.send(CoachEvent.MaterialEdited(MaterialKind.Place, "Busan"))
+        before.send(CoachEvent.ExpressionEdited(0, Expression("a", "b", "IH")))
         app.cancel()
 
         val after = coach(db)

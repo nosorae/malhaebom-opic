@@ -82,6 +82,7 @@ import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
 import io.github.nosorae.aiopic.ui.featurelive.RehearsalFiles
+import io.github.nosorae.aiopic.ui.featurelive.RunningCoach
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainError
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainResult
@@ -223,6 +224,11 @@ interface AppGraph {
             scope = scope,
         )
     }
+
+    /** 지금 대화 화면이 돌리는 코치 하나. 대화 화면은 한 번에 하나만 열린다. */
+    @Provides
+    @SingleIn(AppScope::class)
+    fun runningCoach(factory: CoachFactory): RunningCoach = RunningCoach(factory)
 
     /**
      * 코치 리허설 녹음(F13.1). 녹음 폴더 아래 `coach/세션 id` 에 쓰고, 조각을 이어 붙여 Gemini 받아쓰기만 받는다.

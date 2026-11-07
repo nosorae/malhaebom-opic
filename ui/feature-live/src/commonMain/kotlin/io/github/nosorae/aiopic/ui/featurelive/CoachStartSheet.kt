@@ -7,11 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -19,6 +15,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.nosorae.aiopic.ui.design.MontageBottomSheet
 import io.github.nosorae.aiopic.ui.design.MontageButton
 import io.github.nosorae.aiopic.ui.design.MontageButtonSize
 import io.github.nosorae.aiopic.ui.design.MontageButtonVariant
@@ -61,15 +58,9 @@ fun CoachStartRoute(viewModel: CoachStartViewModel, onStart: () -> Unit, onDismi
 }
 
 /** 코치 시작 시트(F10.2~F10.5). 목표 등급, 이어폰 권장 한 줄, 예상 시간, 시작 버튼이다. */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CoachStartSheet(state: CoachStartUiState, onIntent: (CoachStartIntent) -> Unit, onStart: () -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        // 반만 펼친 단계를 두지 않는다. 큰 글자에서 시작 버튼이 반쯤 가려진 채로 뜨지 않게 한다.
-        sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
-        containerColor = MontageTheme.colors.surfaceElevatedPrimary,
-    ) {
+    MontageBottomSheet(onDismissRequest = onDismiss) {
         CoachStartContent(state, onSelectGrade = { onIntent(CoachStartIntent.SelectTargetGrade(it)) }, onStart = onStart)
     }
 }

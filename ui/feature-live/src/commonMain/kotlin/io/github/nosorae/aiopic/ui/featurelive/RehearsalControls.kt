@@ -27,7 +27,7 @@ import kotlin.time.Duration.Companion.seconds
  * 소재 메모와 표현 카드는 위쪽 대화 화면에 그대로 있다.
  */
 @Composable
-internal fun RehearsalControls(state: RehearsalUiState, onIntent: (LiveCoachIntent) -> Unit) {
+internal fun RehearsalControls(state: RehearsalUiState, onStart: () -> Unit, onStop: () -> Unit, onRetry: () -> Unit, onSkip: () -> Unit) {
     Column(
         Modifier.padding(horizontal = MontageSpacing.spacing20, vertical = MontageSpacing.spacing12),
         verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8),
@@ -48,19 +48,19 @@ internal fun RehearsalControls(state: RehearsalUiState, onIntent: (LiveCoachInte
             )
             MontageVoiceRibbon(state.voiceLevel)
         }
-        val (text, intent) = when {
-            state.step == RehearsalStep.Recording -> Res.string.live_rehearse_stop to RehearsalIntent.StopRecording
+        val (text, action) = when {
+            state.step == RehearsalStep.Recording -> Res.string.live_rehearse_stop to onStop
             state.step == RehearsalStep.Transcribing -> Res.string.live_rehearse_transcribing_button to null
-            state.canRetryTranscript -> Res.string.live_rehearse_retry to RehearsalIntent.RetryTranscript
-            state.error != null -> Res.string.live_rehearse_record_again to RehearsalIntent.StartRecording
-            else -> Res.string.live_rehearse_start to RehearsalIntent.StartRecording
+            state.canRetryTranscript -> Res.string.live_rehearse_retry to onRetry
+            state.error != null -> Res.string.live_rehearse_record_again to onStart
+            else -> Res.string.live_rehearse_start to onStart
         }
-        MontageButton(text = stringResource(text), onClick = { intent?.let(onIntent) }, loading = intent == null, modifier = Modifier.fillMaxWidth())
+        MontageButton(text = stringResource(text), onClick = { action?.invoke() }, loading = action == null, modifier = Modifier.fillMaxWidth())
         // 받아쓰기가 계속 실패하거나 리허설을 하기 싫을 때 빠져나간다. 첫 리허설이면 스크립트 정리로, 두 번째면 피드백으로 간다(F13.3).
         if (state.step == RehearsalStep.Ready) {
             MontageButton(
                 text = stringResource(Res.string.live_rehearse_skip),
-                onClick = { onIntent(LiveCoachIntent.NextPhase) },
+                onClick = onSkip,
                 modifier = Modifier.fillMaxWidth(),
                 variant = MontageButtonVariant.Outlined,
                 type = MontageButtonType.Assistive,

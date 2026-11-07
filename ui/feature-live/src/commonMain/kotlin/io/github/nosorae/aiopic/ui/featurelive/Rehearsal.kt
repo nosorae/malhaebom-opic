@@ -1,13 +1,8 @@
 package io.github.nosorae.aiopic.ui.featurelive
 
-import dev.zacsweers.metro.Inject
 import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.answer.port.Transcript
-import io.github.nosorae.aiopic.engine.coach.LiveCoach
-import io.github.nosorae.aiopic.engine.session.model.AnalysisError
-import io.github.nosorae.aiopic.libs.recorder.api.Recorder
 import io.github.nosorae.aiopic.libs.recorder.api.RecordingFailure
-import kotlinx.coroutines.flow.Flow
 import kotlin.time.Duration
 
 /** 리허설 단계 화면(F13.1). 코치 연결은 닫혀 있고 기존 녹음기로 처음부터 끝까지 한 번 말한다. */
@@ -66,46 +61,7 @@ interface RehearsalFiles {
     suspend fun clear(directory: String)
 }
 
-/** 앞 녹음이 남았으면(녹음 중 앱이 꺼진 경우) 지우고 새로 녹음한다. 녹음기는 폴더에 조각이 있으면 이어 쓰기 때문이다. */
-@Inject
-class StartRehearsalUseCase(private val recorder: Recorder, private val files: RehearsalFiles) {
-    suspend operator fun invoke(sessionId: String): RehearsalError? {
-        val directory = files.directory(sessionId)
-        files.clear(directory)
-        return recorder.start(directory)?.toRehearsalError()
-    }
-}
-
-@Inject
-class StopRehearsalUseCase(private val recorder: Recorder) {
-    suspend operator fun invoke(): RehearsalError? = recorder.stop().failure?.toRehearsalError()
-}
-
-/**
- * 리허설 녹음의 받아쓰기를 받아 코치에 넣고 피드백 단계로 넘긴다(F13.1, F13.2). 엔진이 그 글을 피드백 지시에 넣어 새로 연결한다.
- * 받으면 녹음을 지운다. 리허설 녹음은 리포트처럼 다시 듣는 곳이 없다. 못 받으면 다시 시도하게 녹음을 남긴다.
- */
-@Inject
-class TranscribeRehearsalUseCase(private val files: RehearsalFiles) {
-    suspend operator fun invoke(coach: LiveCoach, sessionId: String): RehearsalError? {
-        val directory = files.directory(sessionId)
-        val text = when (val result = files.transcribe(directory)) {
-            is AnalysisResult.Success -> result.value.text.takeIf { it.isNotBlank() } ?: return RehearsalError.NoSpeech
-            is AnalysisResult.Unscorable -> return RehearsalError.NoSpeech
-            is AnalysisResult.Failed -> return if (result.error == AnalysisError.InvalidKey) RehearsalError.InvalidKey else RehearsalError.TranscriptFailed
-        }
-        coach.rehearsed(text)
-        files.clear(directory)
-        return null
-    }
-}
-
-@Inject
-class ObserveRehearsalLevelUseCase(private val recorder: Recorder) {
-    operator fun invoke(): Flow<Float> = recorder.levels
-}
-
-private fun RecordingFailure.toRehearsalError() = when (this) {
+internal fun RecordingFailure.toRehearsalError() = when (this) {
     RecordingFailure.MicUnavailable -> RehearsalError.MicUnavailable
     RecordingFailure.WriteFailed -> RehearsalError.RecordingFailed
 }

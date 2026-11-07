@@ -52,24 +52,11 @@ class LiveCoach(
         true
     }
 
-    suspend fun nextPhase() = dispatch(CoachEvent.NextPhase)
-
-    /** "잠깐 생각할게요" 나 앱이 뒤로 갈 때. 연결을 닫고 대화 시간을 멈춘다(F11.6, F11.8). */
-    suspend fun pause() = dispatch(CoachEvent.Paused)
-
-    /** 일시정지나 끊김에서 다시 연결한다. 핸들이 살아 있으면 이어 붙이고 아니면 메모로 새로 연다. */
-    suspend fun resume() = dispatch(CoachEvent.Resumed)
-
-    /** 리허설 녹음의 받아쓰기를 넣고 피드백 단계로 간다(F13). 받아쓰기는 피드백 단계 지시에 들어간다. */
-    suspend fun rehearsed(transcript: String) = dispatch(CoachEvent.Rehearsed(transcript))
-
-    /** 피드백 연결을 닫고 리허설 단계로 돌아간다. 리허설을 두 번 했으면 그대로 둔다(F13.3). */
-    suspend fun rehearseAgain() = dispatch(CoachEvent.RehearseAgain)
-
-    /** 사용자가 소재 칸을 고친다(F12.2). 다음 연결 지시부터 고친 글이 들어간다. */
-    suspend fun editMaterial(kind: MaterialKind, text: String) = dispatch(CoachEvent.MaterialEdited(kind, text))
-
-    suspend fun editExpression(index: Int, expression: Expression) = dispatch(CoachEvent.ExpressionEdited(index, expression))
+    /**
+     * 사용자가 한 일을 넣는다. 다음 단계, 잠깐 생각(F11.6)과 앱이 뒤로 갈 때(F11.8)의 일시정지, 다시 연결, 리허설 받아쓰기(F13),
+     * 한 번 더 리허설(F13.3), 메모와 표현 카드 고치기(F12.2)다. 바뀐 상태에 맞게 연결을 열고 닫는다.
+     */
+    suspend fun send(event: CoachEvent) = dispatch(event)
 
     private suspend fun dispatch(event: CoachEvent) = lock.withLock {
         val before = _state.value ?: return@withLock
