@@ -63,7 +63,7 @@ class SessionGradeWiringTest {
         val settings = AppSettings.inMemory().apply { give() }
         val keyVault = FakeKeyVault().apply { put(GeminiModels.PROVIDER, "test-key") }
         val queue = FakeWorkQueue()
-        val graph = createAppGraph(settings, keyVault, db, "recordings", FakeRecorder, FakeTts, queue, client)
+        val graph = createAppGraph(settings, keyVault, db, "recordings", FakeRecorder, FakeTts, queue, FakeDuplexAudio, client)
         val store = OpicStore(db)
         val jobs = testAnalysisJobs(store, queue, settings, client, keyVault)
 

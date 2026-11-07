@@ -70,6 +70,7 @@ class ResumeTimerTest {
             recorder = FakeRecorder,
             tts = FakeTts,
             workQueue = FakeWorkQueue(),
+            duplexAudio = FakeDuplexAudio,
             timer = { now },
             pack = ExamPack(pool = { pool }, voice = { null }),
         ).also { graph = it }

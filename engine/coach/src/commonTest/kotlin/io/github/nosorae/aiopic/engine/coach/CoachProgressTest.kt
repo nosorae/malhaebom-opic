@@ -140,4 +140,35 @@ class CoachProgressTest {
 
         assertEquals(finished, finished.after(CoachEvent.NextPhase, CoachEvent.Heard(Speaker.User, "hi")))
     }
+
+    @Test
+    fun `F12_2 사용자가 소재 칸을 고치면 그 종류의 메모를 고친 글 하나로 바꾼다`() {
+        val state = start.after(
+            CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "place", "text" to "a cafe")),
+            CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "place", "text" to "near my office")),
+            CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "person", "text" to "my sister")),
+            CoachEvent.MaterialEdited(MaterialKind.Place, "a small cafe near my office"),
+        )
+
+        assertEquals(listOf(Material(MaterialKind.Person, "my sister"), Material(MaterialKind.Place, "a small cafe near my office")), state.materials)
+    }
+
+    @Test
+    fun `F12_2 소재 칸을 비우면 그 종류의 메모를 지운다`() {
+        val state = start.after(
+            CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "place", "text" to "a cafe")),
+            CoachEvent.MaterialEdited(MaterialKind.Place, " "),
+        )
+
+        assertEquals(emptyList(), state.materials)
+    }
+
+    @Test
+    fun `F12_3 사용자가 표현 카드를 고치면 그 자리의 카드를 바꾸고 없는 자리면 그대로 둔다`() {
+        val saved = start.after(CoachEvent.ToolCalled(CoachTools.SAVE_EXPRESSION, args("user_said" to "좋았어", "english" to "It was great", "grade" to "IM2")))
+        val edited = Expression("좋았어", "It was a blast", "IM2")
+
+        assertEquals(listOf(edited), saved.after(CoachEvent.ExpressionEdited(0, edited)).expressions)
+        assertEquals(saved, saved.after(CoachEvent.ExpressionEdited(1, edited)))
+    }
 }

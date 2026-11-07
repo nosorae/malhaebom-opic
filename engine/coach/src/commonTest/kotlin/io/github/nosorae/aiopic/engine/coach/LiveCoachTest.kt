@@ -228,6 +228,22 @@ class LiveCoachTest {
     }
 
     @Test
+    fun `F12_2 사용자가 고친 메모와 표현 카드는 다시 열어도 남는다`() = test { db ->
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job())
+        val before = started(db, app)
+        transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("Seoul")))
+        runCurrent()
+        before.editMaterial(MaterialKind.Place, "Busan")
+        before.editExpression(0, Expression("a", "b", "IH"))
+        app.cancel()
+
+        val after = coach(db)
+        after.open("c1")
+
+        assertEquals(listOf(Material(MaterialKind.Place, "Busan")), after.state.value?.materials)
+    }
+
+    @Test
     fun `없는 세션은 열지 못한다`() = test { db ->
         assertFalse(coach(db).open("none"))
     }

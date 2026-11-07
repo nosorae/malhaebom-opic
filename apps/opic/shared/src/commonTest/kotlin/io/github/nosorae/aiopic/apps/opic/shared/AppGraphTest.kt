@@ -8,6 +8,8 @@ import io.github.nosorae.aiopic.engine.answer.analysis.GradeRequest
 import io.github.nosorae.aiopic.engine.answer.port.Prompt
 import io.github.nosorae.aiopic.engine.answer.port.Recording
 import io.github.nosorae.aiopic.engine.answer.store.OpicStore
+import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
+import io.github.nosorae.aiopic.libs.duplexaudio.api.MicChunk
 import io.github.nosorae.aiopic.libs.keyvault.api.KeyVault
 import io.github.nosorae.aiopic.libs.llmgemini.GeminiClient
 import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
@@ -31,6 +33,10 @@ import io.ktor.client.engine.mock.MockRequestHandler
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -62,6 +68,7 @@ fun testAppGraph(settings: AppSettings = AppSettings.inMemory(), keyVault: KeyVa
     recorder = FakeRecorder,
     tts = FakeTts,
     workQueue = FakeWorkQueue(),
+    duplexAudio = FakeDuplexAudio,
 )
 
 /**
@@ -121,6 +128,17 @@ object FakeRecorder : Recorder {
     override suspend fun chunks(directory: String) = emptyList<String>()
 
     override suspend fun merge(chunks: List<String>, output: String) = emptyList<Duration>()
+}
+
+/** 코치 오디오. 마이크는 아무것도 내지 않고 재생은 버린다. */
+object FakeDuplexAudio : DuplexAudio {
+    override val mic: Flow<MicChunk> = emptyFlow()
+    override val micLevel: StateFlow<Float> = MutableStateFlow(0f)
+    override val playbackLevel: StateFlow<Float> = MutableStateFlow(0f)
+
+    override fun play(pcm: ByteArray) = Unit
+
+    override fun flush() = Unit
 }
 
 object FakeTts : Tts {

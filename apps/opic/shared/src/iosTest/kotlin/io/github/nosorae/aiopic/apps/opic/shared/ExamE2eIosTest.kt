@@ -112,6 +112,7 @@ class ExamE2eIosTest {
             recorder = DiskRecorder(recordedDirectories),
             tts = SilentTts,
             workQueue = queue,
+            duplexAudio = FakeDuplexAudio,
             gemini = GeminiClient(HttpClient(mockEngine { respond(if ("brokeAt" in it.body.toByteArray().decodeToString()) GRADE_RESPONSE else ANSWER_RESPONSE, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json")) })),
             timer = { now },
         )

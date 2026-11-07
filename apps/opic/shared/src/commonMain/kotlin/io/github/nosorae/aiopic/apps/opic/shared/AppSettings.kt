@@ -5,6 +5,7 @@ import io.github.nosorae.aiopic.engine.question.model.SurveyAnswers
 import io.github.nosorae.aiopic.libs.haptics.api.Haptics
 import io.github.nosorae.aiopic.packs.opicen.OpicEn
 import io.github.nosorae.aiopic.ui.featureexam.SurveyStore
+import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.VoiceConsent
 import io.github.nosorae.aiopic.ui.featuresettings.haptics.HapticsStore
@@ -19,7 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
 /**
- * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급)을 플랫폼 설정 저장소에 둔다.
+ * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 실시간 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급)을 플랫폼 설정 저장소에 둔다.
  * 플랫폼은 문자열 읽기와 쓰기 두 함수만 넘긴다(Android SharedPreferences, iOS NSUserDefaults). 키가 아니라서 암호화하지 않는다.
  */
 class AppSettings(private val read: (String) -> String?, private val write: (String, String) -> Unit) :
@@ -30,7 +31,8 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     QuestionFileStore,
     HapticsStore,
     SurveyStore,
-    TargetGradeStore {
+    TargetGradeStore,
+    LiveConsent {
     private val mode = MutableStateFlow(ThemeMode.entries.firstOrNull { it.name == read(THEME_MODE) } ?: ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = mode.asStateFlow()
 
@@ -67,6 +69,11 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     override suspend fun give() = write(VOICE_CONSENT, "true")
 
     override suspend fun revoke() = write(VOICE_CONSENT, "false")
+
+    /** 실시간 음성 전송 동의(F15.1). 녹음 파일 전송 동의와 따로 둔다. */
+    override suspend fun isLiveGiven(): Boolean = read(LIVE_VOICE_CONSENT) == "true"
+
+    override suspend fun giveLive() = write(LIVE_VOICE_CONSENT, "true")
 
     /** 시험 화면을 조립할 때 바로 읽는다(F2.7). 기본은 꺼짐이다. */
     val answerTimer: Boolean get() = read(ANSWER_TIMER) == "true"
@@ -108,7 +115,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         set(value) = write(NOTIFICATIONS_ASKED, value.toString())
 
     /** 디버깅 화면의 설정 패널. 문항 파일은 수십 KB 라 길이만 보인다. 회차별 출제 목록은 DB 패널의 회차로 찾는다. */
-    fun debugRows(): List<Pair<String, String>> = listOf(THEME_MODE, MODEL_ID, FELL_BACK_FROM, VOICE_CONSENT, ANSWER_TIMER, HAPTICS, TARGET_GRADE).map { it to (read(it) ?: "(none)") } +
+    fun debugRows(): List<Pair<String, String>> = listOf(THEME_MODE, MODEL_ID, FELL_BACK_FROM, VOICE_CONSENT, LIVE_VOICE_CONSENT, ANSWER_TIMER, HAPTICS, TARGET_GRADE).map { it to (read(it) ?: "(none)") } +
         (QUESTION_FILE to (read(QUESTION_FILE)?.let { "${it.length} chars" } ?: "(none)"))
 
     companion object {
@@ -116,6 +123,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         private const val MODEL_ID = "model_id"
         private const val FELL_BACK_FROM = "model_fell_back_from"
         private const val VOICE_CONSENT = "voice_consent"
+        private const val LIVE_VOICE_CONSENT = "live_voice_consent"
         private const val ANSWER_TIMER = "answer_timer"
         private const val QUESTION_FILE = "question_file"
         private const val HAPTICS = "haptics"

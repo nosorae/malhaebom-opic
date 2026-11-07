@@ -17,6 +17,7 @@ import io.github.nosorae.aiopic.ui.featureexam.SurveyRoute
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryRoute
 import io.github.nosorae.aiopic.ui.featurehome.HomeRoute
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartRoute
+import io.github.nosorae.aiopic.ui.featurelive.LiveCoachRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.ConsentRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyEntryRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyEntryViewModel
@@ -59,8 +60,14 @@ internal fun RouteContent(
     if (coachOpen) {
         CoachStartRoute(
             viewModel = viewModel { graph.coachStartViewModel },
-            // 대화 화면은 #265 가 경로를 더하면서 여기서 연다. 그 전까지 시작은 시트만 닫는다.
-            onStart = { coachOpen = false },
+            // 질문은 한 문항 연습과 같이 가장 약한 유형에서 고른다(F4.1). 낼 질문이 없으면 시트만 닫는다.
+            onStart = {
+                scope.launch {
+                    val pick = graph.pickPracticeQuestionUseCase()
+                    coachOpen = false
+                    pick?.let { onOpen(AppRoute.Coach(newId(), it.question.id, it.question.text, graph.settings.targetGrade.value)) }
+                }
+            },
             onDismiss = { coachOpen = false },
         )
     }
@@ -131,6 +138,12 @@ internal fun RouteContent(
                 onBack()
                 onOpen(AppRoute.AnswerReport(it))
             },
+            modifier = modifier,
+        )
+
+        is AppRoute.Coach -> LiveCoachRoute(
+            viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.question, route.targetGrade) },
+            onExit = onBack,
             modifier = modifier,
         )
 

@@ -27,6 +27,9 @@ kotlin {
         // 설정의 모델 목록으로 앱이 들고 있는 Gemini 목록을 넣는다.
         implementation(project(":engine:answer"))
         implementation(project(":engine:ai-gemini"))
+        // 코치 대화 화면에 코치(엔진, Gemini Live 연결, 말하면서 듣는 오디오)를 조립해 넘긴다(#265).
+        implementation(project(":engine:coach"))
+        implementation(project(":libs:duplex-audio"))
         implementation(project(":libs:keyvault"))
         // 그래프가 플랫폼 인자(녹음기, 기기 음성)를 받고 Gemini 클라이언트, 시험 팩, 시계를 만든다.
         implementation(project(":libs:recorder"))
