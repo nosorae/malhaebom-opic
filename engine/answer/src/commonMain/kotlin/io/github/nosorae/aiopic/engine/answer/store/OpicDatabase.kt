@@ -170,6 +170,10 @@ interface CoachDao {
 
     @Query("SELECT * FROM coach_script WHERE sessionId = :sessionId")
     fun script(sessionId: String): Flow<CoachScriptRow?>
+
+    /** 스크립트가 있는 세션, 최근 것부터(#267). */
+    @Query("SELECT * FROM coach_session WHERE id IN (SELECT sessionId FROM coach_script) ORDER BY startedAt DESC")
+    fun scriptedSessions(): Flow<List<CoachSessionRow>>
 }
 
 @Dao

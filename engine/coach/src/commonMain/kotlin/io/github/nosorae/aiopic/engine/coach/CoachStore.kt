@@ -46,8 +46,7 @@ class CoachStore(db: OpicDatabase) {
 
     suspend fun load(id: String): CoachState? {
         val row = dao.session(id) ?: return null
-        val start = CoachState(row.id, row.questionId, row.targetGrade, Instant.fromEpochMilliseconds(row.startedAt))
-        return dao.events(id).map { json.decodeFromString<CoachEvent>(it.json) }.fold(start, ::reduce).copy(
+        return dao.events(id).map { json.decodeFromString<CoachEvent>(it.json) }.fold(row.start(), ::reduce).copy(
             // 30분 끝처럼 이벤트로 남기지 않은 단계 전환도 있어 단계와 상태는 행을 따른다.
             phase = CoachPhase.valueOf(row.phase),
             status = CoachStatus.valueOf(row.status),
@@ -70,6 +69,11 @@ class CoachStore(db: OpicDatabase) {
             model = script.model,
         ),
     )
+
+    /** 스크립트가 있는 세션, 최근 것부터(F14.6). 질문, 목표 등급, 시작 시각만 채우고 받아쓰기와 메모는 비어 있다. */
+    fun scriptSessions(): Flow<List<CoachState>> = dao.scriptedSessions().map { rows -> rows.map { it.start() } }
+
+    private fun CoachSessionRow.start() = CoachState(id, questionId, targetGrade, Instant.fromEpochMilliseconds(startedAt))
 
     fun script(sessionId: String): Flow<CoachScript?> = dao.script(sessionId).map { row ->
         row?.let {
