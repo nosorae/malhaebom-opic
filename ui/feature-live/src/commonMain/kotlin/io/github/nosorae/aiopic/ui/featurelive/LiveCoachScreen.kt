@@ -256,7 +256,8 @@ private fun QuestionText(question: String) {
     if (question.isBlank()) return
     var open by rememberSaveable { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
-    val toggle = if (open || overflow) Modifier.clickable(role = Role.Button) { open = !open } else Modifier
+    val state = stringResource(if (open) Res.string.live_notes_open else Res.string.live_notes_closed)
+    val toggle = if (open || overflow) Modifier.clickable(role = Role.Button) { open = !open }.semantics { stateDescription = state } else Modifier
     Text(
         question,
         style = MontageTheme.typography.body1.medium,
@@ -285,10 +286,12 @@ private fun PhaseHeader(phase: CoachPhase) {
 @Composable
 private fun CostLine(costUsd: Double) {
     var open by rememberSaveable { mutableStateOf(false) }
+    val state = stringResource(if (open) Res.string.live_notes_open else Res.string.live_notes_closed)
     Column(
         Modifier
             .fillMaxWidth()
             .clickable(role = Role.Button) { open = !open }
+            .semantics { stateDescription = state }
             .padding(horizontal = Gutter, vertical = MontageSpacing.spacing8),
         verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing4),
     ) {

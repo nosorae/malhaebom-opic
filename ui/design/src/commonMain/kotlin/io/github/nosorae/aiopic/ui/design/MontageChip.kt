@@ -3,11 +3,11 @@ package io.github.nosorae.aiopic.ui.design
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -73,12 +73,14 @@ fun MontageChip(
             .clip(shape)
             .background(background)
             .border(1.dp, border, shape)
-            .clickable(
+            // 스크린리더가 선택됨과 선택 안 됨을 읽는다.
+            .toggleable(
+                value = active,
                 enabled = enabled,
                 role = Role.Checkbox,
                 interactionSource = interaction,
                 indication = ripple(color = content),
-                onClick = onClick,
+                onValueChange = { onClick() },
             )
             .defaultMinSize(minHeight = 36.dp)
             .padding(horizontal = 12.dp),
