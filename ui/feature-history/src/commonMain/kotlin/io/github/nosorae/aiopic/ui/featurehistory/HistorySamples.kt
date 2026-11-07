@@ -55,9 +55,10 @@ internal object HistorySamples {
 
     val empty = HistoryUiState(loading = false)
 
-    /** 같은 질문으로 만든 스크립트 둘과 만들지 못한 세션 하나가 맨 위에 있다(F14.6). */
+    /** 끝나지 않은 대화 하나(F11.8), 같은 질문으로 만든 스크립트 둘, 만들지 못한 세션 하나가 맨 위에 있다(F14.6). */
     val withScripts = filled.copy(
         entries = listOf(
+            HistoryScript("c3", "q3", "Describe a typical day at your home.", "IH", written = false, finished = false),
             HistoryScript("c2", "q1", "Tell me about a memorable trip you took recently.", "AL"),
             HistoryScript("c1", "q1", "Tell me about a memorable trip you took recently.", "IH"),
             HistoryScript("c0", "q2", "Describe your favorite park.", "IH", written = false),

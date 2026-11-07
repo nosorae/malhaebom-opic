@@ -171,9 +171,9 @@ interface CoachDao {
     @Query("SELECT * FROM coach_script WHERE sessionId = :sessionId")
     fun script(sessionId: String): Flow<CoachScriptRow?>
 
-    /** 끝난 세션과 스크립트가 있는 세션, 최근 것부터(#267). 스크립트를 만들지 못한 끝난 세션도 다시 만들 수 있게 낸다. */
-    @Query("SELECT * FROM coach_session WHERE status = 'Finished' OR id IN (SELECT sessionId FROM coach_script) ORDER BY startedAt DESC")
-    fun scriptSessions(): Flow<List<CoachSessionRow>>
+    /** 모든 세션, 최근 것부터(#267). 기록 탭이 끝난 세션은 스크립트로, 진행 중인 세션은 이어서 대화로 보인다(#280). */
+    @Query("SELECT * FROM coach_session ORDER BY startedAt DESC")
+    fun sessions(): Flow<List<CoachSessionRow>>
 
     @Query("SELECT sessionId FROM coach_script")
     fun scriptIds(): Flow<List<String>>

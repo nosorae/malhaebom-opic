@@ -128,8 +128,11 @@ fun HistoryScreen(
                             onClick = { onOpenScript(entry) },
                             modifier = montageItemMotion().testTag("history-script"),
                         ) {
-                            // 30분 대화를 잃지 않게 만들지 못한 스크립트도 줄로 남기고 누르면 다시 만든다.
-                            if (!entry.written) Status(stringResource(Res.string.history_script_retry), failed = true)
+                            // 30분 대화를 잃지 않게 끝나지 않은 대화와 만들지 못한 스크립트도 줄로 남기고 누르면 이어 가거나 다시 만든다.
+                            when {
+                                !entry.finished -> Status(stringResource(Res.string.history_coach_resume), failed = false)
+                                !entry.written -> Status(stringResource(Res.string.history_script_retry), failed = true)
+                            }
                         }
                     }
                 }

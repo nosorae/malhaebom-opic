@@ -65,6 +65,10 @@ internal fun RouteContent(
                 coachOpen = false
                 onOpen(AppRoute.Coach(newId(), questionId, question, targetGrade))
             },
+            onResume = { sessionId, questionId, question, targetGrade ->
+                coachOpen = false
+                onOpen(AppRoute.Coach(sessionId, questionId, question, targetGrade))
+            },
             onDismiss = { coachOpen = false },
         )
     }
@@ -89,7 +93,8 @@ internal fun RouteContent(
             onOpenSession = { onOpen(AppRoute.ReportDetail(it)) },
             onOpenAnswer = { onOpen(AppRoute.AnswerReport(it)) },
             onOpenCoach = { coachOpen = true },
-            onOpenScript = { onOpen(AppRoute.CoachScript(it.sessionId, it.questionId, it.question)) },
+            // 끝나지 않은 대화는 그 세션을 이어 간다(F11.8).
+            onOpenScript = { onOpen(if (it.finished) AppRoute.CoachScript(it.sessionId, it.questionId, it.question) else AppRoute.Coach(it.sessionId, it.questionId, it.question, it.targetGrade)) },
             modifier = modifier,
         )
 

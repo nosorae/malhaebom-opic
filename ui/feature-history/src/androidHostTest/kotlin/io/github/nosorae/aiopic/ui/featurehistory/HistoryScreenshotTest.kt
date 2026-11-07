@@ -96,7 +96,7 @@ class HistoryScreenshotTest {
 
         rule.onAllNodesWithTag("history-session").assertCountEquals(0)
         rule.onAllNodesWithTag("history-practice").assertCountEquals(0)
-        rule.onAllNodesWithTag("history-script").assertCountEquals(3)
+        rule.onAllNodesWithTag("history-script").assertCountEquals(4)
         rule.onAllNodesWithTag("history-script")[0].performClick()
         assertEquals(HistorySamples.withScripts.entries.first(), opened)
     }
@@ -111,6 +111,18 @@ class HistoryScreenshotTest {
         rule.onNodeWithText("스크립트 만들기 다시").performClick()
 
         assertEquals("c0", opened?.sessionId)
+    }
+
+    @Test
+    fun `F11_8 끝나지 않은 코치 세션은 이어서 대화 줄로 보이고 누르면 그 세션을 연다`() {
+        var opened: HistoryScript? = null
+        show(HistorySamples.withScripts, onOpenScript = { opened = it })
+        rule.onNodeWithTag("history-filter-script").performClick()
+        rule.mainClock.advanceTimeBy(SETTLE_MILLIS)
+
+        rule.onNodeWithText("이어서 대화").performClick()
+
+        assertEquals("c3" to false, opened?.let { it.sessionId to it.finished })
     }
 
     @Test

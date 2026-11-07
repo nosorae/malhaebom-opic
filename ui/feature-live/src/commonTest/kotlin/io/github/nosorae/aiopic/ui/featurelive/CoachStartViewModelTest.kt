@@ -1,5 +1,9 @@
 package io.github.nosorae.aiopic.ui.featurelive
 
+import io.github.nosorae.aiopic.engine.coach.CoachPhase
+import io.github.nosorae.aiopic.engine.coach.CoachState
+import io.github.nosorae.aiopic.engine.coach.CoachStatus
+import io.github.nosorae.aiopic.engine.coach.CoachStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -11,6 +15,8 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.time.Instant
 
 class CoachStartViewModelTest {
     private val dispatcher = StandardTestDispatcher()
@@ -23,9 +29,15 @@ class CoachStartViewModelTest {
 
     @AfterTest fun tearDown() = Dispatchers.resetMain()
 
+    private val db = inMemoryDatabase(dispatcher)
+    private val coachStore = CoachStore(db)
+
+    @AfterTest fun closeDb() = db.close()
+
     private fun viewModel() = CoachStartViewModel(
         ObserveTargetGradeUseCase(store),
         SetTargetGradeUseCase(store),
+        ObserveUnfinishedCoachUseCase(coachStore),
         PickCoachQuestionUseCase {
             picks++
             picked.await()
@@ -39,7 +51,7 @@ class CoachStartViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        assertEquals(CoachStartUiState(grades = store.targetGrades, selected = "AL"), viewModel.uiState.value)
+        assertEquals(store.targetGrades to "AL", viewModel.uiState.value.let { it.grades to it.selected })
     }
 
     @Test
@@ -103,5 +115,27 @@ class CoachStartViewModelTest {
         advanceUntilIdle()
 
         assertEquals(CoachStartDestination.Close, viewModel.uiState.value.navigation)
+    }
+
+    @Test
+    fun `F11_8 끝나지 않은 세션이 있으면 시트가 가장 최근 것을 이어서 하라고 보인다`() = runTest(dispatcher) {
+        coachStore.save(CoachState("old", "q1", "Q1?", "IH", Instant.fromEpochSeconds(1), status = CoachStatus.Paused))
+        coachStore.save(CoachState("done", "q2", "Q2?", "IH", Instant.fromEpochSeconds(3), phase = CoachPhase.Script, status = CoachStatus.Finished))
+        coachStore.save(CoachState("new", "q3", "Q3?", "AL", Instant.fromEpochSeconds(2)))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertEquals("new", viewModel.uiState.value.unfinished?.id)
+    }
+
+    @Test
+    fun `끝나지 않은 세션이 없으면 이어서 하기가 없다`() = runTest(dispatcher) {
+        coachStore.save(CoachState("done", "q2", "Q2?", "IH", Instant.fromEpochSeconds(3), phase = CoachPhase.Script, status = CoachStatus.Finished))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertNull(viewModel.uiState.value.unfinished)
     }
 }

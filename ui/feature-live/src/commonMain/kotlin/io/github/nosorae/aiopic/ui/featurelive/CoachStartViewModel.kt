@@ -3,6 +3,7 @@ package io.github.nosorae.aiopic.ui.featurelive
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.Inject
+import io.github.nosorae.aiopic.engine.coach.CoachState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,10 +14,12 @@ import kotlinx.coroutines.launch
 
 /**
  * [selected] 는 지금 목표 등급이고 읽기 전에는 null 이다. [starting] 은 시작을 눌러 질문을 고르는 중이다. 이동을 처리할 때까지 다시 시작하지 않는다.
+ * [unfinished] 는 가장 최근의 끝나지 않은 세션이다. 있으면 이어서 할지 새로 시작할지 고른다(F11.8).
  */
 data class CoachStartUiState(
     val grades: List<String> = emptyList(),
     val selected: String? = null,
+    val unfinished: CoachState? = null,
     val starting: Boolean = false,
     val navigation: CoachStartDestination? = null,
 )
@@ -47,6 +50,7 @@ sealed interface CoachStartIntent {
 class CoachStartViewModel(
     observeTargetGradeUseCase: ObserveTargetGradeUseCase,
     private val setTargetGradeUseCase: SetTargetGradeUseCase,
+    observeUnfinishedCoachUseCase: ObserveUnfinishedCoachUseCase,
     private val pickCoachQuestionUseCase: PickCoachQuestionUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CoachStartUiState())
@@ -56,6 +60,7 @@ class CoachStartViewModel(
         observeTargetGradeUseCase()
             .onEach { choice -> _uiState.update { it.copy(grades = choice.grades, selected = choice.selected) } }
             .launchIn(viewModelScope)
+        observeUnfinishedCoachUseCase().onEach { session -> _uiState.update { it.copy(unfinished = session) } }.launchIn(viewModelScope)
     }
 
     fun onIntent(intent: CoachStartIntent) {
