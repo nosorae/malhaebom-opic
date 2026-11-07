@@ -98,4 +98,10 @@ class OpicEnTest {
     fun `F5_3 등급은 NL 부터 AL 까지 9개다`() {
         assertEquals(listOf("NL", "NM", "NH", "IL", "IM1", "IM2", "IM3", "IH", "AL"), OpicEn.gradeScale.grades)
     }
+
+    @Test
+    fun `F10_2 F10_4 목표 등급은 IM1 부터 AL 까지 다섯이고 기본은 IH 다`() {
+        assertEquals(listOf("IM1", "IM2", "IM3", "IH", "AL"), OpicEn.targetGrades)
+        assertEquals("IH", OpicEn.defaultTargetGrade)
+    }
 }

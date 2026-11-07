@@ -45,6 +45,12 @@ object OpicEn {
 
     val gradeScale = GradeScale(OpicGrade.entries.map { it.name })
 
+    /** 라이브 코치의 목표 등급으로 고를 수 있는 등급, 낮은 것부터(F10.2). */
+    val targetGrades = listOf(OpicGrade.IM1, OpicGrade.IM2, OpicGrade.IM3, OpicGrade.IH, OpicGrade.AL).map { it.name }
+
+    /** 목표 등급을 고른 적이 없을 때 쓴다(F10.4). */
+    val defaultTargetGrade = OpicGrade.IH.name
+
     /** Part 4 에서 합쳐서 고를 주제 수. 서베이 단계와 [survey] 가 같은 값을 쓴다. */
     private const val MIN_TOPICS = 12
 
