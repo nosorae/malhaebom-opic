@@ -13,6 +13,8 @@ kotlin {
             // 키를 넣을 수 있는 제공사 목록(KeyProvider)과 음성 전송 동의를 온보딩 화면과 같이 쓴다.
             implementation(project(":ui:feature-onboarding"))
             implementation(project(":libs:keyvault"))
+            // 코치 목표 등급(F10.3)을 시작 시트와 같은 저장소, 같은 칩으로 고른다.
+            implementation(project(":ui:feature-live"))
         }
         // 복사 완료 체크가 동작 줄이기에서 멈춰 있는지 화면을 띄워 프레임을 비교한다.
         getByName("androidHostTest").dependencies {

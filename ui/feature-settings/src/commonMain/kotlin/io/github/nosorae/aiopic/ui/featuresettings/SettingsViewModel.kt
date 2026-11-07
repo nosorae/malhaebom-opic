@@ -3,6 +3,8 @@ package io.github.nosorae.aiopic.ui.featuresettings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.Inject
+import io.github.nosorae.aiopic.ui.featurelive.ObserveTargetGradeUseCase
+import io.github.nosorae.aiopic.ui.featurelive.SetTargetGradeUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.consent.RevokeVoiceConsentUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.haptics.SetHapticsUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.key.DeleteKeyUseCase
@@ -15,10 +17,12 @@ import io.github.nosorae.aiopic.ui.featuresettings.voice.SetQuestionVoiceUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** 설정 탭(S14)의 분석 모델, 제공사별 키, 음성 전송 동의, 답변 타이머, 문항 파일, 진동, 질문 음성, 화면 모드. */
+/** 설정 탭(S14)의 분석 모델, 제공사별 키, 음성 전송 동의, 답변 타이머, 문항 파일, 진동, 질문 음성, 코치 목표 등급, 화면 모드. */
 @Inject
 class SettingsViewModel(
     private val loadSettingsUseCase: LoadSettingsUseCase,
@@ -30,12 +34,18 @@ class SettingsViewModel(
     private val importQuestionsUseCase: ImportQuestionsUseCase,
     private val setHapticsUseCase: SetHapticsUseCase,
     private val setQuestionVoiceUseCase: SetQuestionVoiceUseCase,
+    observeTargetGradeUseCase: ObserveTargetGradeUseCase,
+    private val setTargetGradeUseCase: SetTargetGradeUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     init {
         load()
+        // 시작 시트에서도 바뀌는 전역 값이라 한 번 읽지 않고 구독한다(F10.3).
+        observeTargetGradeUseCase()
+            .onEach { choice -> _uiState.update { it.copy(targetGrades = choice.grades, targetGrade = choice.selected) } }
+            .launchIn(viewModelScope)
     }
 
     fun onIntent(intent: SettingsIntent) {
@@ -84,6 +94,8 @@ class SettingsViewModel(
                 setQuestionVoiceUseCase(intent.on)
                 _uiState.update { it.copy(naturalVoiceOn = intent.on) }
             }
+
+            is SettingsIntent.SelectTargetGrade -> viewModelScope.launch { setTargetGradeUseCase(intent.grade) }
 
             is SettingsIntent.ImportQuestions -> viewModelScope.launch {
                 val result = importQuestionsUseCase(intent.json)

@@ -32,6 +32,9 @@ data class SettingsUiState(
     val importedQuestionCount: Int = 0,
     /** 방금 불러온 결과 안내. 다시 불러오기 전까지 남는다. */
     val questionImport: QuestionImportResult? = null,
+    /** 코치 목표 등급으로 고를 수 있는 등급과 지금 값(F10.3). 읽기 전에는 비어 있다. */
+    val targetGrades: List<String> = emptyList(),
+    val targetGrade: String? = null,
 ) {
     val selectedModel: ModelInfo? get() = models.firstOrNull { it.id == selectedModelId }
 
@@ -68,6 +71,8 @@ sealed interface SettingsIntent {
 
     /** 질문 음성을 고른다. false 면 기기 음성이다. */
     data class SetNaturalVoice(val on: Boolean) : SettingsIntent
+
+    data class SelectTargetGrade(val grade: String) : SettingsIntent
 
     /** 화면이 고른 파일의 내용을 넘긴다. 파일을 읽지 못했으면 null 이다. 고르기를 취소하면 보내지 않는다. */
     data class ImportQuestions(val json: String?) : SettingsIntent

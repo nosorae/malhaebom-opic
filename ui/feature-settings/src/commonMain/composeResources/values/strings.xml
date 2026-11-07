@@ -37,6 +37,8 @@
     <string name="settings_consent_revoke_title">음성 전송 동의를 철회할까요?</string>
     <string name="settings_consent_revoke_message">보내려고 기다리던 녹음도 보내지 않습니다. 녹음과 답변은 기기에 남고, 다음에 앱을 켜면 동의를 다시 묻습니다.</string>
     <string name="settings_practice_section">연습</string>
+    <string name="settings_target_grade_section">코치 목표 등급</string>
+    <string name="settings_target_grade_caption">코치와 만드는 스크립트 길이를 이 등급에 맞춥니다. 코치 시작 화면에서 바꿔도 여기에 남습니다.</string>
     <string name="settings_survey">서베이 답 보고 바꾸기</string>
     <string name="settings_survey_caption">고른 주제로 모의고사 질문이 나오고, 한 문항 연습도 그 주제를 먼저 냅니다.</string>
     <string name="settings_answer_timer">문항별 답변 타이머</string>
