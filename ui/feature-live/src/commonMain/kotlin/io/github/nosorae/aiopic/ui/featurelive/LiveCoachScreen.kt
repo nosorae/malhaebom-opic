@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +34,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -63,6 +68,7 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -120,25 +126,31 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
             state.micDenied -> Notice(stringResource(Res.string.live_mic_denied), action = stringResource(Res.string.live_open_settings), onAction = onOpenSettings)
             coach == null -> if (state.consented == true) Waiting(stringResource(Res.string.live_connecting))
             coach.status == CoachStatus.Finished -> Waiting(stringResource(Res.string.live_script_wait))
-            else -> Conversation(coach, onIntent, onEdit = { editing = it })
+            else -> Conversation(state.question, coach, onIntent, onEdit = { editing = it })
         }
     }
 }
 
 @Composable
-private fun Conversation(coach: CoachState, onIntent: (LiveCoachIntent) -> Unit, onEdit: (Edit) -> Unit) {
+private fun Conversation(question: String, coach: CoachState, onIntent: (LiveCoachIntent) -> Unit, onEdit: (Edit) -> Unit) {
     val list = rememberLazyListState()
-    // 받아쓰기 끝을 보고 있을 때 새 말이 들어오면 따라 내려간다. 위로 올려 메모를 읽는 중이면 끌어내리지 않고, 처음 열 때는 위에서 시작한다.
+    // 받아쓰기가 대화의 중심이라 처음 열면 맨 아래 최근 줄을 보인다. 끝을 보고 있을 때 새 말이 들어오면 따라 내려가고,
+    // 위로 올려 메모를 읽는 중이면 끌어내리지 않는다.
     val atEnd = !list.canScrollForward
     val heard = coach.lines.size to coach.lines.lastOrNull()?.text?.length
-    var seen by remember { mutableStateOf(heard) }
+    var seen by remember { mutableStateOf<Pair<Int, Int?>?>(null) }
     LaunchedEffect(heard) {
-        if (heard != seen && atEnd) list.scrollToItem(maxOf(0, list.layoutInfo.totalItemsCount - 1))
+        if (seen == null || (heard != seen && atEnd)) {
+            val count = snapshotFlow { list.layoutInfo.totalItemsCount }.first { it > 0 }
+            list.scrollToItem(count - 1)
+        }
         seen = heard
     }
-    LazyColumn(Modifier.fillMaxSize(), state = list, verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
-        item { PhaseHeader(coach.phase) }
-        item { CostLine(coach.costUsd) }
+    var notesOpen by rememberSaveable { mutableStateOf(false) }
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
+        PhaseHeader(coach.phase)
+        QuestionText(question)
+        // 안내는 받아쓰기를 따라 스크롤되지 않게 위에 고정한다. 끊겼을 때 "다시 연결" 이 늘 보여야 한다.
         val notice = when {
             coach.disconnected != null -> null
             coach.timeWarning -> Res.string.live_time_warning
@@ -146,29 +158,64 @@ private fun Conversation(coach: CoachState, onIntent: (LiveCoachIntent) -> Unit,
             else -> null
         }
         coach.disconnected?.let { reason ->
-            item { Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = { onIntent(LiveCoachIntent.Resume) }) }
+            Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = { onIntent(LiveCoachIntent.Resume) })
         }
-        notice?.let { item { Notice(stringResource(it)) } }
-        item { SectionTitle(stringResource(Res.string.live_materials)) }
-        itemsIndexed(MaterialKind.entries) { _, kind ->
-            val text = coach.materials.filter { it.kind == kind }.joinToString(", ") { it.text }
-            val title = kind.label
-            MontageListCell(
-                title = stringResource(title),
-                caption = text.ifEmpty { stringResource(Res.string.live_material_empty) },
-                chevron = true,
-                onClick = { onEdit(Edit(title, text) { LiveCoachIntent.EditMaterial(kind, it) }) },
-            )
+        notice?.let { Notice(stringResource(it)) }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
+            item { CostLine(coach.costUsd) }
+            item {
+                val filled = MaterialKind.entries.count { kind -> coach.materials.any { it.kind == kind } }
+                val state = stringResource(if (notesOpen) Res.string.live_notes_open else Res.string.live_notes_closed)
+                MontageListCell(
+                    title = stringResource(Res.string.live_notes),
+                    caption = stringResource(Res.string.live_notes_summary, filled, MaterialKind.entries.size, coach.expressions.size),
+                    chevron = true,
+                    onClick = { notesOpen = !notesOpen },
+                    modifier = Modifier.semantics { stateDescription = state },
+                )
+            }
+            if (notesOpen) {
+                item { SectionTitle(stringResource(Res.string.live_materials)) }
+                itemsIndexed(MaterialKind.entries) { _, kind ->
+                    val text = coach.materials.filter { it.kind == kind }.joinToString(", ") { it.text }
+                    val title = kind.label
+                    MontageListCell(
+                        title = stringResource(title),
+                        caption = text.ifEmpty { stringResource(Res.string.live_material_empty) },
+                        chevron = true,
+                        onClick = { onEdit(Edit(title, text) { LiveCoachIntent.EditMaterial(kind, it) }) },
+                    )
+                }
+                item { SectionTitle(stringResource(Res.string.live_expressions)) }
+                if (coach.expressions.isEmpty()) item { Body(stringResource(Res.string.live_expressions_empty)) }
+                itemsIndexed(coach.expressions) { index, expression ->
+                    ExpressionCard(expression, onClick = { onEdit(Edit(Res.string.live_expressions, expression.english) { LiveCoachIntent.EditExpression(index, it) }) })
+                }
+            }
+            item { SectionTitle(stringResource(Res.string.live_transcript)) }
+            if (coach.lines.isEmpty()) item { Body(stringResource(Res.string.live_transcript_empty)) }
+            itemsIndexed(coach.lines) { _, line -> TranscriptLine(line) }
+            item { Spacer(Modifier.height(MontageSpacing.spacing8)) }
         }
-        item { SectionTitle(stringResource(Res.string.live_expressions)) }
-        if (coach.expressions.isEmpty()) item { Body(stringResource(Res.string.live_expressions_empty)) }
-        itemsIndexed(coach.expressions) { index, expression ->
-            ExpressionCard(expression, onClick = { onEdit(Edit(Res.string.live_expressions, expression.english) { LiveCoachIntent.EditExpression(index, it) }) })
-        }
-        item { SectionTitle(stringResource(Res.string.live_transcript)) }
-        if (coach.lines.isEmpty()) item { Body(stringResource(Res.string.live_transcript_empty)) }
-        itemsIndexed(coach.lines) { _, line -> TranscriptLine(line) }
     }
+}
+
+/** 지금 답을 만드는 질문. 길면 두 줄로 접고 눌러서 펼친다. */
+@Composable
+private fun QuestionText(question: String) {
+    if (question.isBlank()) return
+    var open by rememberSaveable { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
+    val toggle = if (open || overflow) Modifier.clickable(role = Role.Button) { open = !open } else Modifier
+    Text(
+        question,
+        style = MontageTheme.typography.body1.medium,
+        color = MontageTheme.colors.foregroundNeutralPrimary,
+        maxLines = if (open) Int.MAX_VALUE else QUESTION_LINES,
+        overflow = TextOverflow.Ellipsis,
+        onTextLayout = { if (!open) overflow = it.hasVisualOverflow },
+        modifier = Modifier.fillMaxWidth().then(toggle).padding(horizontal = Gutter, vertical = MontageSpacing.spacing8),
+    )
 }
 
 /** 네 단계 가운데 지금 단계. 스크립트 정리는 네 단계를 다 지난 것으로 그린다. */
@@ -386,6 +433,9 @@ private const val TALK_PHASES = 4
 
 private val Gutter = MontageSpacing.spacing20
 
+/** 접은 질문 줄 수. */
+private const val QUESTION_LINES = 2
+
 /** 미리보기와 스크린샷 테스트가 함께 쓰는 고정 상태. */
 internal object LiveCoachSamples {
     private val explore = CoachState(
@@ -403,11 +453,13 @@ internal object LiveCoachSamples {
         usage = mapOf(CoachPhase.Explore to TokenUsage(input = mapOf(Modality.Audio to 120_000, Modality.Text to 8_000), output = mapOf(Modality.Audio to 5_000))),
     )
 
-    val exploring = LiveCoachUiState(consented = true, coach = explore, micLevel = 0.4f)
-    val dropped = LiveCoachUiState(consented = true, coach = explore.copy(disconnected = TransportEvent.Disconnected.RATE_LIMITED))
-    val timeWarning = LiveCoachUiState(consented = true, coach = explore.copy(phase = CoachPhase.Feedback, talkTime = TALK_WARNING), playbackLevel = 0.6f)
+    private const val QUESTION = "Tell me about a memorable trip you took recently. Where did you go, who did you go with, and what made the trip so special for you?"
+
+    val exploring = LiveCoachUiState(question = QUESTION, consented = true, coach = explore, micLevel = 0.4f)
+    val dropped = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(disconnected = TransportEvent.Disconnected.RATE_LIMITED))
+    val timeWarning = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(phase = CoachPhase.Feedback, talkTime = TALK_WARNING), playbackLevel = 0.6f)
     val consent = LiveCoachUiState(consented = false)
-    val finished = LiveCoachUiState(consented = true, coach = explore.copy(phase = CoachPhase.Script, status = CoachStatus.Finished))
+    val finished = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(phase = CoachPhase.Script, status = CoachStatus.Finished))
 }
 
 @Preview

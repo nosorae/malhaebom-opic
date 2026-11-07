@@ -33,6 +33,10 @@
     <string name="live_listening">내 말을 듣는 중</string>
     <string name="live_transcript">받아쓰기</string>
     <string name="live_transcript_empty">말을 시작하면 코치와 내 말이 여기에 차례로 쌓입니다.</string>
+    <string name="live_notes">소재 메모와 표현 카드</string>
+    <string name="live_notes_summary">소재 %1$d/%2$d칸, 표현 카드 %3$d개</string>
+    <string name="live_notes_open">펼침</string>
+    <string name="live_notes_closed">접힘</string>
     <string name="live_materials">소재 메모</string>
     <string name="live_material_place">장소</string>
     <string name="live_material_person">사람</string>
