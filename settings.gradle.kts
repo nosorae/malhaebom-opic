@@ -48,6 +48,7 @@ include(
     ":libs:recorder",
     ":libs:duplex-audio",
     ":libs:llm-gemini",
+    ":libs:live-gemini",
     ":libs:work-queue",
     ":libs:keyvault",
     ":libs:tts",
