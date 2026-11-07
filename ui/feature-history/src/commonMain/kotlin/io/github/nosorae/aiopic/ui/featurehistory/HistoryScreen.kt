@@ -45,6 +45,7 @@ import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.montageItemMotion
+import io.github.nosorae.aiopic.ui.featurelive.CoachStartButton
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -53,10 +54,11 @@ fun HistoryRoute(
     viewModel: HistoryViewModel,
     onOpenSession: (sessionId: String) -> Unit,
     onOpenAnswer: (answerId: String) -> Unit,
+    onOpenCoach: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    HistoryScreen(state = state, onOpenSession = onOpenSession, onOpenAnswer = onOpenAnswer, onIntent = viewModel::onIntent, modifier = modifier)
+    HistoryScreen(state = state, onOpenSession = onOpenSession, onOpenAnswer = onOpenAnswer, onOpenCoach = onOpenCoach, onIntent = viewModel::onIntent, modifier = modifier)
 }
 
 /** 기록 목록에서 볼 종류. 회차와 연습이 둘 다 있을 때만 고를 수 있다. */
@@ -66,7 +68,7 @@ internal enum class HistoryFilter { All, Exam, Practice }
  * 기록 탭(S13, F7.3, F7.4). 모의고사 회차와 한 문항 연습 답변을 한 목록에 최근 것부터 보인다. 회차는 등급과 분석 모델,
  * 연습은 문항 유형과 점수를 보이고 분석 중과 실패도 그 줄에 보인다. 모델이 섞인 회차는 표시한다(F5.7).
  * 회차를 누르면 [onOpenSession] 로 회차 리포트를, 연습을 누르면 [onOpenAnswer] 로 그 답변 리포트를 연다.
- * 아래에 문항 유형별 약점 점수를 약한 것부터 막대와 함께 둔다. 지난번에 본 것보다 오른 점수는 처음 볼 때 점수 둘레에 작은 축하를 한다(#198).
+ * 아래에 문항 유형별 약점 점수를 약한 것부터 막대와 함께 두고, 그 위에 코치 시작 버튼([onOpenCoach], F10.1)을 둔다. 지난번에 본 것보다 오른 점수는 처음 볼 때 점수 둘레에 작은 축하를 한다(#198).
  * 이 화면의 주인공 움직임은 하나다. 맨 위 등급 눈금에서 최근 회차 등급으로 구슬이 미끄러져 멈춘다. 분석 중인 연습 줄의 작은 물결만 기다리는 동안 계속 움직인다.
  */
 @Composable
@@ -74,6 +76,7 @@ fun HistoryScreen(
     state: HistoryUiState,
     onOpenSession: (sessionId: String) -> Unit,
     onOpenAnswer: (answerId: String) -> Unit,
+    onOpenCoach: () -> Unit,
     onIntent: (HistoryIntent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -118,6 +121,7 @@ fun HistoryScreen(
                     item {
                         SectionTitle(stringResource(Res.string.history_weakness))
                         Body(stringResource(Res.string.history_weakness_help))
+                        CoachStartButton(onClick = onOpenCoach, modifier = Modifier.padding(horizontal = MontageSpacing.spacing20))
                     }
                 }
                 items(state.weaknesses, key = { it.typeName }) { weakness ->
@@ -313,5 +317,5 @@ private fun Body(text: String) {
 @Preview
 @Composable
 private fun HistoryScreenPreview() {
-    MontageTheme { HistoryScreen(state = HistorySamples.filled, onOpenSession = {}, onOpenAnswer = {}, onIntent = {}) }
+    MontageTheme { HistoryScreen(state = HistorySamples.filled, onOpenSession = {}, onOpenAnswer = {}, onOpenCoach = {}, onIntent = {}) }
 }

@@ -63,6 +63,8 @@ import io.github.nosorae.aiopic.ui.featurehistory.HistoryStore
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
 import io.github.nosorae.aiopic.ui.featurehome.ExamSessionSource
 import io.github.nosorae.aiopic.ui.featurehome.HomeViewModel
+import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
+import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainError
 import io.github.nosorae.aiopic.ui.featureonboarding.DomainResult
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.ConsentViewModel
@@ -136,6 +138,8 @@ interface AppGraph {
 
     val settingsViewModel: SettingsViewModel
 
+    val coachStartViewModel: CoachStartViewModel
+
     val flagExportViewModel: FlagExportViewModel
 
     /** 앱 틀이 구독해서 화면 모드를 고르는 즉시 테마를 바꾼다(F9.1). */
@@ -171,6 +175,8 @@ interface AppGraph {
     @Provides fun hapticsStore(settings: AppSettings): HapticsStore = settings
 
     @Provides fun surveyStore(settings: AppSettings): SurveyStore = settings
+
+    @Provides fun targetGradeStore(settings: AppSettings): TargetGradeStore = settings
 
     @Provides fun pendingAnalysis(jobs: AnalysisJobs): PendingAnalysis = PendingAnalysis(jobs::cancelAll)
 

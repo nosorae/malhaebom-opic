@@ -86,7 +86,7 @@ class HistoryCelebrationTest {
         rule.mainClock.autoAdvance = false
         rule.setContent {
             MontageTheme(darkTheme = dark, reduceMotion = reduceMotion) {
-                CompositionLocalProvider(LocalHaptics provides Haptics { played += it }) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = {}, onIntent = { intents += it }) }
+                CompositionLocalProvider(LocalHaptics provides Haptics { played += it }) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = {}, onOpenCoach = {}, onIntent = { intents += it }) }
             }
         }
     }

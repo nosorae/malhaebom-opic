@@ -4,6 +4,9 @@ import io.github.nosorae.aiopic.engine.answer.model.ModelInfo
 import io.github.nosorae.aiopic.engine.answer.model.Stability
 import io.github.nosorae.aiopic.engine.answer.port.ModelCatalog
 import io.github.nosorae.aiopic.libs.keyvault.api.KeyVault
+import io.github.nosorae.aiopic.ui.featurelive.ObserveTargetGradeUseCase
+import io.github.nosorae.aiopic.ui.featurelive.SetTargetGradeUseCase
+import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.VoiceConsent
 import io.github.nosorae.aiopic.ui.featuresettings.consent.PendingAnalysis
 import io.github.nosorae.aiopic.ui.featuresettings.consent.RevokeVoiceConsentUseCase
@@ -40,7 +43,8 @@ class FakeSettingsStore(var modelId: String? = null) :
     AnswerTimerStore,
     QuestionFileStore,
     HapticsStore,
-    QuestionVoiceStore {
+    QuestionVoiceStore,
+    TargetGradeStore {
     var consentGiven = true
     var answerTimerOn = false
     var questionFile: String? = null
@@ -49,6 +53,13 @@ class FakeSettingsStore(var modelId: String? = null) :
     var highQualityDeviceVoice = true
 
     override val themeMode = MutableStateFlow(ThemeMode.System)
+
+    override val targetGrades = listOf("IM1", "IM2", "IM3", "IH", "AL")
+    override val targetGrade = MutableStateFlow("IH")
+
+    override suspend fun setTargetGrade(grade: String) {
+        targetGrade.value = grade
+    }
 
     override suspend fun selectedModelId(): String? = modelId
 
@@ -115,6 +126,8 @@ fun settingsViewModel(store: FakeSettingsStore, vault: FakeKeyVault, queue: Fake
     importQuestionsUseCase = ImportQuestionsUseCase(store),
     setHapticsUseCase = SetHapticsUseCase(store),
     setQuestionVoiceUseCase = SetQuestionVoiceUseCase(store),
+    observeTargetGradeUseCase = ObserveTargetGradeUseCase(store),
+    setTargetGradeUseCase = SetTargetGradeUseCase(store),
 )
 
 class FakeKeyVault(vararg saved: Pair<String, String>) : KeyVault {

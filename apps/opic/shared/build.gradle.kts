@@ -22,6 +22,8 @@ kotlin {
         implementation(project(":ui:feature-practice"))
         implementation(project(":ui:feature-report"))
         implementation(project(":ui:feature-history"))
+        // 코치 시작 시트를 연습 탭과 기록 탭 위에 띄우고, 목표 등급 저장소를 설정 저장소로 구현한다(F10).
+        implementation(project(":ui:feature-live"))
         // 설정의 모델 목록으로 앱이 들고 있는 Gemini 목록을 넣는다.
         implementation(project(":engine:answer"))
         implementation(project(":engine:ai-gemini"))

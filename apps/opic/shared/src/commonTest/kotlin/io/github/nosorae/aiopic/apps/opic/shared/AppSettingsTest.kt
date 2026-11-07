@@ -129,4 +129,23 @@ class AppSettingsTest {
         assertFalse(reopen().hapticsOn())
         assertEquals(listOf(HapticEffect.Selection), played)
     }
+
+    @Test
+    fun `F10_4 목표 등급을 고른 적이 없으면 IH 다`() {
+        assertEquals("IH", reopen().targetGrade.value)
+    }
+
+    @Test
+    fun `F10_3 고른 목표 등급은 앱을 다시 켜도 남는다`() = runTest {
+        reopen().setTargetGrade("AL")
+
+        assertEquals("AL", reopen().targetGrade.value)
+    }
+
+    @Test
+    fun `저장된 목표 등급이 목록에 없으면 IH 로 시작한다`() {
+        disk["target_grade"] = "NL"
+
+        assertEquals("IH", reopen().targetGrade.value)
+    }
 }

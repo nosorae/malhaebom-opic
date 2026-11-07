@@ -33,6 +33,7 @@ import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.icon_normal_external_link
+import io.github.nosorae.aiopic.ui.featurelive.TargetGradeChips
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyProvider
 import io.github.nosorae.aiopic.ui.featuresettings.key.KeyStatus
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionImportResult
@@ -179,6 +180,15 @@ fun SettingsScreen(
                 onClick = onPickQuestionFile,
             )
             state.questionImport?.let { QuestionImportNotice(it) }
+
+            SectionLabel(Res.string.settings_target_grade_section)
+            TargetGradeChips(
+                grades = state.targetGrades,
+                selected = state.targetGrade,
+                onSelect = { onIntent(SettingsIntent.SelectTargetGrade(it)) },
+                modifier = Modifier.padding(horizontal = MontageSpacing.spacing20),
+            )
+            Notice(stringResource(Res.string.settings_target_grade_caption))
 
             SectionLabel(Res.string.settings_voice_section)
             MontageListCell(
@@ -359,6 +369,8 @@ internal object SettingsSamples {
         models = listOf(stable, preview),
         selectedModelId = stable.id,
         keys = listOf(KeyStatus(KeyProvider.Gemini, maskedKey = "AQ.…b1Ig")),
+        targetGrades = listOf("IM1", "IM2", "IM3", "IH", "AL"),
+        targetGrade = "IH",
     )
     val previewSelected = default.copy(selectedModelId = preview.id)
     val fellBack = default.copy(fellBackFrom = "gemini-2.0-flash", keys = listOf(KeyStatus(KeyProvider.Gemini, maskedKey = null)))

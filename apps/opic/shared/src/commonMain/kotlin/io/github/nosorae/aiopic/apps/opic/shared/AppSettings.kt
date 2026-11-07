@@ -3,7 +3,9 @@ package io.github.nosorae.aiopic.apps.opic.shared
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.SurveyAnswers
 import io.github.nosorae.aiopic.libs.haptics.api.Haptics
+import io.github.nosorae.aiopic.packs.opicen.OpicEn
 import io.github.nosorae.aiopic.ui.featureexam.SurveyStore
+import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.VoiceConsent
 import io.github.nosorae.aiopic.ui.featuresettings.haptics.HapticsStore
 import io.github.nosorae.aiopic.ui.featuresettings.model.ModelSelectionStore
@@ -17,7 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
 /**
- * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성)을 플랫폼 설정 저장소에 둔다.
+ * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급)을 플랫폼 설정 저장소에 둔다.
  * 플랫폼은 문자열 읽기와 쓰기 두 함수만 넘긴다(Android SharedPreferences, iOS NSUserDefaults). 키가 아니라서 암호화하지 않는다.
  */
 class AppSettings(private val read: (String) -> String?, private val write: (String, String) -> Unit) :
@@ -27,13 +29,25 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     AnswerTimerStore,
     QuestionFileStore,
     HapticsStore,
-    SurveyStore {
+    SurveyStore,
+    TargetGradeStore {
     private val mode = MutableStateFlow(ThemeMode.entries.firstOrNull { it.name == read(THEME_MODE) } ?: ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = mode.asStateFlow()
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         write(THEME_MODE, mode.name)
         this.mode.value = mode
+    }
+
+    override val targetGrades: List<String> = OpicEn.targetGrades
+
+    // 목록에 없는 값(팩이 등급을 바꾼 뒤 남은 값)은 고른 적이 없는 것으로 본다.
+    private val grade = MutableStateFlow(read(TARGET_GRADE)?.takeIf { it in targetGrades } ?: OpicEn.defaultTargetGrade)
+    override val targetGrade: StateFlow<String> = grade.asStateFlow()
+
+    override suspend fun setTargetGrade(grade: String) {
+        write(TARGET_GRADE, grade)
+        this.grade.value = grade
     }
 
     override suspend fun selectedModelId(): String? = read(MODEL_ID)
@@ -94,7 +108,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         set(value) = write(NOTIFICATIONS_ASKED, value.toString())
 
     /** 디버깅 화면의 설정 패널. 문항 파일은 수십 KB 라 길이만 보인다. 회차별 출제 목록은 DB 패널의 회차로 찾는다. */
-    fun debugRows(): List<Pair<String, String>> = listOf(THEME_MODE, MODEL_ID, FELL_BACK_FROM, VOICE_CONSENT, ANSWER_TIMER, HAPTICS).map { it to (read(it) ?: "(none)") } +
+    fun debugRows(): List<Pair<String, String>> = listOf(THEME_MODE, MODEL_ID, FELL_BACK_FROM, VOICE_CONSENT, ANSWER_TIMER, HAPTICS, TARGET_GRADE).map { it to (read(it) ?: "(none)") } +
         (QUESTION_FILE to (read(QUESTION_FILE)?.let { "${it.length} chars" } ?: "(none)"))
 
     companion object {
@@ -109,6 +123,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         private const val EXAM_QUESTIONS = "exam_questions_"
         private const val SURVEY_ANSWERS = "survey_answers"
         private const val NOTIFICATIONS_ASKED = "notifications_asked"
+        private const val TARGET_GRADE = "target_grade"
 
         /** 앱 틀 테스트처럼 기기에 남길 필요가 없을 때 쓴다. */
         fun inMemory(): AppSettings {

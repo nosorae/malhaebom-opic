@@ -3,8 +3,11 @@ package io.github.nosorae.aiopic.apps.opic.shared
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -13,6 +16,7 @@ import io.github.nosorae.aiopic.ui.featureexam.ExamRoute
 import io.github.nosorae.aiopic.ui.featureexam.SurveyRoute
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryRoute
 import io.github.nosorae.aiopic.ui.featurehome.HomeRoute
+import io.github.nosorae.aiopic.ui.featurelive.CoachStartRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.ConsentRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyEntryRoute
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyEntryViewModel
@@ -50,6 +54,16 @@ internal fun RouteContent(
 ) {
     val scope = rememberCoroutineScope()
     val restart: () -> Unit = { scope.launch { onRestart(AppRoute.start(graph.decideStartUseCase())) } }
+    // 코치 시작 시트는 연습 탭과 기록 탭 위에 뜨는 창이라 경로로 쌓지 않는다(F10.1).
+    var coachOpen by rememberSaveable { mutableStateOf(false) }
+    if (coachOpen) {
+        CoachStartRoute(
+            viewModel = viewModel { graph.coachStartViewModel },
+            // 대화 화면은 #265 가 경로를 더하면서 여기서 연다. 그 전까지 시작은 시트만 닫는다.
+            onStart = { coachOpen = false },
+            onDismiss = { coachOpen = false },
+        )
+    }
     when (route) {
         AppRoute.ExamTab -> HomeRoute(
             viewModel = viewModel { graph.homeViewModel },
@@ -62,6 +76,7 @@ internal fun RouteContent(
         AppRoute.PracticeTab -> PracticeTabRoute(
             viewModel = viewModel { graph.practiceTabViewModel },
             onStart = { onOpen(AppRoute.Practice(newId())) },
+            onOpenCoach = { coachOpen = true },
             modifier = modifier,
         )
 
@@ -69,6 +84,7 @@ internal fun RouteContent(
             viewModel = viewModel { graph.historyViewModel },
             onOpenSession = { onOpen(AppRoute.ReportDetail(it)) },
             onOpenAnswer = { onOpen(AppRoute.AnswerReport(it)) },
+            onOpenCoach = { coachOpen = true },
             modifier = modifier,
         )
 

@@ -40,6 +40,7 @@ include(
     ":ui:feature-report",
     ":ui:feature-history",
     ":ui:feature-settings",
+    ":ui:feature-live",
     ":packs:opic-en",
     ":engine:session",
     ":engine:answer",

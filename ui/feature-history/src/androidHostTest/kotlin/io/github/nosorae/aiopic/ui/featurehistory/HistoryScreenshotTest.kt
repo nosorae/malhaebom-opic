@@ -142,7 +142,7 @@ class HistoryScreenshotTest {
     private fun show(state: HistoryUiState, dark: Boolean = false, reduceMotion: Boolean = false, onOpenAnswer: (String) -> Unit = {}) {
         rule.mainClock.autoAdvance = false
         rule.setContent {
-            MontageTheme(darkTheme = dark, reduceMotion = reduceMotion) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = onOpenAnswer, onIntent = {}) }
+            MontageTheme(darkTheme = dark, reduceMotion = reduceMotion) { HistoryScreen(state = state, onOpenSession = {}, onOpenAnswer = onOpenAnswer, onOpenCoach = {}, onIntent = {}) }
         }
     }
 
