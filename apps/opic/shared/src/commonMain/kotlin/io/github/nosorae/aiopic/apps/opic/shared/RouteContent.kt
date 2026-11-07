@@ -61,13 +61,9 @@ internal fun RouteContent(
     if (coachOpen) {
         CoachStartRoute(
             viewModel = viewModel { graph.coachStartViewModel },
-            // 질문은 한 문항 연습과 같이 가장 약한 유형에서 고른다(F4.1). 낼 질문이 없으면 시트만 닫는다.
-            onStart = {
-                scope.launch {
-                    val pick = graph.pickPracticeQuestionUseCase()
-                    coachOpen = false
-                    pick?.let { onOpen(AppRoute.Coach(newId(), it.question.id, it.question.text, graph.settings.targetGrade.value)) }
-                }
+            onStart = { questionId, question, targetGrade ->
+                coachOpen = false
+                onOpen(AppRoute.Coach(newId(), questionId, question, targetGrade))
             },
             onDismiss = { coachOpen = false },
         )

@@ -77,6 +77,8 @@ import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
 import io.github.nosorae.aiopic.ui.featurehome.ExamSessionSource
 import io.github.nosorae.aiopic.ui.featurehome.HomeViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachFactory
+import io.github.nosorae.aiopic.ui.featurelive.CoachQuestion
+import io.github.nosorae.aiopic.ui.featurelive.CoachQuestionPicker
 import io.github.nosorae.aiopic.ui.featurelive.CoachScriptViewModel
 import io.github.nosorae.aiopic.ui.featurelive.CoachStartViewModel
 import io.github.nosorae.aiopic.ui.featurelive.LiveCoachViewModel
@@ -162,9 +164,6 @@ interface AppGraph {
 
     val coachStartViewModel: CoachStartViewModel
 
-    /** 코치 시작 시트가 코치와 이야기할 질문을 고른다. */
-    val pickPracticeQuestionUseCase: PickPracticeQuestionUseCase
-
     val liveCoachViewModelFactory: LiveCoachViewModel.Factory
 
     val coachScriptViewModelFactory: CoachScriptViewModel.Factory
@@ -224,6 +223,9 @@ interface AppGraph {
             scope = scope,
         )
     }
+
+    /** 코치 시작 시트가 한 문항 연습과 같이 가장 약한 유형에서 질문을 고른다(F4.1). */
+    @Provides fun coachQuestionPicker(pick: PickPracticeQuestionUseCase): CoachQuestionPicker = CoachQuestionPicker { pick()?.question?.let { CoachQuestion(it.id, it.text) } }
 
     /** 지금 대화 화면이 돌리는 코치 하나. 대화 화면은 한 번에 하나만 열린다. */
     @Provides

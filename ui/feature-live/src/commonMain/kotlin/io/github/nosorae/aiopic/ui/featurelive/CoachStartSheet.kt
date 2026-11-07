@@ -9,7 +9,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -48,20 +50,29 @@ fun TargetGradeChips(grades: List<String>, selected: String?, onSelect: (String)
 }
 
 /**
- * 코치 시작 시트의 바깥 겹. [onStart] 는 대화 화면을 연다. 목표 등급은 고르는 즉시 전역 값에 저장돼서 넘기지 않는다.
- * 바깥을 누르거나 뒤로가기를 누르면 [onDismiss] 다.
+ * 코치 시작 시트의 바깥 겹. 질문을 고르면 [onStart] 로 대화 화면을 연다. 목표 등급은 고르는 즉시 전역 값에 저장되고 고른 질문과 함께 넘긴다.
+ * 바깥을 누르거나 뒤로가기를 누르거나 낼 질문이 없으면 [onDismiss] 다.
  */
 @Composable
-fun CoachStartRoute(viewModel: CoachStartViewModel, onStart: () -> Unit, onDismiss: () -> Unit) {
+fun CoachStartRoute(viewModel: CoachStartViewModel, onStart: (questionId: String, question: String, targetGrade: String) -> Unit, onDismiss: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    CoachStartSheet(state, onIntent = viewModel::onIntent, onStart = onStart, onDismiss = onDismiss)
+    val currentOnStart by rememberUpdatedState(onStart)
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+    LaunchedEffect(state.navigation) {
+        when (val navigation = state.navigation ?: return@LaunchedEffect) {
+            is CoachStartDestination.Start -> currentOnStart(navigation.question.id, navigation.question.text, navigation.targetGrade)
+            CoachStartDestination.Close -> currentOnDismiss()
+        }
+        viewModel.onIntent(CoachStartIntent.NavigationHandled)
+    }
+    CoachStartSheet(state, onIntent = viewModel::onIntent, onDismiss = onDismiss)
 }
 
 /** 코치 시작 시트(F10.2~F10.5). 목표 등급, 이어폰 권장 한 줄, 예상 시간, 시작 버튼이다. */
 @Composable
-fun CoachStartSheet(state: CoachStartUiState, onIntent: (CoachStartIntent) -> Unit, onStart: () -> Unit, onDismiss: () -> Unit) {
+fun CoachStartSheet(state: CoachStartUiState, onIntent: (CoachStartIntent) -> Unit, onDismiss: () -> Unit) {
     MontageBottomSheet(onDismissRequest = onDismiss) {
-        CoachStartContent(state, onSelectGrade = { onIntent(CoachStartIntent.SelectTargetGrade(it)) }, onStart = onStart)
+        CoachStartContent(state, onSelectGrade = { onIntent(CoachStartIntent.SelectTargetGrade(it)) }, onStart = { onIntent(CoachStartIntent.Start) })
     }
 }
 
@@ -99,6 +110,7 @@ private fun CoachStartContent(state: CoachStartUiState, onSelectGrade: (String) 
             text = stringResource(Res.string.live_sheet_start),
             onClick = onStart,
             enabled = state.selected != null,
+            loading = state.starting,
             modifier = Modifier.fillMaxWidth().padding(top = MontageSpacing.spacing16),
         )
     }

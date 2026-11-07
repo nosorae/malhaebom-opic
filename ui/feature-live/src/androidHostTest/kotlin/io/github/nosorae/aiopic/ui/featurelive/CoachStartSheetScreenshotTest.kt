@@ -28,7 +28,7 @@ class CoachStartSheetScreenshotTest {
 
     private fun open(dark: Boolean = false) {
         rule.setContent {
-            MontageTheme(darkTheme = dark, reduceMotion = true) { CoachStartSheet(CoachStartSamples.default, onIntent = {}, onStart = {}, onDismiss = {}) }
+            MontageTheme(darkTheme = dark, reduceMotion = true) { CoachStartSheet(CoachStartSamples.default, onIntent = {}, onDismiss = {}) }
         }
         rule.waitForIdle()
         rule.onNodeWithText("시작").assertExists()
