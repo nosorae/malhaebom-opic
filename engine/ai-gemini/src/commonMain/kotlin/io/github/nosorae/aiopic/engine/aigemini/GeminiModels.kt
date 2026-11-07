@@ -25,4 +25,10 @@ object GeminiModels : ModelCatalog {
      * 출제는 녹음을 듣지 않아서 분석 모델 고르기와 묶을 이유가 없다.
      */
     val questionModel: ModelInfo = flashLite
+
+    /**
+     * 라이브 코치(F11)의 실시간 음성 모델. 분석 모델 설정과 상관없이 이 모델로 연다. 코치는 음성으로 듣고 음성으로 답해서 분석 모델 목록과 따로 둔다.
+     */
+    // ponytail: 하나만 둔다. 설정에서 고르게 하려면 분석 모델 목록처럼 목록과 고르기를 더한다.
+    val liveModel: ModelInfo = ModelInfo(PROVIDER, "gemini-3.8-live", "Gemini 3.8 Live", hearsAudio = true, stability = Stability.Stable)
 }

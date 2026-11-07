@@ -40,8 +40,18 @@ sealed interface TransportEvent {
     /** 새 이어 붙이기 핸들. */
     data class ResumeHandle(val handle: String) : TransportEvent
 
-    /** 네트워크 끊김, 429 등. [reason] 은 화면에 보일 이유다. */
-    data class Disconnected(val reason: String) : TransportEvent
+    /** 네트워크 끊김, 429 등. [reason] 은 화면이 문구를 고르는 값이다. 아래 상수가 아니면 네트워크 끊김으로 보인다. */
+    data class Disconnected(val reason: String) : TransportEvent {
+        companion object {
+            /** 키의 요청 한도에 닿았다(429). */
+            const val RATE_LIMITED = "rate_limited"
+
+            /** 넣어 둔 키가 없다. */
+            const val NO_KEY = "no_key"
+
+            const val NETWORK = "network"
+        }
+    }
 }
 
 /** 세션 메모와 받아쓰기로 스크립트를 만든다. 구현과 실패를 돌려주는 모양은 #267 이 정한다. */
