@@ -41,6 +41,9 @@ data class LiveCoachUiState(
     /** 세션이 끝나 스크립트 화면으로 간다(30분, 피드백 끝, 리허설 없이 넘김). 화면이 옮긴 뒤 [LiveCoachIntent.NavigationHandled] 로 지운다. */
     val navigation: LiveCoachDestination? = null,
 ) {
+    /** 동의는 있는데 세션을 열기 전이고 마이크를 거절하지 않았다. 화면이 마이크 권한을 묻는다. */
+    val needsMic: Boolean get() = consented == true && !micDenied && coach == null
+
     /** 코치 목소리가 나오는 중이면 코치 쪽 띠를, 아니면 내 쪽 띠를 보인다(F12.1). */
     val coachSpeaking: Boolean get() = playbackLevel > 0f
 }
@@ -70,7 +73,7 @@ sealed interface LiveCoachIntent {
     /** 앱이 뒤로 갔다(F11.8). */
     data object LeaveApp : LiveCoachIntent
 
-    /** 앱이 앞으로 왔다. 앱이 뒤로 가며 멈춘 것만 이어 간다. */
+    /** 앱이 앞으로 왔다. 앱이 뒤로 가며 멈춘 것만 이어 가고, 마이크를 거절했었으면 다시 묻는다. */
     data object ReturnToApp : LiveCoachIntent
 
     data class EditMaterial(val kind: MaterialKind, val text: String) : LiveCoachIntent
@@ -153,6 +156,8 @@ class LiveCoachViewModel(
 
             LiveCoachIntent.ReturnToApp -> {
                 leaving?.cancel()
+                // 설정에서 마이크를 켜고 돌아왔을 수 있다. 화면이 다시 묻는다.
+                _uiState.update { it.copy(micDenied = false) }
                 if (pausedByApp) {
                     pausedByApp = false
                     send(CoachEvent.Resumed)

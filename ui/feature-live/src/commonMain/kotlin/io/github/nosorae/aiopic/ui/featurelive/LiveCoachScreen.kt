@@ -91,8 +91,8 @@ fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: 
         }
     }
     val requestMic = rememberMicPermission()
-    LaunchedEffect(state.consented) {
-        if (state.consented == true) viewModel.onIntent(if (requestMic()) LiveCoachIntent.Connect else LiveCoachIntent.MicDenied)
+    LaunchedEffect(state.needsMic) {
+        if (state.needsMic) viewModel.onIntent(if (requestMic()) LiveCoachIntent.Connect else LiveCoachIntent.MicDenied)
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onIntent(LiveCoachIntent.LeaveApp) }
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onIntent(LiveCoachIntent.ReturnToApp) }

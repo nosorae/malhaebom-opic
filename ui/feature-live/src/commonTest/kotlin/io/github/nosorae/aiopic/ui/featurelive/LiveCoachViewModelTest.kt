@@ -141,6 +141,20 @@ class LiveCoachViewModelTest {
     }
 
     @Test
+    fun `마이크 권한을 거절한 뒤 설정에서 돌아오면 다시 묻는다`() = test { db ->
+        val viewModel = viewModel(db)
+        runCurrent()
+        viewModel.onIntent(LiveCoachIntent.MicDenied)
+        runCurrent()
+        val before = viewModel.uiState.value.needsMic
+
+        viewModel.onIntent(LiveCoachIntent.ReturnToApp)
+        runCurrent()
+
+        assertEquals(false to true, before to viewModel.uiState.value.needsMic)
+    }
+
+    @Test
     fun `연결을 두 번 해도 세션은 하나만 연다`() = test { db ->
         val viewModel = connected(db)
 
