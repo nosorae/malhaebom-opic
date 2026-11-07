@@ -61,10 +61,13 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.RecordHaptics
+import io.github.nosorae.aiopic.ui.design.clockText
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
 import io.github.nosorae.aiopic.ui.design.icon_normal_play
 import io.github.nosorae.aiopic.ui.design.icon_normal_refresh
 import io.github.nosorae.aiopic.ui.design.rememberElapsedFraction
+import io.github.nosorae.aiopic.ui.design.rememberMicPermission
+import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -318,12 +321,6 @@ internal fun ScriptPanel(script: String) {
 }
 
 internal val Gutter = MontageSpacing.spacing20
-
-/** 분:초. 녹음 시간에 쓴다. */
-private fun Duration.clockText(): String {
-    val seconds = inWholeSeconds.coerceAtLeast(0)
-    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-}
 
 /** 다시 녹음하면 풀리는 오류. 이때 Play 가 "다시 녹음" 이 된다. */
 private val RetryErrors = setOf(PracticeError.MicUnavailable, PracticeError.RecordingFailed)

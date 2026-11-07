@@ -70,6 +70,8 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
+import io.github.nosorae.aiopic.ui.design.rememberMicPermission
+import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource

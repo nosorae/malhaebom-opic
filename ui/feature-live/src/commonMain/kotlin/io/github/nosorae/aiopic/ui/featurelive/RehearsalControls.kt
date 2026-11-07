@@ -16,6 +16,7 @@ import io.github.nosorae.aiopic.ui.design.MontageButtonVariant
 import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
+import io.github.nosorae.aiopic.ui.design.clockText
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration
@@ -76,12 +77,6 @@ private val RehearsalError.message: StringResource
         RehearsalError.InvalidKey -> Res.string.live_rehearse_error_key
         RehearsalError.TranscriptFailed -> Res.string.live_rehearse_error_transcript
     }
-
-/** 분:초. */
-private fun Duration.clockText(): String {
-    val seconds = inWholeSeconds.coerceAtLeast(0)
-    return "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
-}
 
 /** 미리보기와 스크린샷 테스트가 함께 쓰는 고정 상태. 대화 화면 표본을 리허설과 피드백 단계로 옮긴다. */
 internal object RehearsalSamples {
