@@ -11,7 +11,7 @@ class CoachScriptStoreTest {
     private fun script(sessionId: String) = CoachScript(sessionId, ScriptParts("i", "b", "c"), emptyList(), edited = null, editedAt = null, promptVersion = "v1", model = "m")
 
     @Test
-    fun `F14_6 세션을 최근 것부터 질문 글, 상태, 스크립트가 있는지와 함께 내고 같은 질문의 세션도 따로 낸다`() = runTest {
+    fun `F14_6 세션을 최근 것부터 질문 글과 상태와 스크립트가 있는지와 함께 내고 같은 질문의 세션도 따로 낸다`() = runTest {
         val db = inMemoryDatabase(StandardTestDispatcher(testScheduler))
         val store = CoachStore(db)
         store.save(CoachState("old", "q1", "Q1?", "IH", Instant.fromEpochSeconds(1), phase = CoachPhase.Script, status = CoachStatus.Finished))
