@@ -13,8 +13,8 @@ import io.github.nosorae.aiopic.engine.aigemini.GeminiAnalyzer
 import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
-import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.aigemini.GeminiScriptWriter
+import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
 import io.github.nosorae.aiopic.engine.answer.analysis.GradeRequest
