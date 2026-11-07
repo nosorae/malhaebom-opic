@@ -28,8 +28,6 @@ import io.github.nosorae.aiopic.libs.llmgemini.api.LlmResult
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.Json
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -61,17 +59,13 @@ class GeminiAnalyzer(
         // 읽을 수 없는 JSON(출력 한도에 잘린 응답 등)은 출력 검사(F5.4)처럼 한 번 다시 요청하고, 두 번째도 못 읽으면 거절한다.
         // 남은 원문은 첫 번째로 센다. 남은 원문을 못 읽으면 한 번만 새로 받는다.
         repeat(2) {
-            val text = saved?.take(stage) ?: when (val result = send(model, prompt, recordings, THINKING[stage])) {
+            val text = saved?.take(stage) ?: when (val result = send(model, prompt, recordings, THINKING[stage]).toAnalysis()) {
                 // 받자마자 해석하기 전에 남긴다. 해석하다 앱이 죽어도 토큰을 쓴 응답은 남는다.
-                is LlmResult.Success -> result.text.also { saved?.save(stage, it) }
+                is AnalysisResult.Success -> result.value.also { saved?.save(stage, it) }
 
-                is LlmResult.Retryable -> return AnalysisResult.Failed(if (result.httpStatus == null) AnalysisError.Offline else AnalysisError.Retryable)
+                is AnalysisResult.Failed -> return result
 
-                LlmResult.InvalidKey -> return AnalysisResult.Failed(AnalysisError.InvalidKey)
-
-                LlmResult.ModelNotFound -> return AnalysisResult.Failed(AnalysisError.ModelUnavailable)
-
-                is LlmResult.Rejected -> return AnalysisResult.Failed(AnalysisError.Rejected)
+                is AnalysisResult.Unscorable -> return result
             }
             text.decodeOrNull(serializer)?.let { return AnalysisResult.Success(it) }
         }
@@ -92,17 +86,7 @@ class GeminiAnalyzer(
         )
     }
 
-    private fun <T> String.decodeOrNull(serializer: KSerializer<T>): T? = try {
-        json.decodeFromString(serializer, this)
-    } catch (_: SerializationException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
-    }
-
     private companion object {
-        val json = Json { ignoreUnknownKeys = true }
-
         /** [SavedResponses] 의 단계 이름. */
         const val ANSWER = "answer"
         const val GRADE = "grade"

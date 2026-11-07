@@ -107,8 +107,7 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
                     "`phase` TEXT NOT NULL, `talkTimeMs` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `status` TEXT NOT NULL, PRIMARY KEY(`id`))",
             )
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `coach_event` (`sessionId` TEXT NOT NULL, `seq` INTEGER NOT NULL, `phase` TEXT NOT NULL, `kind` TEXT NOT NULL, `json` TEXT NOT NULL, " +
-                    "PRIMARY KEY(`sessionId`, `seq`))",
+                "CREATE TABLE IF NOT EXISTS `coach_event` (`sessionId` TEXT NOT NULL, `seq` INTEGER NOT NULL, `json` TEXT NOT NULL, PRIMARY KEY(`sessionId`, `seq`))",
             )
             connection.execSQL(
                 "CREATE TABLE IF NOT EXISTS `coach_script` (`sessionId` TEXT NOT NULL, `intro` TEXT NOT NULL, `body` TEXT NOT NULL, `closing` TEXT NOT NULL, " +
@@ -133,9 +132,9 @@ data class CoachSessionRow(
     val status: String,
 )
 
-/** 코치 세션에 일어난 일 하나(#262). [seq] 는 세션 안 순번, [kind] 는 받아쓰기, 도구 호출, 사용량, 단계 전환 중 하나다. */
+/** 코치 세션에 일어난 일 하나(#262). [seq] 는 세션 안 순번이다. 단계와 종류는 [json] 을 다시 계산하면 나온다. */
 @Entity(tableName = "coach_event", primaryKeys = ["sessionId", "seq"])
-data class CoachEventRow(val sessionId: String, val seq: Int, val phase: String, val kind: String, val json: String)
+data class CoachEventRow(val sessionId: String, val seq: Int, val json: String)
 
 /** 세션이 만든 스크립트(#262). 원본 세 칸과 표현 목록 JSON, [edited] 는 사용자가 고친 세 칸 JSON 이다. */
 @Entity(tableName = "coach_script")
@@ -160,8 +159,8 @@ interface CoachDao {
     suspend fun session(id: String): CoachSessionRow?
 
     /** 세션의 다음 순번으로 붙인다. */
-    @Query("INSERT INTO coach_event (sessionId, seq, phase, kind, json) SELECT :sessionId, COALESCE(MAX(seq) + 1, 0), :phase, :kind, :json FROM coach_event WHERE sessionId = :sessionId")
-    suspend fun append(sessionId: String, phase: String, kind: String, json: String)
+    @Query("INSERT INTO coach_event (sessionId, seq, json) SELECT :sessionId, COALESCE(MAX(seq) + 1, 0), :json FROM coach_event WHERE sessionId = :sessionId")
+    suspend fun append(sessionId: String, json: String)
 
     @Query("SELECT * FROM coach_event WHERE sessionId = :sessionId ORDER BY seq")
     suspend fun events(sessionId: String): List<CoachEventRow>
@@ -173,7 +172,7 @@ interface CoachDao {
     fun script(sessionId: String): Flow<CoachScriptRow?>
 
     /** 끝난 세션과 스크립트가 있는 세션, 최근 것부터(#267). 스크립트를 만들지 못한 끝난 세션도 다시 만들 수 있게 낸다. */
-    @Query("SELECT * FROM coach_session WHERE status = 'Finished' OR phase = 'Script' OR id IN (SELECT sessionId FROM coach_script) ORDER BY startedAt DESC")
+    @Query("SELECT * FROM coach_session WHERE status = 'Finished' OR id IN (SELECT sessionId FROM coach_script) ORDER BY startedAt DESC")
     fun scriptSessions(): Flow<List<CoachSessionRow>>
 
     @Query("SELECT sessionId FROM coach_script")

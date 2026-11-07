@@ -21,7 +21,6 @@ import kotlin.concurrent.Volatile
 class GeminiLiveTransport(
     private val apiKey: suspend () -> String?,
     private val voice: String,
-    private val model: String = GeminiModels.liveModel.id,
     private val newSession: () -> LiveSession = { LiveSession() },
 ) : LiveCoachTransport {
     @Volatile private var session: LiveSession? = null
@@ -30,8 +29,8 @@ class GeminiLiveTransport(
         val key = apiKey() ?: return@flow emit(TransportEvent.Disconnected(TransportEvent.Disconnected.NO_KEY))
         val live = newSession().also { session = it }
         var usage = TurnUsage()
-        // 핸들 나이는 엔진이 이미 따졌다(RESUME_LIMIT). 받은 시각을 넘기지 않으면 세션이 지금 받은 것으로 본다.
-        live.connect(key, LiveConfig(model, instruction, voice, tools), resumeHandle).collect { event ->
+        // 핸들 나이는 엔진이 따진다(RESUME_LIMIT).
+        live.connect(key, LiveConfig(GeminiModels.liveModel.id, instruction, voice, tools), resumeHandle).collect { event ->
             when (event) {
                 // GoAway 로 소켓을 바꿔 이어 붙이면 서버의 사용량 셈도 새로 시작할 수 있어 새로 센다.
                 LiveEvent.Connected, LiveEvent.Resumed -> usage = TurnUsage()
@@ -55,9 +54,6 @@ class GeminiLiveTransport(
                 is LiveEvent.Disconnected -> emit(TransportEvent.Disconnected(dropReason(null, event.reason)))
 
                 is LiveEvent.Failed -> emit(TransportEvent.Disconnected(dropReason(event.status, event.message)))
-
-                // 핸들 만료는 엔진이 먼저 걸러 새 대화로 연다. 도구 취소, GoAway 는 엔진이 할 일이 없다.
-                LiveEvent.ResumeExpired, is LiveEvent.ToolCallCancelled, is LiveEvent.GoAway -> Unit
             }
         }
     }

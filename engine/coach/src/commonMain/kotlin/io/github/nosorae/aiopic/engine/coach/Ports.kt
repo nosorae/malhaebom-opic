@@ -1,6 +1,6 @@
 package io.github.nosorae.aiopic.engine.coach
 
-import io.github.nosorae.aiopic.engine.session.model.AnalysisError
+import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -69,19 +69,12 @@ sealed interface TransportEvent {
 
 /**
  * 글 모델로 스크립트를 만들고 다듬는다(F14.1, F14.4). 제공사 구현은 엔진 층의 제공사 모듈에 둔다(#267).
- * 실패는 예외 대신 [ScriptResult.Failed] 로 돌려줘 화면이 이유와 다시 시도를 보인다.
+ * 실패는 예외 대신 답변 분석과 같은 [AnalysisResult.Failed] 로 돌려줘 화면이 이유와 다시 시도를 보인다. 키 없음, 연결 없음, 한도, 빈 칸 같은 못 쓰는 응답이다.
  */
 interface ScriptWriter {
     /** 받아쓰기 전체, 메모, 표현 카드, 목표 등급을 한 번에 보낸다. [question] 은 질문 글이다. */
-    suspend fun write(session: CoachState, question: String): ScriptResult<CoachScript>
+    suspend fun write(session: CoachState, question: String): AnalysisResult<CoachScript>
 
     /** 사용자가 고친 판을 [targetGrade] 길이에 맞춰 다시 쓴다. 고친 문장은 되도록 둔다. */
-    suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): ScriptResult<ScriptParts>
-}
-
-sealed interface ScriptResult<out T> {
-    data class Success<T>(val value: T) : ScriptResult<T>
-
-    /** 키 없음, 연결 없음, 한도, 빈 칸 같은 못 쓰는 응답. 답변 분석과 같은 이유 값을 쓴다. */
-    data class Failed(val error: AnalysisError) : ScriptResult<Nothing>
+    suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): AnalysisResult<ScriptParts>
 }

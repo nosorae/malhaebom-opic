@@ -1,7 +1,6 @@
 package io.github.nosorae.aiopic.libs.livegemini
 
 import kotlinx.serialization.json.JsonObject
-import kotlin.time.Duration
 
 /** [LiveSession.connect] 가 내는 일. */
 public sealed interface LiveEvent {
@@ -10,9 +9,6 @@ public sealed interface LiveEvent {
 
     /** 받아 둔 핸들로 새 연결을 열어 앞의 대화를 이어 붙였다. */
     public data object Resumed : LiveEvent
-
-    /** 핸들을 받은 지 2시간이 지나 이어 붙이지 못하고 새 대화로 연다. 앞의 맥락은 모델이 모른다. */
-    public data object ResumeExpired : LiveEvent
 
     /** 새 이어 붙이기 핸들을 받았다. 앱이 저장해 두면 앱이 죽었다 살아나도 [LiveSession.connect] 에 넣어 이어 붙인다. */
     public data class ResumeHandle(val handle: String) : LiveEvent
@@ -27,16 +23,10 @@ public sealed interface LiveEvent {
     /** 답은 [LiveSession.sendToolResponse] 에 같은 [id] 로 보낸다. */
     public data class ToolCall(val id: String, val name: String, val args: JsonObject) : LiveEvent
 
-    /** 사용자가 끼어들어 아직 답하지 않은 도구 호출이 취소됐다. */
-    public data class ToolCallCancelled(val ids: List<String>) : LiveEvent
-
     public data object TurnComplete : LiveEvent
 
     /** 사용자가 말해 모델이 말을 멈췄다. 재생 중인 음성을 버린다. */
     public data object Interrupted : LiveEvent
-
-    /** 서버가 [timeLeft] 뒤에 연결을 끊는다. 핸들이 있으면 세션이 알아서 새 연결을 연다. */
-    public data class GoAway(val timeLeft: Duration) : LiveEvent
 
     /** 모달리티 맵의 키는 서버가 준 이름 그대로다(`AUDIO`, `TEXT`). */
     public data class Usage(
@@ -46,7 +36,7 @@ public sealed interface LiveEvent {
         val responseByModality: Map<String, Int>,
     ) : LiveEvent
 
-    /** 연결이 끝났다. 흐름도 여기서 끝난다. 다시 [LiveSession.connect] 하면 2시간 안이면 이어 붙인다. */
+    /** 연결이 끝났다. 흐름도 여기서 끝난다. 다시 [LiveSession.connect] 하면 받아 둔 핸들로 이어 붙인다. */
     public data class Disconnected(val code: Int?, val reason: String) : LiveEvent
 
     /** 연결을 열지 못했다. [status] 는 핸드셰이크 HTTP 상태이고(429 등), 알 수 없으면 null 이다. */

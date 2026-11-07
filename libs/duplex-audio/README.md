@@ -21,4 +21,4 @@ audio.micLevel; audio.playbackLevel   // 목소리 띠용 0~1
 
 ## 테스트
 
-말소리 판정, 조각 자르기, `FakeDuplexAudio` 는 `commonTest`, iOS 표본율 변환은 시뮬레이터 테스트로 본다. 에코 제거와 끊김 없는 재생은 실기기에서 사람이 본다.
+말소리 판정과 조각 자르기는 `commonTest`, iOS 표본율 변환은 시뮬레이터 테스트로 본다. 에코 제거와 끊김 없는 재생은 실기기에서 사람이 본다.

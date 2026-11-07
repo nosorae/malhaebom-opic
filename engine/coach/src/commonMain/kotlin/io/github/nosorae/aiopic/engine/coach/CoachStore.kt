@@ -34,16 +34,9 @@ class CoachStore(db: OpicDatabase) {
     )
 
     /** 다시 계산에 쓰는 일(사용자가 고친 메모 포함)만 붙이고 나머지(시간, 일시정지, 끊김, 핸들)는 세션 행에 맡긴다. */
-    suspend fun append(sessionId: String, phase: CoachPhase, event: CoachEvent) {
-        val kind = when (event) {
-            is CoachEvent.Heard, is CoachEvent.Rehearsed -> "transcript"
-            is CoachEvent.ToolCalled -> "tool"
-            is CoachEvent.Used -> "usage"
-            CoachEvent.NextPhase, CoachEvent.RehearseAgain -> "phase"
-            is CoachEvent.MaterialEdited, is CoachEvent.ExpressionEdited -> "edit"
-            else -> return
-        }
-        dao.append(sessionId, phase.name, kind, json.encodeToString<CoachEvent>(event))
+    suspend fun append(sessionId: String, event: CoachEvent) {
+        if (event is CoachEvent.TimePassed || event is CoachEvent.Paused || event is CoachEvent.Resumed || event is CoachEvent.Dropped || event is CoachEvent.HandleReceived) return
+        dao.append(sessionId, json.encodeToString<CoachEvent>(event))
     }
 
     suspend fun load(id: String): CoachState? {

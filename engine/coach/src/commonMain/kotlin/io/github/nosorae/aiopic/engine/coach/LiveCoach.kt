@@ -7,10 +7,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -74,7 +74,7 @@ class LiveCoach(
     private suspend fun dispatch(event: CoachEvent) = lock.withLock {
         val before = _state.value ?: return@withLock
         val after = reduce(before, event)
-        store.append(before.id, before.phase, event)
+        store.append(before.id, event)
         if (after != before) set(after)
     }
 
@@ -182,13 +182,13 @@ class LiveCoach(
     private companion object {
         val LIVE_PHASES = setOf(CoachPhase.Explore, CoachPhase.Express, CoachPhase.Feedback)
 
+        /** 단계를 넘긴 턴이 끝나기를 기다리는 상한. 넘긴다는 말 한 턴은 몇 초라 넉넉히 두고, 턴 끝이 안 와도 사용자가 오래 기다리지 않게 한다. */
+        val ADVANCE_WAIT = 8.seconds
+
         /**
          * 서버 음성 감지는 말 뒤의 침묵을 들어야 말이 끝났다고 보고 코치가 답한다. 침묵 조각 하나(40ms)에 바로 오디오 끝을 보내면
          * 문장 사이 숨 고르기에도 말이 끊긴다. 1초는 숨 고르기보다 길고 코치 답이 늦다고 느끼기 전이다.
          */
-        /** 단계를 넘긴 턴이 끝나기를 기다리는 상한. 넘긴다는 말 한 턴은 몇 초라 넉넉히 두고, 턴 끝이 안 와도 사용자가 오래 기다리지 않게 한다. */
-        val ADVANCE_WAIT = 8.seconds
-
         // ponytail: 실기기에서 말 끝 판단이 이르거나 늦으면 이 값만 고친다.
         val SPEECH_END_GRACE = 1.seconds
     }

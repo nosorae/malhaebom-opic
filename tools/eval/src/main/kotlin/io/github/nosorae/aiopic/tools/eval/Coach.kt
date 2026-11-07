@@ -175,7 +175,8 @@ fun coachReport(version: String, model: String, runs: List<Pair<CoachScene, Coac
     add("")
 }.joinToString("\n")
 
-private const val VOICE = "Puck"
+// 앱 코치와 같은 목소리(질문 음성과 같은 Kore)로 잰다.
+private const val VOICE = "Kore"
 
 private const val ADVANCE_PHASE = "advance_phase"
 

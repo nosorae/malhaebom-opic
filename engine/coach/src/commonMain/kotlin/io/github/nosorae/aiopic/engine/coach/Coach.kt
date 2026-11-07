@@ -30,8 +30,6 @@ data class Expression(val userSaid: String, val english: String, val grade: Stri
 /** 한 단계에서 쓴 토큰. 모달리티마다 단가가 달라 나눠 센다. */
 @Serializable
 data class TokenUsage(val input: Map<Modality, Int> = emptyMap(), val output: Map<Modality, Int> = emptyMap()) {
-    val inputTokens: Int get() = input.values.sum()
-    val outputTokens: Int get() = output.values.sum()
     val costUsd: Double get() = cost(input, INPUT_USD_PER_MILLION) + cost(output, OUTPUT_USD_PER_MILLION)
 
     operator fun plus(other: TokenUsage) = TokenUsage(input.merge(other.input), output.merge(other.output))

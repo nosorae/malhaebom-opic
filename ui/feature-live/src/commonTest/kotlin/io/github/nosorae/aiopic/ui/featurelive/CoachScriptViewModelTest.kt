@@ -1,5 +1,6 @@
 package io.github.nosorae.aiopic.ui.featurelive
 
+import io.github.nosorae.aiopic.engine.answer.port.AnalysisResult
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import io.github.nosorae.aiopic.engine.coach.CoachEvent
 import io.github.nosorae.aiopic.engine.coach.CoachPhase
@@ -10,7 +11,6 @@ import io.github.nosorae.aiopic.engine.coach.CoachTools
 import io.github.nosorae.aiopic.engine.coach.Expression
 import io.github.nosorae.aiopic.engine.coach.ScriptLength
 import io.github.nosorae.aiopic.engine.coach.ScriptParts
-import io.github.nosorae.aiopic.engine.coach.ScriptResult
 import io.github.nosorae.aiopic.engine.coach.ScriptWriter
 import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import kotlinx.coroutines.Dispatchers
@@ -57,7 +57,7 @@ class CoachScriptViewModelTest {
             put("english", blast.english)
             put("grade", blast.grade)
         }
-        store.append("c1", CoachPhase.Express, CoachEvent.ToolCalled(CoachTools.SAVE_EXPRESSION, card))
+        store.append("c1", CoachEvent.ToolCalled(CoachTools.SAVE_EXPRESSION, card))
         try {
             block(store)
         } finally {
@@ -100,7 +100,7 @@ class CoachScriptViewModelTest {
 
     @Test
     fun `F14_1 만들기에 실패하면 이유를 보이고 다시 시도하면 만든다`() = test { store ->
-        writer.next = ScriptResult.Failed(AnalysisError.Offline)
+        writer.next = AnalysisResult.Failed(AnalysisError.Offline)
         val viewModel = viewModel(store)
         advanceUntilIdle()
         assertEquals(AnalysisError.Offline, viewModel.uiState.value.error)
@@ -158,7 +158,7 @@ class CoachScriptViewModelTest {
     fun `F14_4 다듬기에 실패하면 고친 판을 그대로 두고 이유를 보인다`() = test { store ->
         val viewModel = viewModel(store)
         advanceUntilIdle()
-        writer.next = ScriptResult.Failed(AnalysisError.Retryable)
+        writer.next = AnalysisResult.Failed(AnalysisError.Retryable)
 
         viewModel.onIntent(CoachScriptIntent.Polish)
         advanceUntilIdle()
@@ -178,26 +178,26 @@ class CoachScriptViewModelTest {
 
 /** 만들기는 [next] 가 있으면 그 결과를 한 번 내고, 없으면 받은 세션의 표현으로 고정 스크립트를 낸다. */
 class FakeScriptWriter : ScriptWriter {
-    var next: ScriptResult<Nothing>? = null
+    var next: AnalysisResult<Nothing>? = null
     val questions = mutableListOf<String>()
     var polished = ScriptParts("p", "p", "p")
     var polishedFrom: Pair<ScriptParts, String>? = null
 
-    override suspend fun write(session: CoachState, question: String): ScriptResult<CoachScript> {
+    override suspend fun write(session: CoachState, question: String): AnalysisResult<CoachScript> {
         next?.let {
             next = null
             return it
         }
         questions += question
-        return ScriptResult.Success(CoachScript(session.id, ScriptParts("Intro.", "Body.", "Closing."), session.expressions, edited = null, editedAt = null, promptVersion = "v1", model = "m"))
+        return AnalysisResult.Success(CoachScript(session.id, ScriptParts("Intro.", "Body.", "Closing."), session.expressions, edited = null, editedAt = null, promptVersion = "v1", model = "m"))
     }
 
-    override suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): ScriptResult<ScriptParts> {
+    override suspend fun polish(edited: ScriptParts, expressions: List<Expression>, question: String, targetGrade: String): AnalysisResult<ScriptParts> {
         next?.let {
             next = null
             return it
         }
         polishedFrom = edited to targetGrade
-        return ScriptResult.Success(polished)
+        return AnalysisResult.Success(polished)
     }
 }

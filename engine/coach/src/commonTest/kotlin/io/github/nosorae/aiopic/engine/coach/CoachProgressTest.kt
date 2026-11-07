@@ -154,7 +154,7 @@ class CoachProgressTest {
         )
 
         val explore = state.usage.getValue(CoachPhase.Explore)
-        assertEquals(2_000_000 to 100_000, explore.inputTokens to explore.outputTokens)
+        assertEquals(TokenUsage(input = mapOf(Modality.Audio to 1_000_000, Modality.Text to 1_000_000), output = mapOf(Modality.Audio to 100_000)), explore)
         // 음성 입력 100만 $3 + 글 입력 100만 $0.75 + 음성 출력 10만 $1.2
         assertEquals(4.95, explore.costUsd, 1e-9)
         assertEquals(16.95, state.costUsd, 1e-9)
