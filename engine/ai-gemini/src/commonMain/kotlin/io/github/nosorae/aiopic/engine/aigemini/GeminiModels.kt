@@ -26,6 +26,9 @@ object GeminiModels : ModelCatalog {
      */
     val questionModel: ModelInfo = flashLite
 
+    /** 리허설 받아쓰기(F13.1). 채점 없이 글만 받아서 출제처럼 빠른 모델로 보낸다. */
+    val transcriptModel: ModelInfo = flashLite
+
     /**
      * 라이브 코치(F11)의 실시간 음성 모델. 분석 모델 설정과 상관없이 이 모델로 연다. 코치는 음성으로 듣고 음성으로 답해서 분석 모델 목록과 따로 둔다.
      */

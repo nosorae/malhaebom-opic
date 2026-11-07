@@ -129,10 +129,34 @@ class LiveCoachTest {
         coach.nextPhase()
         runCurrent()
         coach.rehearsed("I usually go to a cafe.")
-        coach.nextPhase()
         runCurrent()
 
         assertEquals(listOf("Explore.", "Express.", "Feedback.\n\nNotes so far:\nrehearsal 1: I usually go to a cafe."), transport.connects.map { it.instruction })
+    }
+
+    @Test
+    fun `F13_3 한 번 더 리허설하면 연결을 닫고 두 번째 받아쓰기를 새 피드백 지시에 넣으며 다시 열어도 남는다`() = test { db ->
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job())
+        val coach = started(db, app)
+        repeat(2) {
+            coach.nextPhase()
+            runCurrent()
+        }
+        coach.rehearsed("first")
+        runCurrent()
+
+        coach.rehearseAgain()
+        runCurrent()
+        val closed = transport.connects.size
+        coach.rehearsed("second")
+        runCurrent()
+        val saved = coach.state.value
+        app.cancel()
+        val reopened = coach(db).apply { open("c1") }
+
+        assertEquals(3, closed)
+        assertEquals("Feedback.\n\nNotes so far:\nrehearsal 1: first\nrehearsal 2: second", transport.connects.last().instruction)
+        assertEquals(saved, reopened.state.value)
     }
 
     @Test

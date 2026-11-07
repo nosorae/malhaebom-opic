@@ -10,7 +10,10 @@ import io.github.nosorae.aiopic.engine.coach.CoachStatus
 import io.github.nosorae.aiopic.engine.coach.Expression
 import io.github.nosorae.aiopic.engine.coach.LiveCoach
 import io.github.nosorae.aiopic.engine.coach.MaterialKind
+import io.github.nosorae.aiopic.libs.timer.api.MonotonicTimer
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +22,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * [consented] 는 실시간 음성 전송 동의 여부이고 읽기 전에는 null 이다. [coach] 는 세션을 열기 전에는 null 이다.
@@ -32,6 +37,7 @@ data class LiveCoachUiState(
     val coach: CoachState? = null,
     val micLevel: Float = 0f,
     val playbackLevel: Float = 0f,
+    val rehearsal: RehearsalUiState = RehearsalUiState(),
 ) {
     /** 코치 목소리가 나오는 중이면 코치 쪽 띠를, 아니면 내 쪽 띠를 보인다(F12.1). */
     val coachSpeaking: Boolean get() = playbackLevel > 0f
@@ -80,6 +86,11 @@ class LiveCoachViewModel(
     private val giveLiveConsentUseCase: GiveLiveConsentUseCase,
     private val openCoachUseCase: OpenCoachUseCase,
     observeCoachLevelsUseCase: ObserveCoachLevelsUseCase,
+    private val startRehearsalUseCase: StartRehearsalUseCase,
+    private val stopRehearsalUseCase: StopRehearsalUseCase,
+    private val transcribeRehearsalUseCase: TranscribeRehearsalUseCase,
+    private val observeRehearsalLevelUseCase: ObserveRehearsalLevelUseCase,
+    private val timer: MonotonicTimer,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LiveCoachUiState(question = question))
     val uiState: StateFlow<LiveCoachUiState> = _uiState.asStateFlow()
@@ -89,6 +100,9 @@ class LiveCoachViewModel(
 
     /** 앱이 뒤로 가며 멈췄다. 사용자가 멈춘 것은 앱이 돌아와도 이어 가지 않는다. */
     private var pausedByApp = false
+
+    /** 리허설 녹음 중에만 음량과 녹음 시간을 모은다. 녹음 중에 화면을 떠나 이 일이 취소되면 녹음을 멈춘다. */
+    private var recording: Job? = null
 
     init {
         viewModelScope.launch {
@@ -134,6 +148,8 @@ class LiveCoachViewModel(
             is LiveCoachIntent.EditExpression -> run { coach ->
                 coach.state.value?.expressions?.getOrNull(intent.index)?.let { coach.editExpression(intent.index, it.copy(english = intent.english.trim())) }
             }
+
+            is RehearsalIntent -> rehearse(intent)
         }
     }
 
@@ -146,6 +162,55 @@ class LiveCoachViewModel(
             opened.state.filterNotNull().onEach { state -> _uiState.update { it.copy(coach = state) } }.launchIn(viewModelScope)
         }
     }
+
+    private fun rehearse(intent: RehearsalIntent) {
+        val step = _uiState.value.rehearsal.step
+        when (intent) {
+            RehearsalIntent.StartRecording -> if (step == RehearsalStep.Ready) startRecording()
+
+            RehearsalIntent.StopRecording -> if (step == RehearsalStep.Recording) {
+                run { coach ->
+                    // 단계를 먼저 바꿔 녹음 일이 취소될 때 녹음기를 다시 멈추지 않게 한다.
+                    setRehearsal { RehearsalUiState(RehearsalStep.Transcribing) }
+                    recording?.cancel()
+                    stopRehearsalUseCase()?.let { error -> setRehearsal { RehearsalUiState(error = error) } } ?: transcribe(coach)
+                }
+            }
+
+            RehearsalIntent.RetryTranscript -> if (_uiState.value.rehearsal.canRetryTranscript) run { transcribe(it) }
+
+            RehearsalIntent.RehearseAgain -> run { it.rehearseAgain() }
+        }
+    }
+
+    private fun startRecording() = run {
+        setRehearsal { RehearsalUiState(RehearsalStep.Recording) }
+        startRehearsalUseCase(sessionId)?.let { error ->
+            setRehearsal { RehearsalUiState(error = error) }
+            return@run
+        }
+        val startedAt = timer.elapsed()
+        recording = viewModelScope.launch {
+            try {
+                launch { observeRehearsalLevelUseCase().collect { level -> setRehearsal { it.copy(voiceLevel = level) } } }
+                while (true) {
+                    delay(1.seconds)
+                    setRehearsal { it.copy(recorded = timer.elapsed() - startedAt) }
+                }
+            } finally {
+                // 녹음 중에 화면을 떠났다. 녹음기는 앱 전체가 함께 써서 여기서 멈춘다.
+                if (_uiState.value.rehearsal.step == RehearsalStep.Recording) withContext(NonCancellable) { stopRehearsalUseCase() }
+            }
+        }
+    }
+
+    private suspend fun transcribe(coach: LiveCoach) {
+        setRehearsal { RehearsalUiState(RehearsalStep.Transcribing) }
+        val error = transcribeRehearsalUseCase(coach, sessionId)
+        setRehearsal { RehearsalUiState(error = error) }
+    }
+
+    private fun setRehearsal(change: (RehearsalUiState) -> RehearsalUiState) = _uiState.update { it.copy(rehearsal = change(it.rehearsal)) }
 
     private fun run(action: suspend (LiveCoach) -> Unit) {
         val current = coach ?: return

@@ -108,9 +108,13 @@ sealed interface CoachEvent {
     @Serializable
     data object NextPhase : CoachEvent
 
-    /** 리허설 녹음의 받아쓰기(F13). 녹음은 화면이 기존 녹음기로 받는다. */
+    /** 리허설 녹음의 받아쓰기(F13). 받으면 피드백 단계로 간다. 녹음은 화면이 기존 녹음기로 받는다. */
     @Serializable
     data class Rehearsed(val text: String) : CoachEvent
+
+    /** 피드백 단계에서 "한 번 더 리허설" 을 골랐다(F13.3). */
+    @Serializable
+    data object RehearseAgain : CoachEvent
 
     /** 사용자가 소재 칸을 고쳤다(F12.2). 그 종류의 메모를 이 글 하나로 바꾸고, 비었으면 지운다. */
     @Serializable

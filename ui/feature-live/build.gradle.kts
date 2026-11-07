@@ -6,6 +6,9 @@ kotlin {
     sourceSets.commonMain.dependencies {
         // 대화 화면이 코치 세션 상태를 그리고, 목소리 띠가 오디오의 목소리 크기를 읽는다.
         implementation(project(":engine:coach"))
+        // 리허설은 Live 대신 기존 녹음기로 받는다(F13.1).
+        implementation(project(":libs:recorder"))
+        implementation(project(":libs:timer"))
     }
     // 마이크 권한 요청 창을 띄운다.
     sourceSets.androidMain.dependencies {

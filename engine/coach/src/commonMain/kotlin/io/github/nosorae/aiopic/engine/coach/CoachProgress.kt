@@ -13,6 +13,9 @@ val RESUME_LIMIT = 2.hours
 
 const val MAX_REHEARSALS = 2
 
+/** 피드백 단계에서 한 번 더 리허설할 수 있다(F13.3). */
+val CoachState.canRehearseAgain: Boolean get() = phase == CoachPhase.Feedback && rehearsals.size < MAX_REHEARSALS
+
 /** 다음 연결 지시에 넣는 최근 받아쓰기 줄 수. 앞 단계 끝 대화만 이으면 되고 길면 다시 읽는 입력이 는다. */
 const val RECENT_LINES = 6
 
@@ -32,8 +35,11 @@ fun reduce(state: CoachState, event: CoachEvent): CoachState {
 
         CoachEvent.NextPhase -> state.next()
 
+        // 받아쓰기와 단계 전환을 이벤트 하나로 저장해 그 사이에 앱이 꺼져도 어긋나지 않는다.
         is CoachEvent.Rehearsed ->
-            if (state.phase == CoachPhase.Rehearse && state.rehearsals.size < MAX_REHEARSALS && event.text.isNotBlank()) state.copy(rehearsals = state.rehearsals + event.text) else state
+            if (state.phase == CoachPhase.Rehearse && state.rehearsals.size < MAX_REHEARSALS && event.text.isNotBlank()) state.copy(rehearsals = state.rehearsals + event.text).next() else state
+
+        CoachEvent.RehearseAgain -> if (state.canRehearseAgain) state.copy(phase = CoachPhase.Rehearse, resumeHandle = null, handleAt = null) else state
 
         is CoachEvent.MaterialEdited -> state.copy(materials = state.materials.filter { it.kind != event.kind } + listOfNotNull(Material(event.kind, event.text.trim()).takeIf { it.text.isNotEmpty() }))
 
@@ -99,7 +105,7 @@ private fun List<Line>.append(line: Line): List<Line> {
     return if (last != null && last.phase == line.phase && last.speaker == line.speaker) dropLast(1) + last.copy(text = last.text + line.text) else this + line
 }
 
-/** 단계마다 새 연결을 열어서 앞 단계 핸들은 버린다. */
-private fun CoachState.next() = if (phase >= CoachPhase.Feedback) finish() else copy(phase = CoachPhase.entries[phase.ordinal + 1], resumeHandle = null, handleAt = null)
+/** 단계마다 새 연결을 열어서 앞 단계 핸들은 버린다. 리허설 없이 리허설을 건너뛰면 줄 피드백이 없어 스크립트 정리로 간다(F13.3). */
+private fun CoachState.next() = if (phase >= CoachPhase.Feedback || (phase == CoachPhase.Rehearse && rehearsals.isEmpty())) finish() else copy(phase = CoachPhase.entries[phase.ordinal + 1], resumeHandle = null, handleAt = null)
 
 private fun CoachState.finish() = copy(phase = CoachPhase.Script, status = CoachStatus.Finished, resumeHandle = null, handleAt = null)
