@@ -148,6 +148,7 @@ internal fun RouteContent(
             viewModel = viewModel(key = route.toString()) { graph.liveCoachViewModelFactory.create(route.sessionId, route.questionId, route.question, route.targetGrade) },
             onExit = onBack,
             modifier = modifier,
+            onOpenKeySettings = { onOpen(AppRoute.KeyEntry(KeyProvider.Gemini.id)) },
             // 세션이 끝나면 대화 화면을 빼고 그 자리에 스크립트를 연다. 뒤로가기로 끝난 대화에 돌아가지 않는다(F14.1).
             onFinish = {
                 onBack()

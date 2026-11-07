@@ -78,10 +78,10 @@ import io.github.nosorae.aiopic.ui.design.Res as DesignRes
 
 /**
  * 대화 화면의 바깥 겹. 동의가 있으면 마이크 권한을 받고 세션을 연다. 앱이 뒤로 가면 멈추고 돌아오면 이어 간다(F11.8).
- * [onExit] 는 화면을 닫는다. 세션은 저장돼 있어 다시 들어오면 이어 간다. 세션이 끝나 스크립트 단계로 가면(30분, 피드백 끝, 리허설 없이 넘김) [onFinish] 로 스크립트 화면을 연다(F14.1).
+ * [onExit] 는 화면을 닫는다. 키가 없거나 틀려 끊기면 [onOpenKeySettings] 로 키 설정을 연다. 세션은 저장돼 있어 다시 들어오면 이어 간다. 세션이 끝나 스크립트 단계로 가면(30분, 피드백 끝, 리허설 없이 넘김) [onFinish] 로 스크립트 화면을 연다(F14.1).
  */
 @Composable
-fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, onFinish: () -> Unit = {}) {
+fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: Modifier = Modifier, onFinish: () -> Unit = {}, onOpenKeySettings: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnFinish by rememberUpdatedState(onFinish)
     LaunchedEffect(state.navigation) {
@@ -96,7 +96,7 @@ fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: 
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onIntent(LiveCoachIntent.LeaveApp) }
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onIntent(LiveCoachIntent.ReturnToApp) }
-    LiveCoachScreen(state, onIntent = viewModel::onIntent, onExit = onExit, onOpenSettings = rememberOpenAppSettings(), modifier = modifier)
+    LiveCoachScreen(state, onIntent = viewModel::onIntent, onExit = onExit, onOpenSettings = rememberOpenAppSettings(), onOpenKeySettings = onOpenKeySettings, modifier = modifier)
 }
 
 /**
@@ -105,7 +105,14 @@ fun LiveCoachRoute(viewModel: LiveCoachViewModel, onExit: () -> Unit, modifier: 
  * 리허설 단계는 받아쓰기 대신 펼친 메모를 보이고 아래쪽이 녹음 조작으로 바뀐다(F13.1). 세션이 끝나면 바깥 겹이 곧바로 스크립트 화면으로 바꾸므로, 끝난 상태의 정리 중 안내는 그 사이 잠깐만 보인다.
  */
 @Composable
-fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit, onExit: () -> Unit, modifier: Modifier = Modifier, onOpenSettings: () -> Unit = {}) {
+fun LiveCoachScreen(
+    state: LiveCoachUiState,
+    onIntent: (LiveCoachIntent) -> Unit,
+    onExit: () -> Unit,
+    modifier: Modifier = Modifier,
+    onOpenSettings: () -> Unit = {},
+    onOpenKeySettings: () -> Unit = {},
+) {
     val coach = state.coach
     var editing by remember { mutableStateOf<Edit?>(null) }
     editing?.let { edit ->
@@ -159,6 +166,7 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
                 state.question,
                 coach,
                 onReconnect = onResume,
+                onOpenKeySettings = onOpenKeySettings,
                 onEditMaterial = { kind, text -> editing = Edit(kind.label, text) { LiveCoachIntent.EditMaterial(kind, it) } },
                 onEditExpression = { index, english -> editing = Edit(Res.string.live_expressions, english) { LiveCoachIntent.EditExpression(index, it) } },
             )
@@ -167,7 +175,7 @@ fun LiveCoachScreen(state: LiveCoachUiState, onIntent: (LiveCoachIntent) -> Unit
 }
 
 @Composable
-private fun Conversation(question: String, coach: CoachState, onReconnect: () -> Unit, onEditMaterial: (MaterialKind, String) -> Unit, onEditExpression: (Int, String) -> Unit) {
+private fun Conversation(question: String, coach: CoachState, onReconnect: () -> Unit, onOpenKeySettings: () -> Unit, onEditMaterial: (MaterialKind, String) -> Unit, onEditExpression: (Int, String) -> Unit) {
     val list = rememberLazyListState()
     // 받아쓰기가 대화의 중심이라 처음 열면 맨 아래 최근 줄을 보인다. 끝을 보고 있을 때 새 말이 들어오면 따라 내려가고,
     // 위로 올려 메모를 읽는 중이면 끌어내리지 않는다.
@@ -195,7 +203,11 @@ private fun Conversation(question: String, coach: CoachState, onReconnect: () ->
             else -> null
         }
         coach.disconnected?.let { reason ->
-            Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = onReconnect)
+            if (reason.needsKeySettings) {
+                Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_open_key_settings), onAction = onOpenKeySettings)
+            } else {
+                Notice(stringResource(droppedMessage(reason)), action = stringResource(Res.string.live_reconnect), onAction = onReconnect)
+            }
         }
         notice?.let { Notice(stringResource(it)) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
@@ -456,11 +468,17 @@ private val MaterialKind.label: StringResource
         MaterialKind.Feeling -> Res.string.live_material_feeling
     }
 
-private fun droppedMessage(reason: String): StringResource = when (reason) {
+internal fun droppedMessage(reason: String): StringResource = when (reason) {
+    TransportEvent.Disconnected.MIC -> Res.string.live_dropped_mic
+    TransportEvent.Disconnected.INVALID_KEY -> Res.string.live_dropped_invalid_key
+    TransportEvent.Disconnected.MODEL_UNAVAILABLE -> Res.string.live_dropped_model
     TransportEvent.Disconnected.RATE_LIMITED -> Res.string.live_dropped_rate_limited
     TransportEvent.Disconnected.NO_KEY -> Res.string.live_dropped_no_key
     else -> Res.string.live_dropped_network
 }
+
+/** 다시 연결해도 같은 이유로 끊긴다. 키를 고쳐야 한다. */
+internal val String.needsKeySettings: Boolean get() = this == TransportEvent.Disconnected.INVALID_KEY || this == TransportEvent.Disconnected.NO_KEY
 
 /** "$0.42" 처럼 센트까지. 공통 코드에는 숫자 서식 함수가 없어 직접 만든다. */
 internal fun usd(amount: Double): String {
@@ -498,6 +516,7 @@ internal object LiveCoachSamples {
 
     val exploring = LiveCoachUiState(question = QUESTION, consented = true, coach = explore, micLevel = 0.4f)
     val dropped = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(disconnected = TransportEvent.Disconnected.RATE_LIMITED))
+    val invalidKey = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(disconnected = TransportEvent.Disconnected.INVALID_KEY))
     val timeWarning = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(phase = CoachPhase.Feedback, talkTime = TALK_WARNING), playbackLevel = 0.6f)
     val consent = LiveCoachUiState(consented = false)
     val finished = LiveCoachUiState(question = QUESTION, consented = true, coach = explore.copy(phase = CoachPhase.Script, status = CoachStatus.Finished))
