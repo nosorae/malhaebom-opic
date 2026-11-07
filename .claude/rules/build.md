@@ -16,7 +16,7 @@ paths:
 | 화면 | `ui/design`, `ui/navigation`, `ui/feature-*` | 팩이 주는 문구와 등급 체계를 받아 그린다. "오픽"이라는 말을 코드에 쓰지 않는다 | ui, engine, libs |
 | 시험 팩 | `packs/opic-en` | 서베이, 문항 순서, 체크리스트, 프롬프트, 내장 문항, 등급 | engine, libs |
 | 엔진 | `engine/session`, `engine/answer`, `engine/question`, `engine/coach`, `engine/ai-gemini` | 시험 진행 계산과 이어 보기, 답변 분석 포트와 경로 고르기와 출력 검사, 출제, 라이브 코치 세션, Gemini 어댑터 | engine, libs |
-| 라이브러리 | `libs/recorder`, `libs/llm-gemini`, `libs/work-queue`, `libs/keyvault`, `libs/tts`, `libs/timer`, `libs/haptics`, `libs/debug`, `libs/debug-noop` | 플랫폼 기능과 외부 API. 폴더째 떼어 쓸 수 있다 | 없음 (프로젝트 모듈 의존 0개) |
+| 라이브러리 | `libs/recorder`, `libs/duplex-audio`, `libs/llm-gemini`, `libs/live-gemini`, `libs/work-queue`, `libs/keyvault`, `libs/tts`, `libs/timer`, `libs/haptics`, `libs/debug`, `libs/debug-noop` | 플랫폼 기능과 외부 API. 폴더째 떼어 쓸 수 있다 | 없음 (프로젝트 모듈 의존 0개) |
 
 `tools/eval` 은 JVM 명령줄 도구이고 engine, packs, libs 만 의존한다.
 
