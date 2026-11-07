@@ -14,7 +14,9 @@ import io.github.nosorae.aiopic.engine.session.model.GradeScale
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.jetbrains.compose.resources.MissingResourceException
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /** 영어 오픽 한 회의 순서와 등급. 엔진은 이 값을 데이터로만 받는다(F2.1). */
 object OpicEn {
@@ -47,6 +49,15 @@ object OpicEn {
 
     /** 라이브 코치의 목표 등급으로 고를 수 있는 등급, 낮은 것부터(F10.2). */
     val targetGrades = listOf(OpicGrade.IM1, OpicGrade.IM2, OpicGrade.IM3, OpicGrade.IH, OpicGrade.AL).map { it.name }
+
+    /** 목표 등급별 스크립트 길이(F14.2). 이 앱이 정한 연습 기준이며 ACTFL 값이 아니다. */
+    val scriptLengths = mapOf(
+        OpicGrade.IM1.name to ScriptLength(1.minutes, 1.minutes, 8..10),
+        OpicGrade.IM2.name to ScriptLength(1.minutes, 1.minutes, 8..10),
+        OpicGrade.IM3.name to ScriptLength(75.seconds, 75.seconds, 10..12),
+        OpicGrade.IH.name to ScriptLength(90.seconds, 2.minutes, 12..16),
+        OpicGrade.AL.name to ScriptLength(2.minutes, 150.seconds, 16..20),
+    )
 
     /** 목표 등급을 고른 적이 없을 때 쓴다(F10.4). */
     val defaultTargetGrade = OpicGrade.IH.name
@@ -154,6 +165,9 @@ object OpicEn {
         null
     }
 }
+
+/** 말하는 시간과 문장 수. 시간이 "안팎" 하나면 [shortest] 와 [longest] 가 같다. */
+data class ScriptLength(val shortest: Duration, val longest: Duration, val sentences: IntRange)
 
 /** 오픽 등급, 낮은 것부터. 회차 등급 응답 스키마가 이 값만 고르게 한다(F5.3). */
 @Serializable

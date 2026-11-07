@@ -1,0 +1,48 @@
+[
+  {
+    "name": "여행 경험 끌어내기",
+    "question": "Tell me about a memorable trip you took. Where did you go and what did you do?",
+    "grade": "IM2",
+    "phase": "explore",
+    "turns": [
+      "Hi, I want to talk about my trip.",
+      "작년 여름에 부산에 갔어요. With my family.",
+      "We went to Haeundae beach and 회를 먹었어요.",
+      "음... 너무 행복했어요. Really happy."
+    ]
+  },
+  {
+    "name": "집 표현 코칭",
+    "question": "Describe the home you live in. What does it look like?",
+    "grade": "IH",
+    "phase": "express",
+    "notes": [
+      "place: a small apartment near the subway station",
+      "feeling: cozy but a little cramped",
+      "user: 방이 좁은데 아늑해요"
+    ],
+    "turns": [
+      "방이 좁은데 아늑해요. How can I say it?",
+      "My room is small but cozy?",
+      "창문으로 햇빛이 많이 들어와요.",
+      "The sunlight comes in a lot from the window."
+    ]
+  },
+  {
+    "name": "리허설 피드백",
+    "question": "Tell me about a memorable trip you took. Where did you go and what did you do?",
+    "grade": "IM3",
+    "phase": "feedback",
+    "notes": [
+      "place: Haeundae beach in Busan",
+      "event: ate raw fish with family",
+      "expression: 너무 행복했어요 / I was over the moon (IM3)",
+      "rehearsal 1: Last summer I go to Busan with my family. We went to Haeundae beach. We eat raw fish. It was delicious. I was over the moon."
+    ],
+    "turns": [
+      "How was my answer?",
+      "네, 알겠어요. What is the second one?",
+      "아니요, 괜찮아요. No more try."
+    ]
+  }
+]

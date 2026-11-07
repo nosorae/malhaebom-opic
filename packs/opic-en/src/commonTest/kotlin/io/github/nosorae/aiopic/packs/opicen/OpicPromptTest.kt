@@ -115,7 +115,7 @@ class OpicPromptTest {
     }
 
     @Test
-    fun `세 스키마 모두 최상위가 object 이다`() {
+    fun `모든 스키마의 최상위가 object 이다`() {
         assertTrue(OpicPrompt.entries.all { it.responseSchema["type"]?.jsonPrimitive?.content == "object" && it.responseSchema["properties"] is JsonObject && it.responseSchema["required"] is JsonArray })
     }
 

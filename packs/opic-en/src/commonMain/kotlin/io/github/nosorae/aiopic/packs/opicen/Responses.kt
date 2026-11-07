@@ -59,3 +59,7 @@ data class QuestionsResponse(val questions: List<GeneratedQuestion>)
 
 @Serializable
 data class GeneratedQuestion(val number: Int, val type: OpicQuestionType, val topic: String, val text: String)
+
+/** 스크립트 응답(F14.1, F14.4). 만들기와 다듬기가 같은 모양이다. [usedExpressions] 는 쓴 표현 카드의 english 글 그대로다. */
+@Serializable
+data class ScriptResponse(val intro: String, val body: String, val closing: String, val usedExpressions: List<String>)

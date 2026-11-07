@@ -21,6 +21,7 @@ session.sendAudio(pcm)
 - 새 핸들을 받을 때마다 `ResumeHandle(handle)` 을 낸다. 앱이 핸들과 받은 시각을 저장해 두었다가 `connect(apiKey, config, resumeHandle, resumeHandleAt)` 로 넣으면 앱이 죽었다 살아나도 이어 붙인다
 - 핸드셰이크 실패는 `Failed(status, message)`, 연결 뒤 서버가 닫으면 `Disconnected(code, reason)` 다
 - 키는 주소의 `?key=` 로 보낸다. 이 라이브러리는 주소를 찍지 않는다
+- 대상은 Android, iOS, JVM 이다. JVM 판은 `tools/eval` 의 코치 eval 이 OkHttp 엔진으로 쓴다
 
 ## 테스트
 

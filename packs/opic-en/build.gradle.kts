@@ -15,6 +15,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":engine:session"))
             api(project(":engine:answer"))
+            api(project(":engine:coach"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.components.resources)
         }
