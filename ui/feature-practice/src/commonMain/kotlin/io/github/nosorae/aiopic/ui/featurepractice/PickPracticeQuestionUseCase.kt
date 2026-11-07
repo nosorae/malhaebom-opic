@@ -13,8 +13,10 @@ import io.github.nosorae.aiopic.engine.question.model.QuestionType
 // ponytail: 늘 가장 약한 유형만 낸다. 한 유형만 계속 나와 지루하다는 말이 나오면 점수에 반비례한 가중치로 고른다.
 @Inject
 class PickPracticeQuestionUseCase(private val repository: PracticeRepository, private val typeNames: Map<QuestionType, String>) {
-    suspend operator fun invoke(): PracticePick? {
+    /** [questionId] 를 주면 그 질문을 낸다. 스크립트로 연습할 때다(F14.5). 풀에 없으면 약한 유형에서 고른다. */
+    suspend operator fun invoke(questionId: String? = null): PracticePick? {
         val pool = repository.pool()
+        pool.firstOrNull { it.id == questionId }?.let { return PracticePick(it, weakness = null) }
         val answers = repository.answers()
         val picked = weaknessScores(answers, repository.flaggedCorrections())
             .firstNotNullOfOrNull { weak -> pool.filter { it.type == weak.type }.ifEmpty { null }?.let { weak to it } }

@@ -21,4 +21,7 @@
     <string name="practice_weak_score">%1$d점</string>
     <string name="practice_any_type">모든 유형에서 골랐어요</string>
     <string name="practice_hint">질문이 끝나면 바로 녹음돼요. 다시 듣기는 5초 안에 한 번, Next 는 10초 뒤에 켜져요.</string>
+    <string name="practice_script">스크립트</string>
+    <string name="practice_script_open">접기</string>
+    <string name="practice_script_closed">펴기</string>
 </resources>
