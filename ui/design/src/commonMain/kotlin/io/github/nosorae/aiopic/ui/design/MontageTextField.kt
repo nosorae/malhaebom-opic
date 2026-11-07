@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
  * [trailing] 은 칸 오른쪽 끝의 48dp 아이콘 버튼 자리다(지우기 같은 것). 칸 높이는 그대로 48dp 다.
  * [fontFamily] 는 입력 글자 서체다. API 키처럼 l, 1, I 를 가려 읽어야 하는 값은 고정폭을 넣는다.
  * 도움말과 오류 문구는 줄 수를 막지 않는다. 글자를 키운 화면에서 잘리지 않게 하려는 것이다.
+ * [singleLine] 이 false 면 글이 길어지는 대로 칸이 아래로 늘어난다(스크립트 문단).
  */
 @Composable
 fun MontageTextField(
@@ -47,6 +48,7 @@ fun MontageTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     fontFamily: FontFamily? = null,
     trailing: (@Composable () -> Unit)? = null,
+    singleLine: Boolean = true,
 ) {
     val colors = MontageTheme.colors
     val typography = MontageTheme.typography
@@ -68,7 +70,7 @@ fun MontageTextField(
             value = value,
             onValueChange = onValueChange,
             enabled = enabled,
-            singleLine = true,
+            singleLine = singleLine,
             textStyle = typography.body2.regular.copy(
                 color = if (enabled) colors.foregroundNeutralPrimary else colors.foregroundNeutralTertiary,
                 fontFamily = fontFamily ?: typography.body2.regular.fontFamily,
