@@ -53,8 +53,14 @@ class PracticeViewModel(
     init {
         viewModelScope.launch {
             val pick = pickPracticeQuestionUseCase(questionId)
-            _uiState.update { it.copy(question = pick?.question, weakness = pick?.weakness, error = if (pick == null) PracticeError.QuestionUnavailable else null) }
+            _uiState.update { it.copy(question = pick?.question, weakness = pick?.weakness, error = noQuestion(pick)) }
         }
+    }
+
+    private fun noQuestion(pick: PracticePick?) = when {
+        pick != null -> null
+        questionId != null -> PracticeError.ScriptQuestionMissing
+        else -> PracticeError.QuestionUnavailable
     }
 
     fun onIntent(intent: PracticeIntent) {

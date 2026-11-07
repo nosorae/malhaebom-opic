@@ -326,7 +326,7 @@ interface AppGraph {
 
     @SingleIn(AppScope::class)
     @Provides
-    fun storeReads(store: OpicStore, jobs: AnalysisJobs, coach: CoachStore, settings: AppSettings): StoreReads = StoreReads(store, jobs, scriptRows(coach, settings))
+    fun storeReads(store: OpicStore, jobs: AnalysisJobs, coach: CoachStore): StoreReads = StoreReads(store, jobs, scriptRows(coach))
 
     @Provides fun examSessionSource(reads: StoreReads): ExamSessionSource = reads
 
@@ -609,8 +609,7 @@ private object NoTwoStepPath : Transcriber, TranscriptAnalyzer {
     override suspend fun analyze(model: ModelInfo, prompt: Prompt, question: Question, transcript: Transcript): AnalysisResult<TextAnalysis> = AnalysisResult.Failed(AnalysisError.Rejected)
 }
 
-/** 기록 탭의 스크립트 줄(F14.6). 만들지 못한 끝난 세션도 다시 만들기 줄로 낸다. 세션에는 질문 id 만 있어 연습 풀에서 질문 글을 찾는다. 풀에서 빠진 질문은 글이 비어 목표 등급만 보인다. */
-private fun scriptRows(coach: CoachStore, settings: AppSettings): Flow<List<HistoryScript>> = coach.sessions().map { sessions ->
-    val texts = if (sessions.isEmpty()) emptyMap() else practicePool(settings).associate { it.id to it.text }
-    sessions.map { (session, written) -> HistoryScript(session.id, session.questionId, texts[session.questionId].orEmpty(), session.targetGrade, written, finished = session.status == CoachStatus.Finished) }
+/** 코치 세션 줄(F14.6, F11.8). 질문 글은 세션에 저장된 것을 써서 서베이 주제를 바꿔도 비지 않고, 대화 중 매초 문항 풀을 다시 읽지 않는다. */
+internal fun scriptRows(coach: CoachStore): Flow<List<HistoryScript>> = coach.sessions().map { sessions ->
+    sessions.map { (session, written) -> HistoryScript(session.id, session.questionId, session.question, session.targetGrade, written, finished = session.status == CoachStatus.Finished) }
 }

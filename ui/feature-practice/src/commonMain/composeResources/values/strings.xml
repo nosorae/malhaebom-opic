@@ -17,6 +17,7 @@
     <string name="practice_open_settings">설정 열기</string>
     <string name="practice_error_speech">질문을 읽지 못했습니다. Play 를 다시 누르세요.</string>
     <string name="practice_error_question">낼 질문이 없습니다. 문항 파일을 불러온 뒤 다시 시작하세요.</string>
+    <string name="practice_error_script_question">이 스크립트의 질문을 지금 문항에서 찾을 수 없습니다. 서베이 주제를 바꿨다면 그 주제를 다시 고른 뒤 연습하세요.</string>
     <string name="practice_weak_type">약한 유형</string>
     <string name="practice_weak_score">%1$d점</string>
     <string name="practice_any_type">모든 유형에서 골랐어요</string>

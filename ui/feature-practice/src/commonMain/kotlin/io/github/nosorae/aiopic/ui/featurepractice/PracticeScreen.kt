@@ -332,6 +332,7 @@ private val PracticeError.message: StringResource
         PracticeError.RecordingFailed -> Res.string.practice_error_recording
         PracticeError.SpeechFailed -> Res.string.practice_error_speech
         PracticeError.QuestionUnavailable -> Res.string.practice_error_question
+        PracticeError.ScriptQuestionMissing -> Res.string.practice_error_script_question
     }
 
 /** 미리보기와 스크린샷 테스트가 함께 쓰는 고정 상태. 진행마다 하나다. */

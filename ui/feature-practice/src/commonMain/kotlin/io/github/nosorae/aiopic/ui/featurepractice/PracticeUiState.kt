@@ -57,6 +57,9 @@ enum class PracticeError {
 
     /** 문항 풀이 비어 낼 질문이 없다. */
     QuestionUnavailable,
+
+    /** 스크립트의 질문이 문항 풀에 없다. 서베이 주제를 바꿔 빠진 질문이다(F14.5). */
+    ScriptQuestionMissing,
 }
 
 internal fun RecordingFailure.toPracticeError(): PracticeError = when (this) {
