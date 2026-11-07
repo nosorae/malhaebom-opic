@@ -211,6 +211,30 @@ class LiveCoachTest {
     }
 
     @Test
+    fun `F11_9 마이크를 열지 못하면 앱이 꺼지지 않고 마이크 이유로 끊기며 다시 연결할 수 있다`() = test { db ->
+        audio.micError = IllegalStateException("mic busy")
+        val coach = started(db)
+        val dropped = coach.state.value?.disconnected
+        audio.micError = null
+
+        coach.resume()
+        runCurrent()
+
+        assertEquals(TransportEvent.Disconnected.MIC, dropped)
+        assertNull(coach.state.value?.disconnected)
+        assertEquals(2, transport.connects.size)
+    }
+
+    @Test
+    fun `F11_9 연결이 예외로 끝나면 앱이 꺼지지 않고 네트워크 이유로 끊긴다`() = test { db ->
+        transport.connectError = IllegalStateException("socket closed")
+
+        val coach = started(db)
+
+        assertEquals(TransportEvent.Disconnected.NETWORK, coach.state.value?.disconnected)
+    }
+
+    @Test
     fun `F11_8 앱이 죽었다 살아나면 Room 에서 단계와 받아쓰기와 메모와 핸들을 되살려 이어 붙인다`() = test { db ->
         val app = CoroutineScope(backgroundScope.coroutineContext + Job())
         val before = started(db, app)

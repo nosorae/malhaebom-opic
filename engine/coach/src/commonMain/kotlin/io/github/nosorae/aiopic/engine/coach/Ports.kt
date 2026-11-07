@@ -51,6 +51,9 @@ sealed interface TransportEvent {
             const val NO_KEY = "no_key"
 
             const val NETWORK = "network"
+
+            /** 마이크를 열지 못했다(권한, 다른 앱이 쓰는 중). 엔진이 낸다. */
+            const val MIC = "mic"
         }
     }
 }

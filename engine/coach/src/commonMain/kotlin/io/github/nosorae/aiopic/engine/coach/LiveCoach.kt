@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,7 +90,13 @@ class LiveCoach(
         connection = if (live) {
             scope.launch {
                 old?.join()
-                talk(state)
+                // 예외가 scope(화면의 viewModelScope)까지 가면 앱이 꺼진다. 끊김으로 남겨 다시 연결할 수 있게 한다.
+                try {
+                    talk(state)
+                } catch (e: Exception) {
+                    ensureActive()
+                    dispatch(CoachEvent.Dropped(TransportEvent.Disconnected.NETWORK))
+                }
             }
         } else {
             null
@@ -136,7 +144,7 @@ class LiveCoach(
     /** 말소리 조각만 보낸다. 말하다 침묵이 시작되면 오디오 끝을 한 번 보낸다. */
     private suspend fun forwardMic() {
         var speaking = false
-        audio.mic.collect { chunk ->
+        audio.mic.catch { dispatch(CoachEvent.Dropped(TransportEvent.Disconnected.MIC)) }.collect { chunk ->
             if (chunk.speech) {
                 transport.sendAudio(chunk.pcm)
                 speaking = true
