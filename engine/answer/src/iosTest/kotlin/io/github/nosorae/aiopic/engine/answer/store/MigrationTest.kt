@@ -33,6 +33,7 @@ import platform.Foundation.NSTemporaryDirectory
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -66,6 +67,38 @@ class MigrationTest {
         ).forEach(connection::execSQL)
         answers.forEach { connection.execSQL("INSERT INTO answer (id, examSessionId, json) VALUES ('${it.id}', NULL, '${Json.encodeToString(it)}')") }
         connection.close()
+    }
+
+    @Test
+    fun `262 version 3 DB 에 코치 표를 더해도 있던 행은 남는다`() = runTest {
+        val connection = BundledSQLiteDriver().open(path)
+        listOf(
+            "CREATE TABLE IF NOT EXISTS `exam_session` (`id` TEXT NOT NULL, `json` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE TABLE IF NOT EXISTS `answer` (`id` TEXT NOT NULL, `examSessionId` TEXT, `json` TEXT NOT NULL, PRIMARY KEY(`id`))",
+            "CREATE INDEX IF NOT EXISTS `index_answer_examSessionId` ON `answer` (`examSessionId`)",
+            "CREATE TABLE IF NOT EXISTS `correction_flag` (`answerId` TEXT NOT NULL, `index` INTEGER NOT NULL, PRIMARY KEY(`answerId`, `index`))",
+            "CREATE TABLE IF NOT EXISTS `analysis_job` (`kind` TEXT NOT NULL, `targetId` TEXT NOT NULL, `state` TEXT NOT NULL, `attempts` INTEGER NOT NULL, " +
+                "`nextAttemptAt` INTEGER, `error` TEXT, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`kind`, `targetId`))",
+            "CREATE TABLE IF NOT EXISTS `analysis_response` (`kind` TEXT NOT NULL, `targetId` TEXT NOT NULL, `stage` TEXT NOT NULL, `text` TEXT NOT NULL, " +
+                "PRIMARY KEY(`kind`, `targetId`, `stage`))",
+            "CREATE TABLE IF NOT EXISTS `seen_mark` (`key` TEXT NOT NULL, `value` INTEGER NOT NULL, PRIMARY KEY(`key`))",
+            "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+            "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '41c6fd02764255b55d03534b9bf27714')",
+            "INSERT INTO seen_mark (`key`, value) VALUES ('weakness', 3)",
+            "PRAGMA user_version = 3",
+        ).forEach(connection::execSQL)
+        connection.close()
+
+        val db = Room.databaseBuilder<OpicDatabase>(name = path).setDriver(BundledSQLiteDriver()).addMigrations(*OPIC_MIGRATIONS).build()
+        val dao = db.coachDao()
+        dao.save(CoachSessionRow("c1", "q1", "IH", 0, "Explore", 0, null, null, "Active"))
+        dao.append("c1", "Explore", "transcript", "{}")
+
+        assertEquals(mapOf("weakness" to 3), OpicStore(db).seen().first())
+        assertEquals("q1", dao.session("c1")?.questionId)
+        assertEquals(listOf(0), dao.events("c1").map { it.seq })
+        assertNull(dao.script("c1").first())
+        db.close()
     }
 
     @Test

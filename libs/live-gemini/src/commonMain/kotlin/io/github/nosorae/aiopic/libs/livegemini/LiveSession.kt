@@ -59,8 +59,15 @@ public class LiveSession(
     private var handle: String? = null
     private var handleAt = Instant.DISTANT_PAST
 
-    /** 모으기를 멈추면 연결을 닫는다. 끝나는 이벤트는 [LiveEvent.Disconnected] 와 [LiveEvent.Failed] 다. */
-    public fun connect(apiKey: String, config: LiveConfig): Flow<LiveEvent> = channelFlow {
+    /**
+     * 모으기를 멈추면 연결을 닫는다. 끝나는 이벤트는 [LiveEvent.Disconnected] 와 [LiveEvent.Failed] 다.
+     * [resumeHandle] 은 앱이 저장해 둔 핸들이고 [resumeHandleAt] 은 그 핸들을 받은 시각이다. 앱이 죽었다 살아나도 대화를 이어 붙인다.
+     */
+    public fun connect(apiKey: String, config: LiveConfig, resumeHandle: String? = null, resumeHandleAt: Instant? = null): Flow<LiveEvent> = channelFlow {
+        if (resumeHandle != null) {
+            handle = resumeHandle
+            handleAt = resumeHandleAt ?: clock.now()
+        }
         while (true) {
             if (handle != null && clock.now() - handleAt > RESUME_LIMIT) {
                 handle = null
@@ -137,6 +144,7 @@ public class LiveSession(
                 if (update["resumable"]?.jsonPrimitive?.booleanOrNull == true && !newHandle.isNullOrEmpty()) {
                     handle = newHandle
                     handleAt = clock.now()
+                    send(LiveEvent.ResumeHandle(newHandle))
                 }
             }
             events(message).forEach { send(it) }

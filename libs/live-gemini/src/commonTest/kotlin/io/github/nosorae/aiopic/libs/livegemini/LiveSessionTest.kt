@@ -51,9 +51,9 @@ class LiveSessionTest {
     )
 
     /** 서버 프레임을 넣는 즉시 세션이 처리하도록 Unconfined 로 모으며 [block] 을 돌리고, 끝나면 모으기를 멈춘다. */
-    private suspend fun TestScope.collect(block: suspend () -> Unit): List<LiveEvent> {
+    private suspend fun TestScope.collect(resumeHandle: String? = null, resumeHandleAt: Instant? = null, block: suspend () -> Unit): List<LiveEvent> {
         val events = mutableListOf<LiveEvent>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { session.connect("test-key", config).collect { events += it } }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { session.connect("test-key", config, resumeHandle, resumeHandleAt).collect { events += it } }
         block()
         job.cancelAndJoin()
         return events
@@ -189,7 +189,7 @@ class LiveSessionTest {
             sockets[1].server("""{"setupComplete":{}}""")
         }
 
-        assertEquals(listOf(LiveEvent.Connected, LiveEvent.GoAway(50.seconds), LiveEvent.Resumed), events)
+        assertEquals(listOf(LiveEvent.Connected, LiveEvent.ResumeHandle("h1"), LiveEvent.GoAway(50.seconds), LiveEvent.Resumed), events)
         assertTrue(sockets[0].closedByClient)
         assertEquals("h1", sockets[1].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"]!!.jsonPrimitive.content)
     }
@@ -237,6 +237,21 @@ class LiveSessionTest {
 
         assertEquals(listOf(LiveEvent.ResumeExpired, LiveEvent.Connected), events)
         assertNull(sockets[1].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"])
+    }
+
+    @Test
+    fun `바깥에서 넣은 핸들로 첫 연결부터 이어 붙인다`() = runTest {
+        val events = collect(resumeHandle = "h0", resumeHandleAt = clock.now - 1.hours) { sockets[0].server("""{"setupComplete":{}}""") }
+
+        assertEquals(listOf<LiveEvent>(LiveEvent.Resumed), events)
+        assertEquals("h0", sockets[0].sentJson(0)["setup"]!!.jsonObject["sessionResumption"]!!.jsonObject["handle"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `바깥에서 넣은 핸들을 받은 지 2시간이 지났으면 만료를 알리고 새로 연다`() = runTest {
+        val events = collect(resumeHandle = "h0", resumeHandleAt = clock.now - 2.hours - 1.seconds) { sockets[0].server("""{"setupComplete":{}}""") }
+
+        assertEquals(listOf(LiveEvent.ResumeExpired, LiveEvent.Connected), events)
     }
 
     @Test
