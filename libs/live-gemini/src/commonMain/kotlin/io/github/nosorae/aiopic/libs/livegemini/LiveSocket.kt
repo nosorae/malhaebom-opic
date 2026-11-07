@@ -1,6 +1,7 @@
 package io.github.nosorae.aiopic.libs.livegemini
 
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -24,8 +25,17 @@ public interface LiveSocket {
 /** 핸드셰이크가 실패했다. [status] 는 서버가 준 HTTP 상태이고 모르면 null 이다. */
 public class LiveConnectException(public val status: Int?, message: String) : Exception(message)
 
-/** Ktor 로 연다. Android 는 OkHttp, iOS 는 NSURLSession 엔진이다. */
-public fun ktorLiveSocket(http: HttpClient = HttpClient { install(WebSockets) }): suspend (String) -> LiveSocket = { url ->
+/**
+ * 엔진을 플랫폼마다 정해 둔다. 정하지 않으면 Ktor 가 서비스 파일에서 처음 찾은 엔진을 고르는데, 앱에는 WebSocket 을 못 여는
+ * ktor-client-android 도 들어 있어 Android 에서 그 엔진이 골라질 수 있다. Android 와 JVM 은 OkHttp, iOS 는 NSURLSession(Darwin) 이다.
+ */
+internal expect val liveEngine: HttpClientEngineFactory<*>
+
+/** 연결마다 만들면 엔진의 스레드와 연결 풀이 닫히지 않고 쌓인다. 앱 전체에서 하나를 같이 쓴다. */
+internal val liveHttp: HttpClient by lazy { HttpClient(liveEngine) { install(WebSockets) } }
+
+/** Ktor 로 연다. */
+public fun ktorLiveSocket(http: HttpClient = liveHttp): suspend (String) -> LiveSocket = { url ->
     val session = try {
         http.webSocketSession(url)
     } catch (e: CancellationException) {
