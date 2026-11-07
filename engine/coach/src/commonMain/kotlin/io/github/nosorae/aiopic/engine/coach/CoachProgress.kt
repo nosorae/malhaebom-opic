@@ -13,6 +13,9 @@ val RESUME_LIMIT = 2.hours
 
 const val MAX_REHEARSALS = 2
 
+/** 피드백 단계에서 한 번 더 리허설할 수 있다(F13.3). */
+val CoachState.canRehearseAgain: Boolean get() = phase == CoachPhase.Feedback && rehearsals.size < MAX_REHEARSALS
+
 /** 다음 연결 지시에 넣는 최근 받아쓰기 줄 수. 앞 단계 끝 대화만 이으면 되고 길면 다시 읽는 입력이 는다. */
 const val RECENT_LINES = 6
 
@@ -34,6 +37,8 @@ fun reduce(state: CoachState, event: CoachEvent): CoachState {
 
         is CoachEvent.Rehearsed ->
             if (state.phase == CoachPhase.Rehearse && state.rehearsals.size < MAX_REHEARSALS && event.text.isNotBlank()) state.copy(rehearsals = state.rehearsals + event.text) else state
+
+        CoachEvent.RehearseAgain -> if (state.canRehearseAgain) state.copy(phase = CoachPhase.Rehearse, resumeHandle = null, handleAt = null) else state
 
         is CoachEvent.MaterialEdited -> state.copy(materials = state.materials.filter { it.kind != event.kind } + listOfNotNull(Material(event.kind, event.text.trim()).takeIf { it.text.isNotEmpty() }))
 

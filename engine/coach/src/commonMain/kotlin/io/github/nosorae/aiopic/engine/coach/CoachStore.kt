@@ -37,7 +37,7 @@ class CoachStore(db: OpicDatabase) {
             is CoachEvent.Heard, is CoachEvent.Rehearsed -> "transcript"
             is CoachEvent.ToolCalled -> "tool"
             is CoachEvent.Used -> "usage"
-            CoachEvent.NextPhase -> "phase"
+            CoachEvent.NextPhase, CoachEvent.RehearseAgain -> "phase"
             is CoachEvent.MaterialEdited, is CoachEvent.ExpressionEdited -> "edit"
             else -> return
         }

@@ -136,6 +136,33 @@ class LiveCoachTest {
     }
 
     @Test
+    fun `F13_3 한 번 더 리허설하면 연결을 닫고 두 번째 받아쓰기를 새 피드백 지시에 넣으며 다시 열어도 남는다`() = test { db ->
+        val app = CoroutineScope(backgroundScope.coroutineContext + Job())
+        val coach = started(db, app)
+        repeat(2) {
+            coach.nextPhase()
+            runCurrent()
+        }
+        coach.rehearsed("first")
+        coach.nextPhase()
+        runCurrent()
+
+        coach.rehearseAgain()
+        runCurrent()
+        val closed = transport.connects.size
+        coach.rehearsed("second")
+        coach.nextPhase()
+        runCurrent()
+        val saved = coach.state.value
+        app.cancel()
+        val reopened = coach(db).apply { open("c1") }
+
+        assertEquals(3, closed)
+        assertEquals("Feedback.\n\nNotes so far:\nrehearsal 1: first\nrehearsal 2: second", transport.connects.last().instruction)
+        assertEquals(saved, reopened.state.value)
+    }
+
+    @Test
     fun `F11_7 일시정지한 시간은 대화 시간에서 빼고 30분이 되면 스크립트 정리로 간다`() = test { db ->
         val coach = started(db)
 

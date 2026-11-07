@@ -96,6 +96,18 @@ class CoachProgressTest {
     }
 
     @Test
+    fun `F13_3 피드백에서 한 번 더 리허설하면 리허설 단계로 돌아가고 두 번을 채우면 돌아가지 않는다`() {
+        val feedback = start.after(CoachEvent.NextPhase, CoachEvent.NextPhase, CoachEvent.Rehearsed("first"), CoachEvent.NextPhase)
+        val second = feedback.after(CoachEvent.RehearseAgain, CoachEvent.Rehearsed("second"), CoachEvent.NextPhase)
+
+        assertEquals(CoachPhase.Rehearse, feedback.after(CoachEvent.RehearseAgain).phase)
+        assertTrue(feedback.canRehearseAgain)
+        assertFalse(second.canRehearseAgain)
+        assertEquals(CoachPhase.Feedback, second.after(CoachEvent.RehearseAgain).phase)
+        assertEquals(listOf("first", "second"), second.rehearsals)
+    }
+
+    @Test
     fun `받아쓰기 조각은 같은 단계 같은 사람이면 한 줄로 잇는다`() {
         val state = start.after(
             CoachEvent.Heard(Speaker.Coach, "Where"),

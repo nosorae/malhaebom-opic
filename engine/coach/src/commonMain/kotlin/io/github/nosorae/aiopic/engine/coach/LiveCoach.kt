@@ -58,6 +58,9 @@ class LiveCoach(
     /** 리허설 녹음의 받아쓰기를 넣는다(F13). 피드백 단계 지시에 들어간다. */
     suspend fun rehearsed(transcript: String) = dispatch(CoachEvent.Rehearsed(transcript))
 
+    /** 피드백 연결을 닫고 리허설 단계로 돌아간다. 리허설을 두 번 했으면 그대로 둔다(F13.3). */
+    suspend fun rehearseAgain() = dispatch(CoachEvent.RehearseAgain)
+
     /** 사용자가 소재 칸을 고친다(F12.2). 다음 연결 지시부터 고친 글이 들어간다. */
     suspend fun editMaterial(kind: MaterialKind, text: String) = dispatch(CoachEvent.MaterialEdited(kind, text))
 
