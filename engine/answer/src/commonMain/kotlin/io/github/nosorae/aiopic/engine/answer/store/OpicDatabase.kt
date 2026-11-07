@@ -136,7 +136,7 @@ data class CoachSessionRow(
 @Entity(tableName = "coach_event", primaryKeys = ["sessionId", "seq"])
 data class CoachEventRow(val sessionId: String, val seq: Int, val phase: String, val kind: String, val json: String)
 
-/** 세션이 만든 스크립트(#262). [expressions] 는 표현 목록 JSON, [edited] 는 사용자가 고친 판이다. */
+/** 세션이 만든 스크립트(#262). 원본 세 칸과 표현 목록 JSON, [edited] 는 사용자가 고친 세 칸 JSON 이다. */
 @Entity(tableName = "coach_script")
 data class CoachScriptRow(
     @PrimaryKey val sessionId: String,

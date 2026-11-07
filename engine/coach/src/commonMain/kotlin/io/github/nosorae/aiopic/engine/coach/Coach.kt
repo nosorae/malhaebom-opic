@@ -78,14 +78,15 @@ object CoachTools {
     const val SAVE_EXPRESSION = "save_expression"
 }
 
-/** 세션이 만든 스크립트. 만드는 일은 [ScriptWriter] 다(#267). [edited] 는 사용자가 고친 판이다. */
+@Serializable
+data class ScriptParts(val intro: String, val body: String, val closing: String)
+
+/** 세션이 만든 스크립트. 만드는 일은 [ScriptWriter] 다(#267). [edited] 는 사용자가 고친 판이고 [original] 은 되돌리기용으로 남긴다(F14.3). */
 data class CoachScript(
     val sessionId: String,
-    val intro: String,
-    val body: String,
-    val closing: String,
+    val original: ScriptParts,
     val expressions: List<Expression>,
-    val edited: String?,
+    val edited: ScriptParts?,
     val editedAt: Instant?,
     val promptVersion: String,
     val model: String,

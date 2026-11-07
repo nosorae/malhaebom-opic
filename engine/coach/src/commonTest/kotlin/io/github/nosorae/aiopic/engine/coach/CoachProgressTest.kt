@@ -20,14 +20,14 @@ class CoachProgressTest {
     private fun CoachState.after(vararg events: CoachEvent) = events.fold(this, ::reduce)
 
     @Test
-    fun `F12 코치가 advance_phase 를 부르면 다음 단계로 간다`() {
+    fun `F11_5 코치가 advance_phase 를 부르면 다음 단계로 간다`() {
         val state = start.after(CoachEvent.ToolCalled(CoachTools.ADVANCE_PHASE, JsonObject(emptyMap())))
 
         assertEquals(CoachPhase.Express, state.phase)
     }
 
     @Test
-    fun `F12 사용자가 다음 단계를 고르면 다음 단계로 가고 앞 단계 핸들을 버린다`() {
+    fun `F11_5 사용자가 다음 단계를 고르면 다음 단계로 가고 앞 단계 핸들을 버린다`() {
         val state = start.after(CoachEvent.HandleReceived("h1", Instant.fromEpochSeconds(1)), CoachEvent.NextPhase)
 
         assertEquals(CoachPhase.Express, state.phase)
@@ -42,20 +42,20 @@ class CoachProgressTest {
     }
 
     @Test
-    fun `대화 25분이면 안내 상태가 된다`() {
+    fun `F11_7 대화 25분이면 안내 상태가 된다`() {
         assertFalse(start.after(CoachEvent.TimePassed(24.minutes)).timeWarning)
         assertTrue(start.after(CoachEvent.TimePassed(24.minutes), CoachEvent.TimePassed(1.minutes)).timeWarning)
     }
 
     @Test
-    fun `대화 30분이면 어느 단계에 있든 스크립트 정리로 간다`() {
+    fun `F11_7 대화 30분이면 어느 단계에 있든 스크립트 정리로 간다`() {
         val state = start.after(CoachEvent.NextPhase, CoachEvent.TimePassed(29.minutes), CoachEvent.TimePassed(1.minutes))
 
         assertEquals(CoachPhase.Script to CoachStatus.Finished, state.phase to state.status)
     }
 
     @Test
-    fun `save_material 은 kind 가 넷 중 하나이고 글이 있을 때만 저장한다`() {
+    fun `F12_2 save_material 은 kind 가 넷 중 하나이고 글이 있을 때만 저장한다`() {
         val state = start.after(
             CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "place", "text" to "a small cafe")),
             CoachEvent.ToolCalled(CoachTools.SAVE_MATERIAL, args("kind" to "weather", "text" to "rainy")),
@@ -75,14 +75,14 @@ class CoachProgressTest {
     }
 
     @Test
-    fun `save_expression 은 세 인자가 다 있으면 저장한다`() {
+    fun `F12_3 save_expression 은 세 인자가 다 있으면 저장한다`() {
         val state = start.after(CoachEvent.ToolCalled(CoachTools.SAVE_EXPRESSION, args("user_said" to "좋았어", "english" to "It was a blast", "grade" to "IH")))
 
         assertEquals(listOf(Expression("좋았어", "It was a blast", "IH")), state.expressions)
     }
 
     @Test
-    fun `F13 리허설 받아쓰기는 리허설 단계에서 두 번까지 받는다`() {
+    fun `F13_3 리허설 받아쓰기는 리허설 단계에서 두 번까지 받는다`() {
         val state = start.after(
             CoachEvent.Rehearsed("too early"),
             CoachEvent.NextPhase,
@@ -107,7 +107,7 @@ class CoachProgressTest {
     }
 
     @Test
-    fun `사용량은 단계별로 모으고 모달리티 단가로 비용을 낸다`() {
+    fun `F12_4 사용량은 단계별로 모으고 모달리티 단가로 비용을 낸다`() {
         val state = start.after(
             CoachEvent.Used(TokenUsage(input = mapOf(Modality.Audio to 500_000, Modality.Text to 1_000_000), output = mapOf(Modality.Audio to 100_000))),
             CoachEvent.Used(TokenUsage(input = mapOf(Modality.Audio to 500_000))),

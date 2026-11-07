@@ -59,11 +59,11 @@ class CoachStore(db: OpicDatabase) {
     suspend fun save(script: CoachScript) = dao.save(
         CoachScriptRow(
             sessionId = script.sessionId,
-            intro = script.intro,
-            body = script.body,
-            closing = script.closing,
+            intro = script.original.intro,
+            body = script.original.body,
+            closing = script.original.closing,
             expressions = json.encodeToString(script.expressions),
-            edited = script.edited,
+            edited = script.edited?.let { json.encodeToString(it) },
             editedAt = script.editedAt?.toEpochMilliseconds(),
             promptVersion = script.promptVersion,
             model = script.model,
@@ -74,11 +74,9 @@ class CoachStore(db: OpicDatabase) {
         row?.let {
             CoachScript(
                 sessionId = it.sessionId,
-                intro = it.intro,
-                body = it.body,
-                closing = it.closing,
+                original = ScriptParts(it.intro, it.body, it.closing),
                 expressions = json.decodeFromString(it.expressions),
-                edited = it.edited,
+                edited = it.edited?.let { edited -> json.decodeFromString<ScriptParts>(edited) },
                 editedAt = it.editedAt?.let(Instant::fromEpochMilliseconds),
                 promptVersion = it.promptVersion,
                 model = it.model,

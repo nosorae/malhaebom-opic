@@ -109,7 +109,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `F12 코치가 단계를 넘기면 메모를 담은 새 지시로 새로 연결한다`() = test { db ->
+    fun `F11_5 코치가 단계를 넘기면 메모를 담은 새 지시로 새로 연결한다`() = test { db ->
         started(db)
 
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("a cafe")))
@@ -136,7 +136,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `F11_8 일시정지한 시간은 대화 시간에서 빼고 30분이 되면 스크립트 정리로 간다`() = test { db ->
+    fun `F11_7 일시정지한 시간은 대화 시간에서 빼고 30분이 되면 스크립트 정리로 간다`() = test { db ->
         val coach = started(db)
 
         advanceTimeBy(10.minutes)
@@ -156,7 +156,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `일시정지하면 연결을 닫고 재개하면 받은 핸들로 이어 붙인다`() = test { db ->
+    fun `F11_6 일시정지하면 연결을 닫고 재개하면 받은 핸들로 이어 붙인다`() = test { db ->
         val coach = started(db)
 
         transport.server(TransportEvent.ResumeHandle("h1"))
@@ -170,7 +170,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `끊기면 받아쓰기와 메모는 남고 이유가 보이며 다시 연결할 수 있다`() = test { db ->
+    fun `F11_9 끊기면 받아쓰기와 메모는 남고 이유가 보이며 다시 연결할 수 있다`() = test { db ->
         val coach = started(db)
 
         transport.server(TransportEvent.UserSaid("I live in Seoul."))
@@ -187,7 +187,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `F11_6 앱이 죽었다 살아나면 Room 에서 단계와 받아쓰기와 메모와 핸들을 되살려 이어 붙인다`() = test { db ->
+    fun `F11_8 앱이 죽었다 살아나면 Room 에서 단계와 받아쓰기와 메모와 핸들을 되살려 이어 붙인다`() = test { db ->
         val app = CoroutineScope(backgroundScope.coroutineContext + Job())
         val before = started(db, app)
         transport.server(TransportEvent.UserSaid("I live in Seoul."))
@@ -212,7 +212,7 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `핸들을 받은 지 2시간이 지나 다시 열면 핸들 없이 메모로 새로 연결한다`() = test { db ->
+    fun `F11_8 핸들을 받은 지 2시간이 지나 다시 열면 핸들 없이 메모로 새로 연결한다`() = test { db ->
         val app = CoroutineScope(backgroundScope.coroutineContext + Job())
         started(db, app)
         transport.server(TransportEvent.ToolCall("t1", CoachTools.SAVE_MATERIAL, place("Seoul")))
@@ -233,9 +233,17 @@ class LiveCoachTest {
     }
 
     @Test
-    fun `스크립트를 저장하면 같은 세션으로 읽는다`() = test { db ->
+    fun `F14_3 스크립트는 원본과 고친 판을 함께 저장하고 읽는다`() = test { db ->
         val store = CoachStore(db)
-        val script = CoachScript("c1", "Intro.", "Body.", "Closing.", listOf(Expression("좋았어", "It was a blast", "IH")), null, null, "v1", "test-model")
+        val script = CoachScript(
+            sessionId = "c1",
+            original = ScriptParts("Intro.", "Body.", "Closing."),
+            expressions = listOf(Expression("좋았어", "It was a blast", "IH")),
+            edited = ScriptParts("Intro.", "Body, shorter.", "Closing."),
+            editedAt = Instant.fromEpochSeconds(10),
+            promptVersion = "v1",
+            model = "test-model",
+        )
 
         store.save(script)
 
