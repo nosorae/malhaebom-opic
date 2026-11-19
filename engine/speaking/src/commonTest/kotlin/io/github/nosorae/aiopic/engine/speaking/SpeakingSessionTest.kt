@@ -41,6 +41,7 @@ class SpeakingSessionTest {
     private val audio = FakeAudio()
     private val seoul = TimeZone.of("Asia/Seoul")
     private val base = Instant.parse("2026-11-19T09:00:00Z")
+    private val finished = mutableListOf<String>()
     private val setup = SpeakingSetup(planned = 20.minutes, route = AudioRoute.Earphones, topics = listOf("cooking", "music"), grammarNudge = true)
 
     /** DB 쿼리와 세션의 1초 시계를 같은 테스트 시계 위에서 돌린다. */
@@ -66,6 +67,7 @@ class SpeakingSessionTest {
         },
         timeZone = seoul,
         scope = backgroundScope,
+        onFinished = { finished += it },
     )
 
     private suspend fun TestScope.started(db: OpicDatabase, setup: SpeakingSetup = this@SpeakingSessionTest.setup) = session(db).also {
@@ -400,7 +402,7 @@ class SpeakingSessionTest {
     }
 
     @Test
-    fun `F16_11 끝내면 연결을 닫고 진행 중인 값을 연습 기록에 옮긴다`() = test { db ->
+    fun `F16_11 끝내면 연결을 닫고 진행 중인 값을 연습 기록에 옮기고 정리를 넣는다`() = test { db ->
         val session = started(db)
         audio.say(*Array(25) { LOUD }, *Array(30) { SILENT })
         link.server(LiveEvent.InputTranscript("I cook pasta."), LiveEvent.ResumeHandle("h1"))
@@ -410,6 +412,7 @@ class SpeakingSessionTest {
         runCurrent()
 
         val row = db.speakingDao().sessions().first().single()
+        assertEquals(listOf("p1"), finished)
         assertEquals(Triple("cooking", 1_000L, "[{\"speaker\":\"User\",\"text\":\"I cook pasta.\"}]"), Triple(row.topic, row.userTalkMs, row.transcript))
         link.server(LiveEvent.ResumeHandle("h2"))
         runCurrent()
