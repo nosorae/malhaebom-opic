@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 /** 말하기 연습 연결을 Gemini Live 로 연다(F16). 가짜 WebSocket 으로 서버 없이 돈다. */
 class GeminiSpeakingLinkTest {
@@ -37,6 +38,17 @@ class GeminiSpeakingLinkTest {
         val events = link.connect("Practice.", emptyList(), null).toList()
 
         assertTrue(events.isEmpty() && sockets.isEmpty())
+    }
+
+    @Test
+    fun `F16_17 설정의 말 끝 기다림과 말로 끊기 끔을 연결 setup 에 넣는다`() = runTest {
+        val tuned = GeminiSpeakingLink(apiKey = { key }, voice = "Kore", silence = 1.5.seconds, interruptible = false, session = LiveSession(open = { FakeSocket().also { sockets += it } }))
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { tuned.connect("Practice.", emptyList(), null).collect {} }
+
+        val setup = sockets.last().sent.first()
+        job.cancelAndJoin()
+
+        assertTrue("\"silenceDurationMs\":1500" in setup && "NO_INTERRUPTION" in setup, setup)
     }
 
     private fun usage(input: Int, output: Int) = """{"usageMetadata":{"promptTokensDetails":[{"modality":"AUDIO","tokenCount":$input}],"responseTokensDetails":[{"modality":"AUDIO","tokenCount":$output}]}}"""

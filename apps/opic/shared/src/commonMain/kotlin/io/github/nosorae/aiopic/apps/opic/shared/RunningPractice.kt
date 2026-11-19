@@ -160,12 +160,12 @@ internal fun speakingSession(
 ) = SpeakingSession(profile, link, audio, store, cards, clock, timeZone, scope, onFinished = jobs::enqueueCards)
 
 /**
- * 알림 권한을 물을 때(#229, F16.3). 분석이 돌기 시작하거나 말하기 연습이 돌기 시작하면 true 다.
- * 분석 끝 알림, 연습 진행 알림, 정리 끝 알림이 이 권한을 쓴다. Android 와 iOS 앱 틀이 이 조건 하나로 묻는다.
+ * 알림 권한을 물을 때(#229, F16.3, F19.2). 분석이 돌기 시작하거나 말하기 연습이 돌기 시작하거나 복습 알림을 켜면 true 다.
+ * 분석 끝 알림, 연습 진행 알림, 정리 끝 알림, 복습 알림이 이 권한을 쓴다. Android 와 iOS 앱 틀이 이 조건 하나로 묻는다.
  */
-internal fun notificationAskMoments(analyzing: Flow<Boolean>, practice: Flow<SpeakingState?>): Flow<Boolean> = merge(analyzing, practice.map { it?.finished == false })
+internal fun notificationAskMoments(analyzing: Flow<Boolean>, practice: Flow<SpeakingState?>, reminderOn: Flow<Boolean>): Flow<Boolean> = merge(analyzing, practice.map { it?.finished == false }, reminderOn)
 
 /** 처음 알림 권한을 물을 때까지 기다린다. */
 internal suspend fun AppGraph.awaitNotificationAsk() {
-    notificationAskMoments(opicStore.analyzing(), runningPractice.state).first { it }
+    notificationAskMoments(opicStore.analyzing(), runningPractice.state, settings.speaking.map { it.reminderOn }).first { it }
 }

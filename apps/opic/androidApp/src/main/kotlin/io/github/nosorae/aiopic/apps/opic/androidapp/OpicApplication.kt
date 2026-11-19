@@ -11,6 +11,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.recordingsRoot
 import io.github.nosorae.aiopic.apps.opic.shared.debugGeminiClient
 import io.github.nosorae.aiopic.apps.opic.shared.drainAndNotify
 import io.github.nosorae.aiopic.apps.opic.shared.registerDebugPanels
+import io.github.nosorae.aiopic.apps.opic.shared.reviewReminderSchedule
 import io.github.nosorae.aiopic.apps.opic.shared.withDebugTools
 import io.github.nosorae.aiopic.libs.debug.DebugTools
 import io.github.nosorae.aiopic.libs.debug.install
@@ -66,6 +67,9 @@ open class OpicApplication : Application() {
         MainScope().launch {
             practice.state.map { it != null && !it.finished }.distinctUntilChanged().collect { running -> if (running) PracticeService.start(this@OpicApplication) }
         }
+        // 복습 알림을 켜거나 시각을 바꾸면 알람을 다시 건다(F19.3).
+        ReviewReminders.createChannel(this)
+        MainScope().launch { graph.reviewReminderSchedule().collect { ReviewReminders.arm(this@OpicApplication, it) } }
         val chimes = AndroidChimes()
         MainScope().launch { practice.chimes.collect(chimes::play) }
     }

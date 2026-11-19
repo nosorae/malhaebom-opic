@@ -19,6 +19,9 @@ import io.github.nosorae.aiopic.ui.featuresettings.practice.AnswerTimerStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.ImportQuestionsUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionFileStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.SetAnswerTimerUseCase
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefsStore
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.UpdateSpeakingPrefsUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.theme.SetThemeModeUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
@@ -44,8 +47,10 @@ class FakeSettingsStore(var modelId: String? = null) :
     QuestionFileStore,
     HapticsStore,
     QuestionVoiceStore,
-    TargetGradeStore {
+    TargetGradeStore,
+    SpeakingPrefsStore {
     var consentGiven = true
+    var speaking = SpeakingPrefs()
     var answerTimerOn = false
     var questionFile: String? = null
     var hapticsOn = true
@@ -103,6 +108,12 @@ class FakeSettingsStore(var modelId: String? = null) :
 
     override suspend fun questionFile(): String? = questionFile
 
+    override suspend fun speakingPrefs(): SpeakingPrefs = speaking
+
+    override suspend fun saveSpeakingPrefs(prefs: SpeakingPrefs) {
+        speaking = prefs
+    }
+
     override suspend fun saveQuestionFile(json: String) {
         questionFile = json
     }
@@ -117,7 +128,7 @@ class FakePendingAnalysis(vararg pending: String) : PendingAnalysis {
 
 /** 설정 화면 테스트마다 같은 가짜로 ViewModel 을 만든다. */
 fun settingsViewModel(store: FakeSettingsStore, vault: FakeKeyVault, queue: FakePendingAnalysis = FakePendingAnalysis()) = SettingsViewModel(
-    loadSettingsUseCase = LoadSettingsUseCase(FakeCatalog, store, store, vault, store, store, store, store, store),
+    loadSettingsUseCase = LoadSettingsUseCase(FakeCatalog, store, store, vault, store, store, store, store, store, store),
     selectModelUseCase = SelectModelUseCase(store),
     deleteKeyUseCase = DeleteKeyUseCase(vault),
     setThemeModeUseCase = SetThemeModeUseCase(store),
@@ -128,6 +139,7 @@ fun settingsViewModel(store: FakeSettingsStore, vault: FakeKeyVault, queue: Fake
     setQuestionVoiceUseCase = SetQuestionVoiceUseCase(store),
     observeTargetGradeUseCase = ObserveTargetGradeUseCase(store),
     setTargetGradeUseCase = SetTargetGradeUseCase(store),
+    updateSpeakingPrefsUseCase = UpdateSpeakingPrefsUseCase(store),
 )
 
 class FakeKeyVault(vararg saved: Pair<String, String>) : KeyVault {

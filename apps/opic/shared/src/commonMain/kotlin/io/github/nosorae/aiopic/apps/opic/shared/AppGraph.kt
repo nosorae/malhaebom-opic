@@ -126,6 +126,7 @@ import io.github.nosorae.aiopic.ui.featuresettings.haptics.HapticsStore
 import io.github.nosorae.aiopic.ui.featuresettings.model.ModelSelectionStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.AnswerTimerStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionFileStore
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefsStore
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
 import io.github.nosorae.aiopic.ui.featuresettings.voice.QuestionVoiceStore
 import io.github.nosorae.aiopic.ui.featurespeaking.PracticeControl
@@ -237,9 +238,11 @@ interface AppGraph {
     /** 코치 목소리는 질문 음성, 라이브 코치와 같다. 연습마다 Live 연결 하나를 새로 만든다. */
     @SingleIn(AppScope::class)
     @Provides
-    fun runningPractice(audio: DuplexAudio, keyVault: KeyVault, speakingStore: SpeakingStore, cards: CardStore, jobs: AnalysisJobs, clock: Clock, timeZone: TimeZone): RunningPractice = RunningPractice(
+    fun runningPractice(audio: DuplexAudio, keyVault: KeyVault, speakingStore: SpeakingStore, cards: CardStore, jobs: AnalysisJobs, clock: Clock, timeZone: TimeZone, settings: AppSettings): RunningPractice = RunningPractice(
         newSession = { scope ->
-            val link = GeminiSpeakingLink(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME)
+            // 말 끝 기다림과 말로 끊기는 연습을 시작할 때의 설정을 그 연습 내내 쓴다(F16.17).
+            val prefs = settings.speaking.value
+            val link = GeminiSpeakingLink(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME, silence = prefs.endWait.silence, interruptible = prefs.bargeIn)
             speakingSession(speakingProfile(), link, audio, speakingStore, cards, jobs, clock, timeZone, scope)
         },
         audio = audio,
@@ -252,7 +255,7 @@ interface AppGraph {
 
     /**
      * 시작 시트가 읽는 값(F16.2, F16.3). 주제는 서베이에서 고른 주제이고, 서베이를 내지 않았으면 서베이의 모든 주제다.
-     * 설정 화면의 말하기 연습 묶음(F19.1)이 생기기 전까지 말로 복습은 켜짐, 문법 짚기는 꺼짐이다.
+     * 말로 복습, 문법 짚기, 복습 양은 설정의 말하기 연습 묶음과 복습 묶음(F19.1)을 따른다.
      */
     @Provides
     fun speakingSettings(settings: AppSettings, keyVault: KeyVault): SpeakingSettings = object : SpeakingSettings {
@@ -264,6 +267,8 @@ interface AppGraph {
             planned = planned,
             route = route,
             topics = settings.surveyAnswers()?.topics.orEmpty().ifEmpty { OpicEn.survey.groups.flatMap { group -> group.topics.map { it.id } } },
+            oralReview = settings.speaking.value.oralReview,
+            grammarNudge = settings.speaking.value.grammarNudge,
             amount = settings.reviewAmount(),
         )
     }
@@ -295,6 +300,14 @@ interface AppGraph {
     @Provides fun liveConsent(settings: AppSettings): LiveConsent = settings
 
     @Provides fun reviewSettings(settings: AppSettings): ReviewSettings = settings
+
+    @Provides fun speakingPrefsStore(settings: AppSettings): SpeakingPrefsStore = settings
+
+    /** 복습 알림이 오늘 복습할 카드와 복습한 날을 읽는다(F19.3). */
+    val cardStore: CardStore
+
+    /** 복습 알림 시각과 앱의 하루를 같은 시간대로 센다(F19.3). */
+    val timeZone: TimeZone
 
     /** 앱의 하루(새벽 4시에 바뀜)를 세는 기기 시간대(F18.11). */
     // ponytail: 그래프를 만들 때 한 번 읽는다. 앱이 떠 있는 동안 시간대를 바꾸면 다음 실행부터 따른다.

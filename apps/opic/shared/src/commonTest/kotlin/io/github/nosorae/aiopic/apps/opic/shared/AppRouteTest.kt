@@ -3,6 +3,7 @@ package io.github.nosorae.aiopic.apps.opic.shared
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartDestination
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class AppRouteTest {
     private val subScreens = listOf(AppRoute.ReportDetail("s"), AppRoute.AnswerReport("a"), AppRoute.CoachScript("c", "q", "Tell me about a trip."), AppRoute.KeyEntry("gemini"), AppRoute.FreeTierNotice, AppRoute.Survey, AppRoute.FlagExport, AppRoute.AppInfo, AppRoute.Expression(1), AppRoute.Review, AppRoute.SpeakingSummary("p"))
@@ -49,5 +50,11 @@ class AppRouteTest {
             listOf(AppRoute.StartKeyEntry, AppRoute.StartConsent, AppRoute.ExamTab),
             listOf(StartDestination.KeyEntry, StartDestination.Consent, StartDestination.Home).map(AppRoute::start),
         )
+    }
+
+    @Test
+    fun `F19_5 복습 링크는 복습 화면을 열고 모르는 링크는 아무 화면도 열지 않는다`() {
+        assertEquals(AppRoute.Review, routeFromLink("malhaebom://review"))
+        assertNull(routeFromLink("malhaebom://unknown"))
     }
 }

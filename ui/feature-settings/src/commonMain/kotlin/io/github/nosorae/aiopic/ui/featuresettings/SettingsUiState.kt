@@ -2,10 +2,14 @@ package io.github.nosorae.aiopic.ui.featuresettings
 
 import io.github.nosorae.aiopic.engine.answer.model.ModelInfo
 import io.github.nosorae.aiopic.engine.answer.model.Stability
+import io.github.nosorae.aiopic.engine.review.ReviewAmount
 import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyProvider
 import io.github.nosorae.aiopic.ui.featuresettings.key.KeyStatus
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionImportResult
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.EndWait
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
+import kotlinx.datetime.LocalTime
 
 data class SettingsUiState(
     val models: List<ModelInfo> = emptyList(),
@@ -35,6 +39,8 @@ data class SettingsUiState(
     /** 코치 목표 등급으로 고를 수 있는 등급과 지금 값(F10.3). 읽기 전에는 비어 있다. */
     val targetGrades: List<String> = emptyList(),
     val targetGrade: String? = null,
+    /** 말하기 연습 묶음과 복습 묶음(F19.1). */
+    val speaking: SpeakingPrefs = SpeakingPrefs(),
 ) {
     val selectedModel: ModelInfo? get() = models.firstOrNull { it.id == selectedModelId }
 
@@ -73,6 +79,23 @@ sealed interface SettingsIntent {
     data class SetNaturalVoice(val on: Boolean) : SettingsIntent
 
     data class SelectTargetGrade(val grade: String) : SettingsIntent
+
+    data class SetPracticeMinutes(val minutes: Int) : SettingsIntent
+
+    data class SetEndWait(val wait: EndWait) : SettingsIntent
+
+    data class SetBargeIn(val on: Boolean) : SettingsIntent
+
+    data class SetGrammarNudge(val on: Boolean) : SettingsIntent
+
+    data class SetOralReview(val on: Boolean) : SettingsIntent
+
+    data class SetReviewAmount(val amount: ReviewAmount) : SettingsIntent
+
+    /** 복습 알림을 켜고 끈다. 알림 권한은 앱 틀이 켜진 값을 보고 처음 한 번 묻는다(F19.2). */
+    data class SetReviewReminder(val on: Boolean) : SettingsIntent
+
+    data class SetReminderTime(val time: LocalTime) : SettingsIntent
 
     /** 화면이 고른 파일의 내용을 넘긴다. 파일을 읽지 못했으면 null 이다. 고르기를 취소하면 보내지 않는다. */
     data class ImportQuestions(val json: String?) : SettingsIntent

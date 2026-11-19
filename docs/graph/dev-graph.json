@@ -1776,8 +1776,9 @@
       ],
       "done": "human",
       "done_desc": "설정 탭 말하기 연습 묶음(기본 시간, 말 끝 기다림, 말로 끊기, 연습 중 문법 짚기, 시작 때 말로 복습)과 복습 묶음(복습 양, 알림 받기, 알림 시각), 시각 고르기. 복습 알림은 하루 한 번, 정한 시각에, 할 카드가 있고 그날 아직 안 했을 때만. iOS 는 조건을 미리 계산해 다시 건다. 알림을 누르면 malhaebom://review 로 복습 화면. 알림 권한은 처음 켤 때 요청. 자동 확인: ./gradlew :ui:feature-settings:verifyRoborazziAndroidHostTest 와 알림 조건 계산 단위 테스트(ReviewReminderTest, F19.3). 사람 확인: 실기기에서 알림을 눌러 복습 화면이 열린다. apps/opic 을 같이 고쳐서 speaking-ui 뒤에 둔다",
-      "status": "todo",
-      "issue": 292
+      "status": "doing",
+      "issue": 292,
+      "start": "2026-11-20"
     },
     {
       "id": "review-widget",

@@ -17,21 +17,28 @@ class NotificationAskTest {
 
     @Test
     fun `F16_3 분석을 한 번도 안 해도 말하기 연습이 돌기 시작하면 묻는다`() = runTest {
-        val moments = notificationAskMoments(analyzing = flowOf(false), practice = flowOf(null, running)).toList()
+        val moments = notificationAskMoments(analyzing = flowOf(false), practice = flowOf(null, running), reminderOn = flowOf(false)).toList()
 
         assertTrue(moments.any { it })
     }
 
     @Test
     fun `끝난 연습이 남아 있는 것만으로는 묻지 않는다`() = runTest {
-        val moments = notificationAskMoments(analyzing = flowOf(false), practice = flowOf(running.copy(finished = true))).toList()
+        val moments = notificationAskMoments(analyzing = flowOf(false), practice = flowOf(running.copy(finished = true)), reminderOn = flowOf(false)).toList()
 
         assertFalse(moments.any { it })
     }
 
     @Test
     fun `분석이 돌기 시작하면 묻는다`() = runTest {
-        val moments = notificationAskMoments(analyzing = flowOf(true), practice = flowOf(null)).toList()
+        val moments = notificationAskMoments(analyzing = flowOf(true), practice = flowOf(null), reminderOn = flowOf(false)).toList()
+
+        assertTrue(moments.any { it })
+    }
+
+    @Test
+    fun `F19_2 복습 알림을 켜면 묻는다`() = runTest {
+        val moments = notificationAskMoments(analyzing = flowOf(false), practice = flowOf(null), reminderOn = flowOf(false, true)).toList()
 
         assertTrue(moments.any { it })
     }

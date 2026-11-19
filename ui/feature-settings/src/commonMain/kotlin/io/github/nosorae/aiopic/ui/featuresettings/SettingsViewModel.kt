@@ -12,6 +12,8 @@ import io.github.nosorae.aiopic.ui.featuresettings.model.SelectModelUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.practice.ImportQuestionsUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionImportResult
 import io.github.nosorae.aiopic.ui.featuresettings.practice.SetAnswerTimerUseCase
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.UpdateSpeakingPrefsUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.theme.SetThemeModeUseCase
 import io.github.nosorae.aiopic.ui.featuresettings.voice.SetQuestionVoiceUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +24,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** 설정 탭(S14)의 분석 모델, 제공사별 키, 음성 전송 동의, 답변 타이머, 문항 파일, 진동, 질문 음성, 코치 목표 등급, 화면 모드. */
+/** 설정 탭(S14)의 분석 모델, 제공사별 키, 음성 전송 동의, 답변 타이머, 문항 파일, 진동, 질문 음성, 코치 목표 등급, 말하기 연습과 복습(F19.1), 화면 모드. */
 @Inject
 class SettingsViewModel(
     private val loadSettingsUseCase: LoadSettingsUseCase,
@@ -36,6 +38,7 @@ class SettingsViewModel(
     private val setQuestionVoiceUseCase: SetQuestionVoiceUseCase,
     observeTargetGradeUseCase: ObserveTargetGradeUseCase,
     private val setTargetGradeUseCase: SetTargetGradeUseCase,
+    private val updateSpeakingPrefsUseCase: UpdateSpeakingPrefsUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -97,6 +100,22 @@ class SettingsViewModel(
 
             is SettingsIntent.SelectTargetGrade -> viewModelScope.launch { setTargetGradeUseCase(intent.grade) }
 
+            is SettingsIntent.SetPracticeMinutes -> updateSpeaking { it.copy(minutes = intent.minutes) }
+
+            is SettingsIntent.SetEndWait -> updateSpeaking { it.copy(endWait = intent.wait) }
+
+            is SettingsIntent.SetBargeIn -> updateSpeaking { it.copy(bargeIn = intent.on) }
+
+            is SettingsIntent.SetGrammarNudge -> updateSpeaking { it.copy(grammarNudge = intent.on) }
+
+            is SettingsIntent.SetOralReview -> updateSpeaking { it.copy(oralReview = intent.on) }
+
+            is SettingsIntent.SetReviewAmount -> updateSpeaking { it.copy(amount = intent.amount) }
+
+            is SettingsIntent.SetReviewReminder -> updateSpeaking { it.copy(reminderOn = intent.on) }
+
+            is SettingsIntent.SetReminderTime -> updateSpeaking { it.copy(reminderAt = intent.time) }
+
             is SettingsIntent.ImportQuestions -> viewModelScope.launch {
                 val result = importQuestionsUseCase(intent.json)
                 _uiState.update {
@@ -126,8 +145,17 @@ class SettingsViewModel(
                     naturalVoiceOn = loaded.naturalVoiceOn,
                     highQualityDeviceVoice = loaded.highQualityDeviceVoice,
                     importedQuestionCount = loaded.importedQuestionCount,
+                    speaking = loaded.speaking,
                 )
             }
+        }
+    }
+
+    /** 누른 순서대로 저장한다. 저장한 값을 그대로 보여서 화면과 저장소가 어긋나지 않는다. */
+    private fun updateSpeaking(change: (SpeakingPrefs) -> SpeakingPrefs) {
+        viewModelScope.launch {
+            val saved = updateSpeakingPrefsUseCase(change)
+            _uiState.update { it.copy(speaking = saved) }
         }
     }
 

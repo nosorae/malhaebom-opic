@@ -15,6 +15,17 @@
 		<string>io.github.nosorae.aiopic.analysis</string>
 		<string>io.github.nosorae.aiopic.progress.*</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.github.nosorae.aiopic</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>malhaebom</string>
+			</array>
+		</dict>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
