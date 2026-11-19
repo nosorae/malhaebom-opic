@@ -240,9 +240,9 @@ interface AppGraph {
     @Provides
     fun runningPractice(audio: DuplexAudio, keyVault: KeyVault, speakingStore: SpeakingStore, cards: CardStore, jobs: AnalysisJobs, clock: Clock, timeZone: TimeZone, settings: AppSettings): RunningPractice = RunningPractice(
         newSession = { scope ->
-            // 말 끝 기다림과 말로 끊기는 연습을 시작할 때의 설정을 그 연습 내내 쓴다(F16.17).
+            // 말 끝 기다림은 연습을 시작할 때의 설정을 그 연습 내내 쓴다. 말로 끊기는 시작 시트의 SpeakingSetup 하나로 세션이 연결에 넘긴다(F16.17).
             val prefs = settings.speaking.value
-            val link = GeminiSpeakingLink(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME, silence = prefs.endWait.silence, interruptible = prefs.bargeIn)
+            val link = GeminiSpeakingLink(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME, silence = prefs.endWait.silence)
             speakingSession(speakingProfile(), link, audio, speakingStore, cards, jobs, clock, timeZone, scope)
         },
         audio = audio,
@@ -270,6 +270,7 @@ interface AppGraph {
             oralReview = settings.speaking.value.oralReview,
             grammarNudge = settings.speaking.value.grammarNudge,
             amount = settings.reviewAmount(),
+            bargeIn = settings.speaking.value.bargeIn,
         )
     }
 
