@@ -11,16 +11,14 @@ import android.net.Uri
 import android.widget.RemoteViews
 import io.github.nosorae.aiopic.apps.opic.shared.REVIEW_LINK
 import io.github.nosorae.aiopic.apps.opic.shared.ReviewWidget
-import io.github.nosorae.aiopic.apps.opic.shared.nextDayStart
 import io.github.nosorae.aiopic.apps.opic.shared.reviewWidget
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlin.time.Instant
 
 /**
  * 오늘 복습 위젯(F19.6, F19.7). 위젯은 앱 프로세스에서 돌아서 그릴 때 DB 를 바로 읽는다.
- * 앱이 복습이나 연습 정리로 카드가 바뀔 때 [draw] 를 부르고, 날이 바뀌는 새벽 4시에는 알람이 위젯을 깨워 다시 센다.
+ * 앱이 복습이나 연습 정리로 카드가 바뀔 때 [draw] 를 부르고, 날이 바뀌는 새벽 4시나 그 전에 카드가 복습 시각이 되는 때에는 알람이 위젯을 깨워 다시 센다.
  */
 class ReviewWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -28,7 +26,7 @@ class ReviewWidgetProvider : AppWidgetProvider() {
         val result = goAsync()
         MainScope().launch {
             try {
-                ReviewWidgets.draw(context, graph.reviewWidget().first(), graph.nextDayStart())
+                ReviewWidgets.draw(context, graph.reviewWidget().first())
             } finally {
                 result.finish()
             }
@@ -40,8 +38,9 @@ class ReviewWidgetProvider : AppWidgetProvider() {
 }
 
 internal object ReviewWidgets {
-    /** 홈 화면에 둔 위젯을 [widget] 으로 다시 그리고 [redrawAt](다음 날 새벽 4시)에 다시 깨운다. 둔 위젯이 없으면 아무것도 하지 않는다. */
-    suspend fun draw(context: Context, widget: ReviewWidget, redrawAt: Instant) {
+    /** 홈 화면에 둔 위젯을 [scenes] 의 첫 장면으로 다시 그리고 두 번째 장면의 시각에 다시 깨운다. 둔 위젯이 없으면 아무것도 하지 않는다. */
+    suspend fun draw(context: Context, scenes: List<ReviewWidget>) {
+        val widget = scenes.first()
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, ReviewWidgetProvider::class.java))
         if (ids.isEmpty()) return
@@ -54,7 +53,7 @@ internal object ReviewWidgets {
         }
         manager.updateAppWidget(ids, views)
         // 정확한 시각 알람 권한 없이 건다. 기기가 쉬는 중이면 몇 분 늦을 수 있다(ADR 0047 과 같다).
-        context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC, redrawAt.toEpochMilliseconds(), dayChange(context))
+        context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC, scenes[1].from.toEpochMilliseconds(), dayChange(context))
     }
 
     /** 위젯 갱신 방송. 시스템이 [ReviewWidgetProvider.onUpdate] 로 넘긴다. */

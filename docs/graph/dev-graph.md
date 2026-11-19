@@ -2,7 +2,7 @@
 
 `scripts/graph/render.py` 가 `dev-graph.json` 에서 만든다. 손으로 고치지 않는다.
 
-노드 68개: todo 2, doing 3, done 63, blocked 0. 색은 회색 todo, 노랑 doing, 초록 done, 빨강 blocked 이다.
+노드 69개: todo 3, doing 3, done 63, blocked 0. 색은 회색 todo, 노랑 doing, 초록 done, 빨강 blocked 이다.
 
 ```mermaid
 flowchart TD
@@ -88,6 +88,7 @@ flowchart TD
     speaking_ui["speaking-ui #290<br/>말하기 연습 화면"]
     review_notify["review-notify #292<br/>말하기 연습과 복습 설정, 복습 알림"]
     review_widget["review-widget #293<br/>오늘 복습 위젯"]
+    live_activity["live-activity<br/>iOS 연습 진행 Live Activity"]
     speaker_mode["speaker-mode #294<br/>이어폰 없이 스피커로 하는 연습"]
   end
   h0 --> h1
@@ -217,9 +218,10 @@ flowchart TD
   expressions_tab --> review_notify
   speaking_ui --> review_notify
   review_notify --> review_widget
+  review_widget --> live_activity
   speaking_service --> speaker_mode
   classDef todo fill:#eeeeee,stroke:#999999,color:#000
-  class g4,speaker_mode todo
+  class g4,live_activity,speaker_mode todo
   classDef doing fill:#fff3b0,stroke:#d4a017,color:#000
   class speaking_service,review_notify,review_widget doing
   classDef done fill:#c8f7c5,stroke:#2e7d32,color:#000

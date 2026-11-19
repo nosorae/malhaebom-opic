@@ -10,7 +10,6 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.opicDatabase
 import io.github.nosorae.aiopic.apps.opic.shared.data.recordingsRoot
 import io.github.nosorae.aiopic.apps.opic.shared.debugGeminiClient
 import io.github.nosorae.aiopic.apps.opic.shared.drainAndNotify
-import io.github.nosorae.aiopic.apps.opic.shared.nextDayStart
 import io.github.nosorae.aiopic.apps.opic.shared.registerDebugPanels
 import io.github.nosorae.aiopic.apps.opic.shared.reviewReminderSchedule
 import io.github.nosorae.aiopic.apps.opic.shared.reviewWidget
@@ -73,7 +72,7 @@ open class OpicApplication : Application() {
         ReviewReminders.createChannel(this)
         MainScope().launch { graph.reviewReminderSchedule().collect { ReviewReminders.arm(this@OpicApplication, it) } }
         // 복습을 끝내거나 연습 정리가 끝나 카드가 바뀌면 위젯을 다시 그린다(F19.7).
-        MainScope().launch { graph.reviewWidget().collect { ReviewWidgets.draw(this@OpicApplication, it, graph.nextDayStart()) } }
+        MainScope().launch { graph.reviewWidget().collect { ReviewWidgets.draw(this@OpicApplication, it) } }
         val chimes = AndroidChimes()
         MainScope().launch { practice.chimes.collect(chimes::play) }
     }
