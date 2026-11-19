@@ -1555,8 +1555,10 @@
       ],
       "done": "./gradlew :engine:answer:allTests :engine:review:allTests && ./gradlew :engine:answer:testAndroidHostTest --tests '*Migration4To5Test*'",
       "done_desc": "Room version 5. 표 4개(expression_card, speaking_session, speaking_active, review_day)와 4에서 5로 옮기는 SQL(design.md 12.4). 진행 중인 연습은 앱 프로세스가 끝나도 이어 붙일 수 있게 둔다. 카드 저장소는 engine/review 에 둔다. Migration4To5Test(F16.16, F17.8): version 4 DB 에 답변과 코치 세션을 넣고 옮긴 뒤 옛 줄이 남고 새 표 4개에 쓰고 읽을 수 있는지. allTests 로 Android 와 iOS 시뮬레이터에서 같이 돈다. review-fsrs 와 engine/review 를 같이 고쳐서 그 뒤에 둔다",
-      "status": "todo",
-      "issue": 286
+      "status": "done",
+      "issue": 286,
+      "start": "2026-11-19",
+      "end": "2026-11-19"
     },
     {
       "id": "speaking-engine",
