@@ -34,6 +34,9 @@ data class ReviewUiState(
     val againCount: Int get() = results.count { it == Rating.Again }
     val knewCount: Int get() = results.size - firstSeenCount - againCount
 
+    /** 이번 주 처음 복습한 날 묶음을 끝내면 짧게 축하한다(F18.8). 누른 결과가 있으면 오늘이 복습한 날이라, 이번 주 복습한 날이 하루면 오늘이 그날이다. */
+    val celebrate: Boolean get() = finished && results.isNotEmpty() && weekDays == 1
+
     /** 오늘 복습할 카드가 남았으면 6장 더를 보인다(F18.8). */
     val canDoMore: Boolean get() = todayCount > 0
 }
@@ -86,9 +89,10 @@ class ReviewViewModel(
                 speakCurrent()
             }
 
-            is ReviewIntent.Rate -> advance(intent.rating)
+            // 평가는 정답을 연 카드에만, 다음은 처음 봄 카드에만 있다(F18.6). 다시 그리기 전에 들어온 두 번째 누름이 다음 카드에 걸리지 않게 여기서 막는다.
+            is ReviewIntent.Rate -> if (_uiState.value.let { it.revealed && it.current?.firstSeen == false }) advance(intent.rating)
 
-            ReviewIntent.Next -> advance(null)
+            ReviewIntent.Next -> if (_uiState.value.current?.firstSeen == true) advance(null)
 
             ReviewIntent.ShowAllRatings -> _uiState.update { it.copy(allRatings = true) }
 

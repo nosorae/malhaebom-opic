@@ -92,7 +92,7 @@ class ExpressionsScreenshotTest {
     @Test fun reviewEmpty() = shot { review(ReviewSamples.empty) }
 
     @Composable
-    private fun tab(state: ExpressionsUiState) = ExpressionsScreen(state, {}, {}, {}, {})
+    private fun tab(state: ExpressionsUiState) = ExpressionsScreen(state, {}, {}, {})
 
     @Composable
     private fun detail(state: ExpressionDetailUiState) = ExpressionDetailScreen(state, {})

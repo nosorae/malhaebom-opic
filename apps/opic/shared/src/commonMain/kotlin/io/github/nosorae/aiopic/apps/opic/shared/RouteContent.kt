@@ -95,8 +95,6 @@ internal fun RouteContent(
             viewModel = viewModel { graph.expressionsViewModel },
             onOpenCard = { onOpen(AppRoute.Expression(it)) },
             onStartReview = { onOpen(AppRoute.Review) },
-            // 말하기 연습 화면은 아직 앱에 없다. 그 화면을 더하는 노드(speaking-ui)가 여기에 연결한다.
-            onStartPractice = null,
             modifier = modifier,
         )
 

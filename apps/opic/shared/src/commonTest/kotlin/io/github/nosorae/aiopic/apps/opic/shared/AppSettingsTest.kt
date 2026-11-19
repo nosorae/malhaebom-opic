@@ -163,10 +163,17 @@ class AppSettingsTest {
 
     @Test
     fun `F18_8 이번 묶음과 누른 결과는 앱을 다시 켜도 남는다`() = runTest {
-        val batch = ReviewBatch(listOf(3L, 1L, 2L), listOf(null, Rating.Again))
+        val batch = ReviewBatch(20_000L, listOf(3L, 1L, 2L), listOf(3L to null, 1L to Rating.Again))
         reopen().saveReviewBatch(batch)
 
         assertEquals(batch, reopen().reviewBatch())
+    }
+
+    @Test
+    fun `F18_8 읽지 못하는 묶음 값은 묶음이 없는 것으로 본다`() = runTest {
+        disk["review_batch"] = "3,1,2|,Again"
+
+        assertEquals(null, reopen().reviewBatch())
     }
 
     @Test

@@ -160,6 +160,121 @@ class ReviewRatingTest {
     }
 
     @Test
+    fun `F18_8 묶음 중간 카드를 지우고 나머지를 평가한 뒤 다시 열면 평가한 카드가 다시 나오지 않는다`() = test { store ->
+        listOf(3, 2, 1).forEach { store.save(card(now - it.days)) }
+        val order = review(store).also { advanceUntilIdle() }.uiState.value.remaining.map { it.id }
+        store.delete(order[0])
+
+        val shown = List(3) {
+            val viewModel = review(store)
+            advanceUntilIdle()
+            val current = viewModel.uiState.value.current?.id
+            viewModel.onIntent(ReviewIntent.Reveal)
+            viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+            advanceUntilIdle()
+            current
+        }
+
+        assertEquals(listOf(order[1], order[2], null), shown)
+    }
+
+    @Test
+    fun `F18_3 묶음을 연 뒤 보관한 카드는 다시 열면 나오지 않는다`() = test { store ->
+        listOf(3, 2).forEach { store.save(card(now - it.days)) }
+        val order = review(store).also { advanceUntilIdle() }.uiState.value.remaining.map { it.id }
+        store.archive(order[0], true)
+
+        val reopened = review(store)
+        advanceUntilIdle()
+
+        assertEquals(listOf(order[1]), reopened.uiState.value.remaining.map { it.id })
+    }
+
+    @Test
+    fun `F18_8 어제 만든 묶음은 이어 가지 않고 오늘 카드로 새 묶음을 연다`() = test { store ->
+        val id = store.save(card(now - 2.days))
+        settings.batch = ReviewBatch(day = now.localDay(seoul) - 1, cardIds = listOf(id), results = listOf(id to Rating.Good))
+
+        val viewModel = review(store)
+        advanceUntilIdle()
+
+        assertEquals(listOf(id) to emptyList(), viewModel.uiState.value.remaining.map { it.id } to viewModel.uiState.value.results)
+    }
+
+    @Test
+    fun `F18_4 한 묶음은 앞 6장이고 끝낸 뒤 6장 더를 누르면 남은 카드로 새 묶음을 연다`() = test { store ->
+        (1..7).forEach { store.save(card(now - it.days)) }
+        val viewModel = review(store)
+        advanceUntilIdle()
+        val first = viewModel.uiState.value.total
+
+        repeat(first) {
+            viewModel.onIntent(ReviewIntent.Reveal)
+            viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+        }
+        advanceUntilIdle()
+        val canDoMore = viewModel.uiState.value.canDoMore
+        viewModel.onIntent(ReviewIntent.MoreCards)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf<Any>(6, true, 1, 0), listOf(first, canDoMore, state.remaining.size, state.results.size))
+    }
+
+    @Test
+    fun `F18_8 오늘 남은 카드가 없으면 6장 더를 보이지 않는다`() = test { store ->
+        store.save(card(now - 2.days))
+        val viewModel = review(store)
+        advanceUntilIdle()
+
+        viewModel.onIntent(ReviewIntent.Reveal)
+        viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+        advanceUntilIdle()
+
+        assertEquals(false, viewModel.uiState.value.canDoMore)
+    }
+
+    @Test
+    fun `F18_6 알았음을 빠르게 두 번 눌러도 다음 카드는 정답을 열기 전이라 평가하지 않는다`() = test { store ->
+        listOf(3, 2).forEach { store.save(card(now - it.days)) }
+        val viewModel = review(store)
+        advanceUntilIdle()
+        val second = viewModel.uiState.value.remaining[1].id
+
+        viewModel.onIntent(ReviewIntent.Reveal)
+        viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+        viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+        viewModel.onIntent(ReviewIntent.Next)
+        advanceUntilIdle()
+
+        assertEquals(second to 0, viewModel.uiState.value.current?.id to store.card(second)?.reviewCount)
+    }
+
+    @Test
+    fun `F18_5 소리 없이를 켜 두면 처음 봄 카드도 읽지 않는다`() = test { store ->
+        settings.silent = true
+        store.save(card(now - 1.hours, firstSeen = true))
+
+        review(store)
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), voice.spoken)
+    }
+
+    @Test
+    fun `F18_8 이번 주 처음 복습한 날 묶음을 끝내면 축하한다`() = test { store ->
+        store.save(card(now - 2.days))
+        val viewModel = review(store)
+        advanceUntilIdle()
+
+        viewModel.onIntent(ReviewIntent.Reveal)
+        viewModel.onIntent(ReviewIntent.Rate(Rating.Good))
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.celebrate)
+    }
+
+    @Test
     fun `F18_8 묶음을 끝내면 알았음과 다시와 처음 본 장 수를 센다`() = test { store ->
         store.save(card(now - 3.days, firstSeen = true))
         store.save(card(now - 2.days))

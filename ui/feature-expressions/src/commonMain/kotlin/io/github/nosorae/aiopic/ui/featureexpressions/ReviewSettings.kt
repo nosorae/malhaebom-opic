@@ -19,10 +19,11 @@ interface ReviewSettings {
     suspend fun saveReviewBatch(batch: ReviewBatch)
 }
 
-/** 복습 한 묶음의 카드 id 와 지금까지 누른 결과. 결과 수가 지금 카드 순번이다. 처음 봄 카드의 다음은 null 이다. */
-data class ReviewBatch(val cardIds: List<Long>, val results: List<Rating?> = emptyList()) {
-    val finished: Boolean get() = results.size >= cardIds.size
-}
+/**
+ * 복습 한 묶음. [day] 는 묶음을 만든 앱의 하루(localDay)이고 [results] 는 누른 카드 id 와 결과다. 처음 봄 카드의 다음은 결과가 null 이다.
+ * 결과를 카드 id 와 짝지어 두어서 묶음 중간 카드를 지워도 어느 카드를 눌렀는지 어긋나지 않는다.
+ */
+data class ReviewBatch(val day: Long, val cardIds: List<Long>, val results: List<Pair<Long, Rating?>> = emptyList())
 
 /** 영어 문장을 기기 음성으로 읽는다(F18.3, F18.4). 앱 층이 기기 음성 합성으로 구현한다. */
 fun interface ExpressionVoice {

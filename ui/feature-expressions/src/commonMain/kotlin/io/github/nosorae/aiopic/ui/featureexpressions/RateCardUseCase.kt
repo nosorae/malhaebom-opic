@@ -14,6 +14,6 @@ class RateCardUseCase(private val store: CardStore, private val settings: Review
     suspend operator fun invoke(id: Long, rating: Rating?) {
         val now = clock.now()
         if (rating == null) store.showNext(id, now) else store.rate(id, rating, now, settings.reviewAmount())
-        settings.reviewBatch()?.let { settings.saveReviewBatch(it.copy(results = it.results + rating)) }
+        settings.reviewBatch()?.let { settings.saveReviewBatch(it.copy(results = it.results + (id to rating))) }
     }
 }

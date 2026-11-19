@@ -21,6 +21,7 @@ import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
@@ -121,16 +122,12 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     // 복습 양을 고르는 설정 화면은 아직 없다(review-notify 노드). 고른 적이 없으면 보통이다.
     override suspend fun reviewAmount(): ReviewAmount = ReviewAmount.entries.firstOrNull { it.name == read(REVIEW_AMOUNT) } ?: ReviewAmount.Normal
 
-    /** 이번 묶음은 "카드 id 들|결과들" 한 줄로 둔다. 결과는 평가 이름이고 처음 봄 카드의 다음은 빈 칸이다(F18.8). */
-    override suspend fun reviewBatch(): ReviewBatch? = read(REVIEW_BATCH)?.takeIf { it.isNotEmpty() }?.let { saved ->
-        val (ids, results) = saved.split('|')
-        ReviewBatch(
-            cardIds = ids.split(',').filter { it.isNotEmpty() }.map(String::toLong),
-            results = if (results.isEmpty()) emptyList() else results.split(',').map { name -> Rating.entries.firstOrNull { it.name == name } },
-        )
+    /** 이번 묶음은 JSON 한 줄로 둔다(F18.8). 읽지 못하는 값은 묶음이 없는 것으로 보고 새 묶음을 연다. */
+    override suspend fun reviewBatch(): ReviewBatch? = read(REVIEW_BATCH)?.let { saved ->
+        runCatching { Json.decodeFromString<SavedReviewBatch>(saved) }.getOrNull()?.let { ReviewBatch(it.day, it.cardIds, it.results) }
     }
 
-    override suspend fun saveReviewBatch(batch: ReviewBatch) = write(REVIEW_BATCH, batch.cardIds.joinToString(",") + "|" + batch.results.joinToString(",") { it?.name.orEmpty() })
+    override suspend fun saveReviewBatch(batch: ReviewBatch) = write(REVIEW_BATCH, Json.encodeToString(SavedReviewBatch(batch.day, batch.cardIds, batch.results)))
 
     /** 첫 분석을 시작할 때 알림 권한을 한 번 물었는가(#229). 거절해도 다시 묻지 않는다. */
     var notificationsAsked: Boolean
@@ -166,3 +163,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         }
     }
 }
+
+/** 설정에 적는 복습 묶음. 화면 모듈에는 직렬화 플러그인이 없어서 앱 층이 같은 모양으로 옮겨 적는다. */
+@Serializable
+private class SavedReviewBatch(val day: Long, val cardIds: List<Long>, val results: List<Pair<Long, Rating?>>)

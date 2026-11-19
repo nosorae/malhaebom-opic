@@ -1,10 +1,13 @@
 package io.github.nosorae.aiopic.ui.featureexpressions
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -19,6 +22,8 @@ import io.github.nosorae.aiopic.engine.review.Rating
 import io.github.nosorae.aiopic.ui.design.MontageButton
 import io.github.nosorae.aiopic.ui.design.MontageButtonType
 import io.github.nosorae.aiopic.ui.design.MontageButtonVariant
+import io.github.nosorae.aiopic.ui.design.MontageCelebration
+import io.github.nosorae.aiopic.ui.design.MontageCelebrationSize
 import io.github.nosorae.aiopic.ui.design.MontageChip
 import io.github.nosorae.aiopic.ui.design.MontageChipVariant
 import io.github.nosorae.aiopic.ui.design.MontageScreen
@@ -113,11 +118,15 @@ private fun Answer(card: ExpressionCard, silent: Boolean, prompt: Boolean) {
     if (prompt) Prompt(stringResource(if (silent) Res.string.review_silent_prompt else Res.string.review_repeat))
 }
 
-/** 복습 끝(F18.8). 알았음, 다시, 처음 본 장 수와 이번 주 며칠째인지. */
+/** 복습 끝(F18.8). 알았음, 다시, 처음 본 장 수와 이번 주 며칠째인지. 이번 주 처음 복습한 날이면 축하한다. */
 @Composable
 private fun Done(state: ReviewUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16)) {
-        Text(stringResource(Res.string.review_done_title), style = MontageTheme.typography.title3.bold, color = MontageTheme.colors.foregroundNeutralPrimary)
+        Box {
+            Text(stringResource(Res.string.review_done_title), style = MontageTheme.typography.title3.bold, color = MontageTheme.colors.foregroundNeutralPrimary)
+            // 이번 주 처음 복습한 날에만 제목 둘레에 작은 축하가 한 번 터진다. 조각은 자리를 차지하지 않는다.
+            if (state.celebrate) MontageCelebration(MontageCelebrationSize.Small, Modifier.matchParentSize().wrapContentSize(unbounded = true).requiredSize(MontageSpacing.spacing48 * 2))
+        }
         Prompt(stringResource(Res.string.review_done_counts, state.knewCount, state.againCount, state.firstSeenCount))
         Prompt(stringResource(Res.string.review_done_week, state.weekDays))
     }

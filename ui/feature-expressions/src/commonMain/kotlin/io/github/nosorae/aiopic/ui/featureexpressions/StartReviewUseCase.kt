@@ -5,6 +5,7 @@ import io.github.nosorae.aiopic.engine.review.CardStore
 import io.github.nosorae.aiopic.engine.review.ExpressionCard
 import io.github.nosorae.aiopic.engine.review.REVIEW_BATCH
 import io.github.nosorae.aiopic.engine.review.Rating
+import io.github.nosorae.aiopic.engine.review.localDay
 import io.github.nosorae.aiopic.engine.review.todayQueue
 import kotlinx.coroutines.flow.first
 import kotlinx.datetime.TimeZone
@@ -14,15 +15,23 @@ import kotlin.time.Clock
 data class ReviewSession(val remaining: List<ExpressionCard>, val results: List<Rating?>, val silent: Boolean)
 
 /**
- * 복습 묶음을 연다(F18.4, F18.8). 끝나지 않은 묶음이 있으면 남은 카드부터 이어 가고, 없거나 [more](6장 더)면 오늘 복습할 카드 앞 6장으로 새 묶음을 만든다.
- * 남은 카드 가운데 그 사이 지운 카드는 뺀다.
+ * 복습 묶음을 연다(F18.3, F18.4, F18.8). 오늘 만든 묶음에 남은 카드가 있으면 그 카드부터 이어 가고, 없거나 [more](6장 더)면 오늘 복습할 카드 앞 6장으로 새 묶음을 만든다.
+ * 남은 카드는 아직 누르지 않은 id 가운데 지금 있고 보관하지 않은 카드다.
  */
-// ponytail: 남은 카드를 지운 묶음은 id 가 남아 끝나지 않은 것으로 남는다. 다시 열면 남은 카드 없이 복습 끝을 보이고, 6장 더로 새 묶음을 연다.
 @Inject
 class StartReviewUseCase(private val store: CardStore, private val settings: ReviewSettings, private val clock: Clock, private val timeZone: TimeZone) {
     suspend operator fun invoke(more: Boolean = false): ReviewSession {
-        val batch = settings.reviewBatch()?.takeUnless { more || it.finished }
-            ?: ReviewBatch(todayQueue(store.cards().first(), clock.now(), timeZone).take(REVIEW_BATCH).map { it.id }).also { settings.saveReviewBatch(it) }
-        return ReviewSession(batch.cardIds.drop(batch.results.size).mapNotNull { store.card(it) }, batch.results, settings.silent())
+        val now = clock.now()
+        val today = now.localDay(timeZone)
+        val silent = settings.silent()
+        val saved = settings.reviewBatch()?.takeUnless { more || it.day != today }
+        if (saved != null) {
+            val rated = saved.results.map { it.first }.toSet()
+            val remaining = saved.cardIds.filterNot { it in rated }.mapNotNull { store.card(it) }.filterNot { it.archived }
+            if (remaining.isNotEmpty()) return ReviewSession(remaining, saved.results.map { it.second }, silent)
+        }
+        val cards = todayQueue(store.cards().first(), now, timeZone).take(REVIEW_BATCH)
+        settings.saveReviewBatch(ReviewBatch(today, cards.map { it.id }))
+        return ReviewSession(cards, emptyList(), silent)
     }
 }

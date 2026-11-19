@@ -10,7 +10,6 @@
     <string name="expressions_error_count">%1$d장</string>
     <string name="expressions_empty">말하기 연습을 하면 여기에 표현이 쌓여요</string>
     <string name="expressions_empty_filter">이 묶음에는 아직 표현이 없어요</string>
-    <string name="expressions_start_practice">말하기 연습 시작</string>
     <string name="expressions_not_wrong">틀린 건 아니에요</string>
 
     <string name="filter_all">전체</string>
