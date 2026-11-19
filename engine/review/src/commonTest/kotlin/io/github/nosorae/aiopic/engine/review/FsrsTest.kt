@@ -21,6 +21,7 @@ class FsrsTest {
         meaning = "어제 학교에 갔다.",
         errorType = ErrorType.Tense,
         context = "주말에 한 일을 말하다가",
+        createdAt = start,
         dueAt = start,
     )
 

@@ -20,6 +20,7 @@ data class ExpressionCard(
     val meaning: String,
     val errorType: ErrorType?,
     val context: String,
+    val createdAt: Instant,
     val dueAt: Instant,
     val difficulty: Double? = null,
     val stability: Double? = null,
@@ -27,4 +28,6 @@ data class ExpressionCard(
     val reviewCount: Int = 0,
     val againCount: Int = 0,
     val archived: Boolean = false,
+    /** 카드를 만든 연습. 연습 기록이 지워져도 카드는 남는다. */
+    val practiceId: String? = null,
 )

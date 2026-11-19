@@ -1,5 +1,7 @@
 package io.github.nosorae.aiopic.engine.review
 
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
 
 /** 복습 한 묶음 장 수(F18.4). */
@@ -22,6 +24,19 @@ fun todayQueue(cards: List<ExpressionCard>, now: Instant, reviewedToday: Int, ne
         .take((DAILY_LIMIT - reviewedToday).coerceAtLeast(0))
         .toList()
 }
+
+/**
+ * 오늘 복습할 카드를 [timeZone] 의 오늘로 센 두 수로 고른다(F18.2). 오늘 복습한 카드 수가 오늘 복습한 수이고,
+ * 그 가운데 복습 횟수가 1 인 카드가 오늘 새로 넣은 수다. 평가하면 다음 복습이 하루 이상 뒤라 한 카드는 하루에 한 번만 복습한다.
+ */
+fun todayQueue(cards: List<ExpressionCard>, now: Instant, timeZone: TimeZone): List<ExpressionCard> {
+    val today = now.localDay(timeZone)
+    val reviewed = cards.filter { it.lastReviewedAt?.localDay(timeZone) == today }
+    return todayQueue(cards, now, reviewedToday = reviewed.size, newToday = reviewed.count { it.reviewCount == 1 })
+}
+
+/** [timeZone] 에서 이 시각의 날짜를 1970-01-01 을 0 으로 세어 돌려준다. */
+fun Instant.localDay(timeZone: TimeZone): Long = toLocalDateTime(timeZone).date.toEpochDays()
 
 /** 남은 분. 장 수에 20초를 곱해 분으로 올린다(F18.2). */
 fun minutesLeft(cardCount: Int): Int = (cardCount * SECONDS_PER_CARD + 59) / 60

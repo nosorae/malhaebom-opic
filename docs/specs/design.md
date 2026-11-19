@@ -277,7 +277,7 @@ Room 을 version 4 에서 5로 올리고 표 4개를 더한다. 옛 표는 고�
 | `expression_card` | 표현 카드 하나 | `id`, `kind`, `said`, `better`, `meaning`, `errorType`, `context`, `practiceId`, `createdAt`, `archived`, `difficulty`, `stability`, `dueAt`, `lastReviewedAt`, `reviewCount`, `againCount` |
 | `speaking_session` | 끝난 연습 하나(연습 기록) | `id`, `startedAt`, `talkTimeMs`, `topic`, `questions`(JSON), `transcript`(JSON), `cardCount`, `cardStatus`(정리 전, 정리 중, 정리 끝, 정리 실패), `usage`(JSON), `costUsd` |
 | `speaking_active` | 진행 중인 연습. 많아야 한 줄 | `id`, `startedAt`, `plannedMinutes`, `audioRoute`(이어폰, 스피커), `phase`, `status`, `pausedAt`, `talkTimeMs`, `silenceCount`, `reconnects`, `transcript`(JSON), `savedCount`, `resumeHandle`, `handleAt`, `usage`(JSON), `reviewCardIds`(JSON) |
-| `review_day` | 복습을 한 장 이상 끝낸 날 하나 | `day`(로컬 날짜 `YYYY-MM-DD`, 기본 키). 8주보다 오래된 줄은 쓸 때 지운다 |
+| `review_day` | 복습을 한 장 이상 끝낸 날 하나 | `day`(1970-01-01 을 0 으로 센 로컬 날짜 번호, 기본 키, [ADR 0040](../adr/0040-로컬-날짜는-kotlinx-datetime-으로-센다.md)). 8주보다 오래된 줄은 쓸 때 지운다 |
 
 시각은 epoch 밀리초다. 진행 중인 연습은 응답마다 통째로 덮어써서 프로세스가 죽으면 마지막 응답까지 남는다. 끝내기는 `speaking_active` 줄을 지우고 `speaking_session` 줄과 정리 작업을 넣는 일을 한 트랜잭션으로 한다. 4에서 5로 옮기는 테스트는 Android 와 iOS 에서 같이 돈다.
 
