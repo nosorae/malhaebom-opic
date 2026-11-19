@@ -177,7 +177,7 @@ class SpeakingProgressTest {
     }
 
     @Test
-    fun `F16_6 Q1, Q2, Q1 다시 물음 뒤 flag_broken 이면 Q1 이 broken 이다`() {
+    fun `F16_6 Q1 Q2 Q1 다시 물음 뒤 flag_broken 이면 Q1 이 broken 이다`() {
         val after = state().after(ask("Q1"), ask("Q2"), ask("Q1"), tool(SpeakingTools.FLAG_BROKEN))
 
         assertEquals(listOf(true, false), after.questions.map { it.broken })

@@ -45,5 +45,4 @@ class TopicPickTest {
 
         assertEquals(TopicPick("cooking", "First cooking?"), pickTopic(topics, history, now, exclude = setOf("music")))
     }
-
 }
