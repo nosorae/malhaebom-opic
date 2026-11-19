@@ -65,7 +65,7 @@ class Migration4To5Test {
     }
 
     @Test
-    fun `F17_8 version 4 DB 를 옮기면 새 표 넷에 쓰고 읽는다`() = runTest {
+    fun `F17_8 version 4 DB 를 옮기면 새 표 넷에 새 열까지 쓰고 읽는다`() = runTest {
         writeVersion4()
         val db = open()
         val review = db.reviewDao()
@@ -76,10 +76,10 @@ class Migration4To5Test {
         speaking.saveActive(activeRow("p1"))
         speaking.save(sessionRow("p0"))
 
-        assertEquals(listOf(1), review.cards().first().map { it.reviewCount })
+        assertEquals(listOf(cardRow(id = cardId, reviewCount = 1)), review.cards().first())
         assertEquals(listOf(20776L), review.days().first())
-        assertEquals("handle-1", speaking.active()?.resumeHandle)
-        assertEquals(listOf("p0"), speaking.sessions().first().map { it.id })
+        assertEquals(activeRow("p1"), speaking.active())
+        assertEquals(listOf(sessionRow("p0")), speaking.sessions().first())
         db.close()
     }
 
@@ -97,7 +97,7 @@ class Migration4To5Test {
 
 internal fun cardRow(id: Long = 0, reviewCount: Int = 0) = CardRow(
     id = id,
-    kind = "Word",
+    kind = "Formulaic",
     said = "",
     better = "commute",
     meaning = "통근하다",
@@ -105,6 +105,7 @@ internal fun cardRow(id: Long = 0, reviewCount: Int = 0) = CardRow(
     context = "출근 얘기를 하다가",
     practiceId = "p0",
     createdAt = 1_000,
+    firstSeen = false,
     archived = false,
     difficulty = null,
     stability = null,
@@ -123,24 +124,37 @@ internal fun activeRow(id: String, phase: String = "Talk") = SpeakingActiveRow(
     status = "Paused",
     pausedAt = 5_000,
     talkTimeMs = 4_000,
+    userTalkMs = 2_500,
+    coachTalkMs = 1_200,
     silenceCount = 1,
     reconnects = 2,
+    topic = "cooking",
+    topicSwitches = 1,
+    questions = "[{\"text\":\"What do you cook?\"}]",
     transcript = "[]",
     savedCount = 3,
     resumeHandle = "handle-1",
     handleAt = 4_500,
     usage = "{}",
     reviewCardIds = "[1,2,3]",
+    oralReviews = "[{\"cardId\":1}]",
 )
 
-internal fun sessionRow(id: String, startedAt: Long = 1_000) = SpeakingSessionRow(
+internal fun sessionRow(id: String, startedAt: Long = 1_000, topic: String = "home", questions: String = "[]") = SpeakingSessionRow(
     id = id,
     startedAt = startedAt,
     talkTimeMs = 600_000,
-    topic = "home",
-    questions = "[]",
+    userTalkMs = 400_000,
+    coachTalkMs = 150_000,
+    topic = topic,
+    topicSwitches = 1,
+    questions = questions,
     transcript = "[]",
+    oralReviews = "[]",
+    expressionUses = 2,
     cardCount = 0,
+    skippedErrors = 3,
+    reportCount = 1,
     cardStatus = "Pending",
     usage = "{}",
     costUsd = 0.12,

@@ -10,21 +10,21 @@ import kotlin.time.Instant
 class ReviewQueueTest {
     private val now = Instant.parse("2026-11-19T09:00:00Z")
 
-    private fun card(id: Long, dueAt: Instant = now - 1.hours, archived: Boolean = false) = ExpressionCard(
+    private fun card(id: Long, dueAt: Instant = now - 1.hours, archived: Boolean = false, createdAt: Instant = now - 2.days) = ExpressionCard(
         id = id,
-        kind = CardKind.Word,
+        kind = CardKind.Formulaic,
         said = "",
         better = "commute",
         meaning = "통근하다",
         errorType = null,
         context = "출근 얘기를 하다가",
-        createdAt = now - 2.days,
+        createdAt = createdAt,
         dueAt = dueAt,
         archived = archived,
     )
 
     /** 지금 기억할 확률이 [daysAgo] 에 따라 달라지도록, 그만큼 전에 알았음으로 한 번 복습한 카드다. */
-    private fun reviewed(id: Long, daysAgo: Int) = card(id).review(Rating.Good, now - daysAgo.days, ReviewAmount.Normal).copy(dueAt = now - 1.hours)
+    private fun reviewed(id: Long, daysAgo: Int) = card(id).copy(firstSeen = false).review(Rating.Good, now - daysAgo.days, ReviewAmount.Normal).copy(dueAt = now - 1.hours)
 
     private fun List<ExpressionCard>.ids() = map { it.id }
 
@@ -50,13 +50,21 @@ class ReviewQueueTest {
     }
 
     @Test
-    fun `F18_2 새 카드는 오늘 새로 넣은 수와 합쳐 10장까지만 넣는다`() {
-        val cards = (1L..15L).map { card(it) } + reviewed(100, daysAgo = 3)
+    fun `F18_2 처음 봄 카드는 오늘 새로 보여 준 수와 합쳐 10장까지만 만든 순으로 넣는다`() {
+        val cards = (1L..15L).map { card(it, createdAt = now - 2.days + it.hours) } + reviewed(100, daysAgo = 3)
 
         val queue = todayQueue(cards, now, reviewedToday = 4, newToday = 4)
 
-        assertEquals(6, queue.count { it.reviewCount == 0 })
+        assertEquals((1L..6L).toList(), queue.filter { it.firstSeen }.ids())
         assertEquals(7, queue.size)
+    }
+
+    @Test
+    fun `F18_2 다음 복습 시각에서 하루가 넘게 지난 처음 봄 카드는 10장 상한과 상관없이 맨 앞에 둔다`() {
+        val late = card(50, dueAt = now - 2.days)
+        val cards = listOf(reviewed(1, daysAgo = 30), card(2)) + late
+
+        assertEquals(listOf(50L, 1L), todayQueue(cards, now, reviewedToday = 0, newToday = 10).ids())
     }
 
     @Test
@@ -85,20 +93,27 @@ class ReviewQueueTest {
     private val seoul = TimeZone.of("Asia/Seoul")
 
     @Test
-    fun `로컬 날짜 번호는 기기 시간대의 날짜를 1970-01-01 부터 센다`() {
-        // 2026-11-18T16:00Z 는 서울 시각 11-19 01:00 이다.
-        assertEquals(20776L, Instant.parse("2026-11-18T16:00:00Z").localDay(seoul))
+    fun `F18_11 로컬 날짜 번호는 기기 시간대에서 새벽 4시에 바뀐다`() {
+        // 2026-11-18T18:00Z 는 서울 11-19 03:00 이라 아직 11-18(20775) 이고, 19:00Z 는 서울 04:00 이라 11-19(20776) 이다.
+        assertEquals(20775L to 20776L, Instant.parse("2026-11-18T18:00:00Z").localDay(seoul) to Instant.parse("2026-11-18T19:00:00Z").localDay(seoul))
     }
 
     @Test
-    fun `F18_2 오늘 복습한 수와 새로 넣은 수를 기기 시간대의 오늘로 세어 뺀다`() {
-        // 지금은 서울 시각 11-19 18:00 이다. 앞 둘은 서울의 오늘 복습했고 셋째는 서울의 어제 복습했다.
-        fun reviewedAt(id: Long, at: String, count: Int) = card(id, dueAt = now + 1.days).copy(lastReviewedAt = Instant.parse(at), reviewCount = count)
-        val done = listOf(reviewedAt(1, "2026-11-19T00:30:00Z", 1), reviewedAt(2, "2026-11-18T16:00:00Z", 3), reviewedAt(3, "2026-11-18T14:00:00Z", 1))
+    fun `F18_11 다음 날 새벽 4시는 앱의 오늘 다음 날 4시다`() {
+        // 서울 11-19 02:00 은 앱의 11-18 이라 다음 날 새벽 4시는 서울 11-19 04:00 이다.
+        assertEquals(Instant.parse("2026-11-18T19:00:00Z"), Instant.parse("2026-11-18T17:00:00Z").nextDayStart(seoul))
+    }
+
+    @Test
+    fun `F18_2 오늘 복습한 수와 새로 보여 준 수를 기기 시간대의 오늘로 세어 뺀다`() {
+        // 지금은 서울 11-19 18:00 이다. 앞 둘은 서울의 오늘(04:00 뒤) 봤고 셋째는 서울 11-19 03:00 이라 앱의 어제다.
+        // 첫째는 처음 봄에서 다음 버튼만 누른 카드라 복습 횟수가 0 이고 오늘 새로 보여 준 수에 든다.
+        fun seenAt(id: Long, at: String, count: Int) = card(id, dueAt = now + 1.days).copy(firstSeen = false, lastReviewedAt = Instant.parse(at), reviewCount = count)
+        val done = listOf(seenAt(1, "2026-11-19T00:30:00Z", 0), seenAt(2, "2026-11-18T19:30:00Z", 3), seenAt(3, "2026-11-18T18:00:00Z", 0))
         val due = (10L..29L).map { reviewed(it, daysAgo = 3) } + (100L..114L).map { card(it) }
 
         val queue = todayQueue(done + due, now, seoul)
 
-        assertEquals(9 to 28, queue.count { it.reviewCount == 0 } to queue.size)
+        assertEquals(9 to 28, queue.count { it.firstSeen } to queue.size)
     }
 }
