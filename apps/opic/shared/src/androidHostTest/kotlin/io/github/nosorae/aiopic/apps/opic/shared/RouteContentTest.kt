@@ -3,8 +3,11 @@ package io.github.nosorae.aiopic.apps.opic.shared
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.github.nosorae.aiopic.ui.design.MontageTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -90,4 +93,32 @@ class RouteContentTest {
     @Test fun startKeyEntry() = assertDraws(AppRoute.StartKeyEntry)
 
     @Test fun startConsent() = assertDraws(AppRoute.StartConsent)
+
+    @Test
+    fun `F17_7 정리 화면의 다 봤어요는 들어온 곳과 상관없이 연습 탭을 연다`() {
+        val opened = mutableListOf<AppRoute>()
+        var backs = 0
+        val graph = testAppGraph()
+        rule.setContent { MontageTheme { RouteContent(AppRoute.SpeakingSummary("p"), graph, onOpen = { opened += it }, onExit = {}, onBack = { backs++ }, onRestart = {}) } }
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("다 봤어요")).fetchSemanticsNodes().isNotEmpty() }
+
+        rule.onNodeWithText("다 봤어요").performClick()
+
+        assertEquals(listOf<AppRoute>(AppRoute.PracticeTab), opened)
+        assertEquals(0, backs)
+    }
+
+    @Test
+    fun `F16_4 연습 중 화면을 닫으면 들어온 곳과 상관없이 연습 탭을 연다`() {
+        val opened = mutableListOf<AppRoute>()
+        var backs = 0
+        val graph = testAppGraph()
+        rule.setContent { MontageTheme { RouteContent(AppRoute.Speaking, graph, onOpen = { opened += it }, onExit = {}, onBack = { backs++ }, onRestart = {}) } }
+
+        // 도는 연습이 없으면 화면이 스스로 닫는다. 닫기 버튼과 같은 길이다.
+        rule.waitUntil(5_000) { opened.isNotEmpty() }
+
+        assertEquals(listOf<AppRoute>(AppRoute.PracticeTab), opened)
+        assertEquals(0, backs)
+    }
 }

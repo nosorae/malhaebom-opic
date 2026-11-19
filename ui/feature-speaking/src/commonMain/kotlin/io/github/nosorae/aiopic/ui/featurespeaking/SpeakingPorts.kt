@@ -20,11 +20,11 @@ interface PracticeControl {
     /** 화면이 보일 때만 부른다(F16.4). */
     suspend fun start(id: String, setup: SpeakingSetup)
 
-    suspend fun send(action: PracticeAction)
+    suspend fun command(command: PracticeCommand)
 }
 
-/** 연습 중 화면의 버튼. 끊김으로 멈췄을 때 다시 시작은 다시 연결이다(F16.15). */
-enum class PracticeAction { Pause, Resume, Finish }
+/** 연습을 조작하는 명령(F16.10). 화면 버튼, 알림 버튼, 이어폰 버튼이 모두 이 값으로 [PracticeControl.command] 에 넣는다. 끊김으로 멈췄을 때 다시 시작은 다시 연결이다(F16.15). */
+enum class PracticeCommand { Pause, Resume, Toggle, Finish }
 
 /** 시작 시트가 읽는 값. 설정 화면의 말하기 연습 묶음(F19.1)이 생기기 전까지 앱 층이 처음 값을 넣는다. */
 interface SpeakingSettings {

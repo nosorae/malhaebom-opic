@@ -1,7 +1,6 @@
 package io.github.nosorae.aiopic.ui.featurespeaking
 
 import io.github.nosorae.aiopic.engine.speaking.Usage
-import kotlin.math.roundToInt
 
 /** Live 음성 1초의 토큰 수. */
 private const val AUDIO_TOKENS_PER_SECOND = 32
@@ -13,10 +12,4 @@ private const val AUDIO_TOKENS_PER_SECOND = 32
 internal fun estimatedCostUsd(minutes: Int): Double {
     val seconds = minutes * 60
     return Usage(input = mapOf("AUDIO" to seconds * AUDIO_TOKENS_PER_SECOND), output = mapOf("AUDIO" to seconds / 2 * AUDIO_TOKENS_PER_SECOND)).costUsd
-}
-
-/** `$0.35` 처럼 센트까지. */
-internal fun usd(value: Double): String {
-    val cents = (value * 100).roundToInt()
-    return "$" + "${cents / 100}." + "${cents % 100}".padStart(2, '0')
 }

@@ -28,6 +28,7 @@ import io.github.nosorae.aiopic.ui.design.MontageSpacing
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.rememberMicPermission
 import io.github.nosorae.aiopic.ui.design.rememberOpenAppSettings
+import io.github.nosorae.aiopic.ui.featurelive.usd
 import org.jetbrains.compose.resources.stringResource
 
 /**

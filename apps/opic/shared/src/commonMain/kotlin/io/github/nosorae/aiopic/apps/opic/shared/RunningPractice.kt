@@ -12,23 +12,23 @@ import io.github.nosorae.aiopic.engine.speaking.SpeakingStatus
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStore
 import io.github.nosorae.aiopic.libs.duplexaudio.api.AudioInterruption
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
-import io.github.nosorae.aiopic.ui.featurespeaking.PracticeAction
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeCommand
 import io.github.nosorae.aiopic.ui.featurespeaking.PracticeControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import org.jetbrains.compose.resources.getString
 import kotlin.time.Clock
-
-/** 연습을 조작하는 명령(F16.10). 화면 버튼, 알림 버튼, 이어폰 버튼이 모두 이 값으로 [RunningPractice.command] 에 넣는다. 끊김으로 멈췄을 때 다시 시작은 다시 연결이다(F16.15). */
-enum class PracticeCommand { Pause, Resume, Toggle, Finish }
 
 /**
  * 지금 도는 말하기 연습 하나(ADR 0038, design.md 12.2). 앱 범위에 하나 두고 Android 포그라운드 서비스와 iOS 백그라운드 오디오가 붙잡는다.
@@ -77,15 +77,7 @@ class RunningPractice(
         session.value = next
     }
 
-    override suspend fun send(action: PracticeAction) = command(
-        when (action) {
-            PracticeAction.Pause -> PracticeCommand.Pause
-            PracticeAction.Resume -> PracticeCommand.Resume
-            PracticeAction.Finish -> PracticeCommand.Finish
-        },
-    )
-
-    suspend fun command(command: PracticeCommand) {
+    override suspend fun command(command: PracticeCommand) {
         val running = session.value ?: return
         interruptedPause = false
         running.send(
@@ -166,3 +158,14 @@ internal fun speakingSession(
     timeZone: TimeZone,
     scope: CoroutineScope,
 ) = SpeakingSession(profile, link, audio, store, cards, clock, timeZone, scope, onFinished = jobs::enqueueCards)
+
+/**
+ * 알림 권한을 물을 때(#229, F16.3). 분석이 돌기 시작하거나 말하기 연습이 돌기 시작하면 true 다.
+ * 분석 끝 알림, 연습 진행 알림, 정리 끝 알림이 이 권한을 쓴다. Android 와 iOS 앱 틀이 이 조건 하나로 묻는다.
+ */
+internal fun notificationAskMoments(analyzing: Flow<Boolean>, practice: Flow<SpeakingState?>): Flow<Boolean> = merge(analyzing, practice.map { it?.finished == false })
+
+/** 처음 알림 권한을 물을 때까지 기다린다. */
+internal suspend fun AppGraph.awaitNotificationAsk() {
+    notificationAskMoments(opicStore.analyzing(), runningPractice.state).first { it }
+}

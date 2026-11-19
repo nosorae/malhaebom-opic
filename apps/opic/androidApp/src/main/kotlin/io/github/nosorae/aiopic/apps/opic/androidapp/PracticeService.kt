@@ -19,7 +19,7 @@ import android.os.IBinder
 import android.view.KeyEvent
 import android.view.ViewConfiguration
 import io.github.nosorae.aiopic.apps.opic.shared.Chime
-import io.github.nosorae.aiopic.apps.opic.shared.PracticeCommand
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeCommand
 import io.github.nosorae.aiopic.apps.opic.shared.RunningPractice
 import io.github.nosorae.aiopic.apps.opic.shared.SinglePress
 import io.github.nosorae.aiopic.apps.opic.shared.notice

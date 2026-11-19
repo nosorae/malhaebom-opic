@@ -13,6 +13,7 @@ import io.github.nosorae.aiopic.engine.speaking.SpeakingStatus
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStore
 import io.github.nosorae.aiopic.libs.duplexaudio.api.AudioInterruption
 import io.github.nosorae.aiopic.libs.livegemini.LiveEvent
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeCommand
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first

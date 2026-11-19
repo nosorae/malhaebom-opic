@@ -1,5 +1,6 @@
 package io.github.nosorae.aiopic.apps.opic.shared
 
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeCommand
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf

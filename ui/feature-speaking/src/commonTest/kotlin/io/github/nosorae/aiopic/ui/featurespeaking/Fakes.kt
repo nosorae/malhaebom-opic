@@ -22,14 +22,14 @@ class FakePracticeControl : PracticeControl {
     override val state = MutableStateFlow<SpeakingState?>(null)
     override val level = MutableStateFlow(0f)
     val started = mutableListOf<Pair<String, SpeakingSetup>>()
-    val sent = mutableListOf<PracticeAction>()
+    val sent = mutableListOf<PracticeCommand>()
 
     override suspend fun start(id: String, setup: SpeakingSetup) {
         started += id to setup
     }
 
-    override suspend fun send(action: PracticeAction) {
-        sent += action
+    override suspend fun command(command: PracticeCommand) {
+        sent += command
     }
 }
 

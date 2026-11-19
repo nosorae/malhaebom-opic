@@ -55,9 +55,6 @@ import io.github.nosorae.aiopic.ui.design.icon_normal_setting
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartDestination
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartUiState
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartViewModel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.painterResource
 
@@ -89,7 +86,7 @@ private fun AskNotificationsOnFirstAnalysis(graph: AppGraph) {
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(graph) {
         if (graph.settings.notificationsAsked) return@LaunchedEffect
-        merge(graph.opicStore.analyzing(), graph.runningPractice.state.map { it?.finished == false }).first { it }
+        graph.awaitNotificationAsk()
         graph.settings.notificationsAsked = true
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
@@ -140,7 +137,8 @@ fun AppShell(graph: AppGraph, modifier: Modifier = Modifier, startStack: List<Ap
         ) { padding ->
             NavDisplay(
                 backStack = backStack,
-                onBack = { backStack.removeAt(backStack.lastIndex) },
+                // 연습 중 화면에서 뒤로 가면 들어온 곳과 상관없이 연습 탭으로 간다. 연습이 계속된다는 안내가 연습 탭 카드에 있다(F16.4).
+                onBack = { if (backStack.last() == AppRoute.Speaking) backStack.selectTab(AppRoute.PracticeTab) else backStack.removeAt(backStack.lastIndex) },
                 modifier = Modifier.padding(padding).consumeWindowInsets(padding),
                 entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
                 entryProvider = { route ->
@@ -151,7 +149,7 @@ fun AppShell(graph: AppGraph, modifier: Modifier = Modifier, startStack: List<Ap
                         RouteContent(
                             route = route,
                             graph = graph,
-                            onOpen = { backStack.add(it) },
+                            onOpen = { if (it in AppRoute.tabs) backStack.selectTab(it) else backStack.add(it) },
                             onExit = { backStack.retainAll { it == AppRoute.ExamTab } },
                             onBack = { backStack.removeAt(backStack.lastIndex) },
                             onRestart = { first -> backStack.replaceAll(listOf(first)) },

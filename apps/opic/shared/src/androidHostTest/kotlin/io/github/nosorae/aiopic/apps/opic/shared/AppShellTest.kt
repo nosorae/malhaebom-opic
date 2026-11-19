@@ -179,6 +179,18 @@ class AppShellTest {
     }
 
     @Test
+    fun `F17_7 표현 탭에서 시작한 연습의 정리 화면에서 다 봤어요를 누르면 연습 탭으로 가고 뒤로가기로 모의고사 탭에 돌아온다`() {
+        start(AppRoute.ExamTab, AppRoute.ExpressionsTab, AppRoute.SpeakingSummary("p"))
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("다 봤어요")).fetchSemanticsNodes().isNotEmpty() }
+
+        rule.onNodeWithText("다 봤어요").performClick()
+
+        rule.onNodeWithText("Play").performScrollTo().assertIsDisplayed()
+        pressBack()
+        rule.onNodeWithTag("exam-start").assertIsDisplayed()
+    }
+
+    @Test
     fun `F8_3 설정의 틀림 표시 내보내기 줄을 누르면 내보내기 화면이 열린다`() {
         start(AppRoute.ExamTab, AppRoute.Settings)
 

@@ -123,9 +123,11 @@ internal fun RouteContent(
             },
         )
 
+        // 연습 중 화면을 닫거나 정리 화면을 다 보면 들어온 곳(표현 탭, 알림)과 상관없이 연습 탭으로 간다.
+        // 연습이 계속된다는 안내와 돌아가기가 연습 탭 카드에 있다(F16.4, F17.7). 탭 경로를 열면 앱 틀이 그 탭의 맨 앞으로 옮긴다.
         AppRoute.Speaking -> SpeakingRoute(
             viewModel = viewModel { graph.speakingViewModel },
-            onExit = onBack,
+            onExit = { onOpen(AppRoute.PracticeTab) },
             // 연습이 끝나면 연습 중 화면을 빼고 그 자리에 정리 화면을 연다. 뒤로가기로 끝난 연습에 돌아가지 않는다(F16.18).
             onFinish = {
                 onBack()
@@ -137,7 +139,7 @@ internal fun RouteContent(
         is AppRoute.SpeakingSummary -> SpeakingSummaryRoute(
             viewModel = viewModel(key = route.toString()) { graph.speakingSummaryViewModelFactory.create(route.practiceId) },
             onOpenCard = { onOpen(AppRoute.Expression(it)) },
-            onDone = onBack,
+            onDone = { onOpen(AppRoute.PracticeTab) },
             modifier = modifier,
         )
 

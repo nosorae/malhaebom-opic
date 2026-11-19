@@ -26,7 +26,7 @@ sealed interface SpeakingDestination {
 }
 
 sealed interface SpeakingIntent {
-    data class Send(val action: PracticeAction) : SpeakingIntent
+    data class Send(val action: PracticeCommand) : SpeakingIntent
 
     data object NavigationHandled : SpeakingIntent
 }

@@ -33,11 +33,11 @@ class SpeakingViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.onIntent(SpeakingIntent.Send(PracticeAction.Pause))
-        viewModel.onIntent(SpeakingIntent.Send(PracticeAction.Finish))
+        viewModel.onIntent(SpeakingIntent.Send(PracticeCommand.Pause))
+        viewModel.onIntent(SpeakingIntent.Send(PracticeCommand.Finish))
         advanceUntilIdle()
 
-        assertEquals(listOf(PracticeAction.Pause, PracticeAction.Finish), control.sent)
+        assertEquals(listOf(PracticeCommand.Pause, PracticeCommand.Finish), control.sent)
     }
 
     @Test

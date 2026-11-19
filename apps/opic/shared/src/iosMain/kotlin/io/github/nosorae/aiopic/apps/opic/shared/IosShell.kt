@@ -90,6 +90,11 @@ class IosShell {
     ).apply {
         registerDebugPanels(audio = ::audioSessionRows)
         watchPractice(runningPractice)
+        // 첫 분석이나 첫 말하기 연습을 시작할 때 알림 권한을 묻는다(#229, F16.3). 시스템은 한 번만 묻는다.
+        MainScope().launch {
+            awaitNotificationAsk()
+            UNUserNotificationCenter.currentNotificationCenter().requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionSound) { _, _ -> }
+        }
         // 앱이 보내는 중에 죽었으면 진행 중으로 남은 작업을 대기로 돌리고 대기열을 깨운다.
         MainScope().launch { analysisJobs.recover() }
         if (UiTestLaunch.storeDemo) MainScope().launch { opicStore.seedStoreDemo(OpicEn.questionPool()) }
@@ -125,13 +130,12 @@ class IosShell {
 
     /**
      * 분석 진행을 [onChange] 로 넘긴다(#229). 기다리는 작업이 생길 때마다 0 부터 다시 세고, 다 끝나면 null 을 넘긴다.
-     * 앱 틀(Swift)이 iOS 26 이상에서 시스템 진행 표시에 쓴다. 첫 분석을 시작할 때 알림 권한을 묻는다. 시스템은 한 번만 묻는다.
+     * 앱 틀(Swift)이 iOS 26 이상에서 시스템 진행 표시에 쓴다.
      */
     fun watchProgress(onChange: (ProgressNotice?) -> Unit) {
         MainScope().launch {
             graph.opicStore.analyzing().collectLatest { active ->
                 if (!active) return@collectLatest onChange(null)
-                UNUserNotificationCenter.currentNotificationCenter().requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionSound) { _, _ -> }
                 graph.opicStore.analysisProgress(graph.clock).collect(onChange)
             }
         }

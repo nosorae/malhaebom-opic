@@ -47,6 +47,7 @@ import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import io.github.nosorae.aiopic.ui.design.MontageVoiceRibbon
 import io.github.nosorae.aiopic.ui.design.icon_normal_close
+import io.github.nosorae.aiopic.ui.featurelive.usd
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -143,7 +144,7 @@ private fun TranscriptLine(line: Line) {
 
 /** 위아래로 쌓은 큰 버튼 둘. 끊김으로 멈췄으면 다시 시작이 다시 연결이다(F16.15). */
 @Composable
-private fun Controls(practice: SpeakingState, onAction: (PracticeAction) -> Unit) {
+private fun Controls(practice: SpeakingState, onAction: (PracticeCommand) -> Unit) {
     val paused = practice.status == SpeakingStatus.Paused
     Column(Modifier.padding(horizontal = MontageSpacing.spacing20, vertical = MontageSpacing.spacing12), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing12)) {
         MontageButton(
@@ -154,12 +155,12 @@ private fun Controls(practice: SpeakingState, onAction: (PracticeAction) -> Unit
                     else -> Res.string.running_pause
                 },
             ),
-            onClick = { onAction(if (paused) PracticeAction.Resume else PracticeAction.Pause) },
+            onClick = { onAction(if (paused) PracticeCommand.Resume else PracticeCommand.Pause) },
             variant = MontageButtonVariant.Outlined,
             type = MontageButtonType.Assistive,
             modifier = Modifier.fillMaxWidth(),
         )
-        MontageButton(text = stringResource(Res.string.running_finish), onClick = { onAction(PracticeAction.Finish) }, modifier = Modifier.fillMaxWidth())
+        MontageButton(text = stringResource(Res.string.running_finish), onClick = { onAction(PracticeCommand.Finish) }, modifier = Modifier.fillMaxWidth())
     }
 }
 
