@@ -57,4 +57,7 @@ public class MicChunk(public val pcm: ByteArray) {
 
     /** 가장 큰 소리가 말소리 기준(F5.5, -40dB)에 닿았다. */
     public val speech: Boolean = isSpeech(peak)
+
+    /** 말소리 크기이면서 성대가 떠는 주기가 있다. 물소리처럼 크기만 큰 잡음을 거른다(F20.3). 쓸 때만 계산한다. */
+    public val voiced: Boolean by lazy { speech && periodicity(pcm) >= VOICED_SIMILARITY }
 }

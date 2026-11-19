@@ -13,6 +13,7 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
+import android.media.audiofx.NoiseSuppressor
 import android.os.Build
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio.Companion.MIC_CHUNK_BYTES
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio.Companion.MIC_SAMPLE_RATE
@@ -29,7 +30,7 @@ import java.util.concurrent.LinkedBlockingQueue
 import kotlin.concurrent.thread
 
 /**
- * 마이크는 `VOICE_COMMUNICATION` 입력으로 열고 [AcousticEchoCanceler] 가 있으면 켠다. 재생은 같은 통화 용도의 [AudioTrack] 이라
+ * 마이크는 `VOICE_COMMUNICATION` 입력으로 열고 [AcousticEchoCanceler] 와 [NoiseSuppressor] 가 있으면 켠다. 재생은 같은 통화 용도의 [AudioTrack] 이라
  * 플랫폼이 재생 소리를 에코 제거 기준으로 쓴다. 마이크와 재생은 각자 스레드에서 막히는 읽기, 쓰기로 돈다.
  */
 public class AndroidDuplexAudio(context: Context) : DuplexAudio {
@@ -91,6 +92,8 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
             maxOf(AudioRecord.getMinBufferSize(MIC_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT), MIC_CHUNK_BYTES * 4),
         )
         val echo = if (AcousticEchoCanceler.isAvailable()) AcousticEchoCanceler.create(record.audioSessionId)?.apply { enabled = true } else null
+        // 물소리 같은 고른 잡음을 줄인다(F20.2). iOS 는 음성 처리 모드가 같이 한다.
+        val noise = if (NoiseSuppressor.isAvailable()) NoiseSuppressor.create(record.audioSessionId)?.apply { enabled = true } else null
         val track = AudioTrack.Builder()
             .setAudioAttributes(attributes)
             .setAudioFormat(
@@ -107,6 +110,7 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
 
         fun release() {
             echo?.release()
+            noise?.release()
             record.release()
             track.release()
             queue.clear()

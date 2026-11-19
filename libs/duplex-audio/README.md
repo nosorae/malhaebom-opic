@@ -4,12 +4,13 @@
 
 | 플랫폼 | 구현 | 방식 |
 |---|---|---|
-| Android | `AndroidDuplexAudio(context)` | `AudioRecord`(`VOICE_COMMUNICATION`) + `AcousticEchoCanceler`, 재생은 `AudioTrack`(`USAGE_VOICE_COMMUNICATION`) |
-| iOS | `IosDuplexAudio()` | `AVAudioEngine` 입력 노드 음성 처리 모드, 세션 `.playAndRecord` + `.voiceChat`, 재생은 `AVAudioPlayerNode` |
+| Android | `AndroidDuplexAudio(context)` | `AudioRecord`(`VOICE_COMMUNICATION`) + `AcousticEchoCanceler` + `NoiseSuppressor`, 재생은 `AudioTrack`(`USAGE_VOICE_COMMUNICATION`) |
+| iOS | `IosDuplexAudio()` | `AVAudioEngine` 입력 노드 음성 처리 모드(에코 제거와 소음 억제), 세션 `.playAndRecord` + `.voiceChat`, 재생은 `AVAudioPlayerNode` |
 
 ```kotlin
 audio.mic.collect { chunk ->          // 모으는 동안 마이크와 스피커가 열린다. 16kHz 16bit 모노 40ms 조각
     if (chunk.speech) send(chunk.pcm)  // -40dB(F5.5) 아래 조각은 침묵이라 보내지 않는다
+    chunk.voiced                       // 말소리 크기이면서 목소리 주기가 있다. 스피커 모드에서 물소리를 거른다(F20.3)
 }
 audio.play(pcm24k)                    // 24kHz 16bit 모노. 대기열 끝에 넣는다
 audio.flush()                         // 끼어들면 재생과 대기열을 버린다
@@ -21,4 +22,4 @@ audio.micLevel; audio.playbackLevel   // 목소리 띠용 0~1
 
 ## 테스트
 
-말소리 판정과 조각 자르기는 `commonTest`, iOS 표본율 변환은 시뮬레이터 테스트로 본다. 에코 제거와 끊김 없는 재생은 실기기에서 사람이 본다.
+말소리 판정, 목소리 주기 판정, 조각 자르기는 `commonTest`, iOS 표본율 변환은 시뮬레이터 테스트로 본다. 에코 제거, 소음 억제, 끊김 없는 재생은 실기기에서 사람이 본다. 목소리 주기 기준(`VOICED_SIMILARITY`)은 물소리를 튼 실기기에서 다시 잰다.
