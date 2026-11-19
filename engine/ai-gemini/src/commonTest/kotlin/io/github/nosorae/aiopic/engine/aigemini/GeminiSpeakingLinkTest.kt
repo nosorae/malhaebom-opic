@@ -39,6 +39,5 @@ class GeminiSpeakingLinkTest {
         assertTrue(events.isEmpty() && sockets.isEmpty())
     }
 
-    private fun usage(input: Int, output: Int) =
-        """{"usageMetadata":{"promptTokensDetails":[{"modality":"AUDIO","tokenCount":$input}],"responseTokensDetails":[{"modality":"AUDIO","tokenCount":$output}]}}"""
+    private fun usage(input: Int, output: Int) = """{"usageMetadata":{"promptTokensDetails":[{"modality":"AUDIO","tokenCount":$input}],"responseTokensDetails":[{"modality":"AUDIO","tokenCount":$output}]}}"""
 }
