@@ -1690,8 +1690,9 @@
       ],
       "done": "./gradlew :ui:feature-expressions:allTests :ui:feature-expressions:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests && ./gradlew :ui:feature-expressions:testAndroidHostTest --tests '*ReviewRatingTest*'",
       "done_desc": "하단 탭을 모의고사, 연습, 표현, 기록, 설정 다섯 개로 한다. 표현 탭(오늘 복습, 고칠 표현만 센 틀린 유형별 묶음, 묶음 칩 여섯, 표현 목록), 표현 상세(들어오면 처음 봄 끄기, 다른 부분 색칠, 듣기, 고치기, 이미 알아요는 쉬움 평가, 필요 없어요는 보관, 삭제 확인), 복습 화면(처음 봄 카드는 가리지 않고 읽어 주고 다음 버튼 하나, 그 밖은 소리 내기와 소리 없이, 다시와 알았음, 길게 누르면 어려움과 쉬움), 복습 끝(알았음, 다시, 처음 본 장 수, 이번 주 복습한 날 수, 6장 더). 스크린샷 테스트(라이트, 다크, 글자 200%). ReviewRatingTest(F18.3, F18.6): 평가하면 다음 복습 시각과 복습 횟수가 바뀌고 오늘이 복습한 날에 들어가는지, 다음 버튼은 평가 없이 다음 날 새벽 4시로 옮기는지, 이미 알아요가 카드를 빼지 않는지. apps/opic 을 같이 고쳐서 card-writer 뒤에 둔다",
-      "status": "todo",
-      "issue": 291
+      "status": "doing",
+      "issue": 291,
+      "start": "2026-11-19"
     },
     {
       "id": "speaking-service",

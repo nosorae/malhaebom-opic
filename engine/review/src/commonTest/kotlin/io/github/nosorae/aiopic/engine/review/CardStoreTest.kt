@@ -74,6 +74,16 @@ class CardStoreTest {
     }
 
     @Test
+    fun `F18_6 처음 봄 카드의 다음은 평가 없이 다음 날 새벽 4시로 옮기고 그날을 복습한 날로 남긴다`() = runTest {
+        val id = store.save(card())
+
+        store.showNext(id, now)
+
+        assertEquals(card().copy(id = id, firstSeen = false, lastReviewedAt = now, dueAt = now.nextDayStart(seoul)), store.card(id))
+        assertEquals(setOf(now.localDay(seoul)), store.reviewDays().first())
+    }
+
+    @Test
     fun `F16_8 카드 하나를 처음 봄 값까지 id 로 읽는다`() = runTest {
         val id = store.save(card().copy(firstSeen = false))
 
