@@ -1797,8 +1797,9 @@
       ],
       "done": "human",
       "done_desc": "Android 위젯, iOS 위젯 확장과 앱과 위젯이 같이 읽는 App Group 저장소. 오늘 남은 장 수와 이번 주 복습한 날 수만 보이고 누르면 복습 화면. 복습 끝, 연습 정리 끝, 날짜가 바뀔 때 다시 그린다. iOS 진행 알림의 Live Activity(F16.10)도 이 확장에 붙인다. 사람 확인: 양 플랫폼 실기기에서 복습 뒤 위젯 숫자가 바뀌고 누르면 복습 화면이 열린다",
-      "status": "todo",
-      "issue": 293
+      "status": "doing",
+      "issue": 293,
+      "start": "2026-11-20"
     },
     {
       "id": "speaker-mode",
