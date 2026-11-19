@@ -53,9 +53,9 @@ import io.github.nosorae.aiopic.ui.featuresettings.key.KeyStatus
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionImportResult
 import io.github.nosorae.aiopic.ui.featuresettings.practice.rememberQuestionFilePicker
 import io.github.nosorae.aiopic.ui.featuresettings.speaking.EndWait
-import io.github.nosorae.aiopic.ui.featuresettings.speaking.PRACTICE_MINUTES
 import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
+import io.github.nosorae.aiopic.ui.featurespeaking.PRACTICE_MINUTES
 import kotlinx.datetime.LocalTime
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource

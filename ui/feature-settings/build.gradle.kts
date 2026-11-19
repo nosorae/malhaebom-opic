@@ -17,6 +17,8 @@ kotlin {
             implementation(project(":ui:feature-live"))
             // 복습 양(ReviewAmount)과 알림 시각(LocalTime)을 복습 엔진과 같은 타입으로 둔다(F19.1).
             implementation(project(":engine:review"))
+            // 기본 연습 시간 칩을 시작 시트와 같은 목록(PRACTICE_MINUTES)으로 그린다(F16.2).
+            implementation(project(":ui:feature-speaking"))
         }
         // 복사 완료 체크가 동작 줄이기에서 멈춰 있는지 화면을 띄워 프레임을 비교한다.
         getByName("androidHostTest").dependencies {

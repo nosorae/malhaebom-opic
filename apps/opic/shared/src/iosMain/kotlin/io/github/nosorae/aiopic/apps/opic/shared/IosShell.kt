@@ -26,6 +26,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionPortDescription
@@ -97,21 +98,24 @@ class IosShell {
     ).apply {
         registerDebugPanels(audio = ::audioSessionRows)
         watchPractice(runningPractice)
-        // 첫 분석이나 첫 말하기 연습을 시작할 때 알림 권한을 묻는다(#229, F16.3). 시스템은 한 번만 묻는다.
-        MainScope().launch {
-            awaitNotificationAsk()
-            UNUserNotificationCenter.currentNotificationCenter().requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionSound) { _, _ -> }
-        }
         // 앱이 보내는 중에 죽었으면 진행 중으로 남은 작업을 대기로 돌리고 대기열을 깨운다.
         MainScope().launch { analysisJobs.recover() }
         if (UiTestLaunch.storeDemo) MainScope().launch { opicStore.seedStoreDemo(OpicEn.questionPool()) }
     }
 
-    /** 앱이 앞으로 올 때마다 하나씩 오른다. 복습 알림을 다시 계산하는 때다(F19.4). */
+    /** 앱이 앞으로 오거나 알림 권한을 막 받으면 하나씩 오른다. 복습 알림을 다시 계산하는 때다(F19.4). */
     private val foreground = MutableStateFlow(0)
 
     init {
-        NSNotificationCenter.defaultCenter.addObserverForName(UIApplicationWillEnterForegroundNotification, null, NSOperationQueue.mainQueue) { _ -> foreground.value++ }
+        NSNotificationCenter.defaultCenter.addObserverForName(UIApplicationWillEnterForegroundNotification, null, NSOperationQueue.mainQueue) { _ -> foreground.update { it + 1 } }
+        // 첫 분석이나 첫 말하기 연습을 시작할 때 알림 권한을 묻는다(#229, F16.3). 시스템은 한 번만 묻는다.
+        // 권한이 없는 동안 건 복습 알림은 시스템이 받지 않는다. 권한 창을 닫아도 앞으로 오기 신호는 오지 않으므로 허용하면 직접 다시 건다.
+        MainScope().launch {
+            graph.awaitNotificationAsk()
+            UNUserNotificationCenter.currentNotificationCenter().requestAuthorizationWithOptions(UNAuthorizationOptionAlert or UNAuthorizationOptionSound) { granted, _ ->
+                if (granted) foreground.update { it + 1 }
+            }
+        }
         // 복습을 끝내거나(카드와 복습한 날이 바뀜) 연습 정리가 끝나거나(카드가 늘어남) 설정을 바꾸거나 앱이 앞으로 오면 다시 건다(F19.4).
         MainScope().launch {
             combine(graph.cardStore.cards(), graph.cardStore.reviewDays(), graph.settings.speaking, foreground) { cards, days, prefs, _ ->
