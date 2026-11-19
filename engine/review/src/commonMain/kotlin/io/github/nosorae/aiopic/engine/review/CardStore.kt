@@ -20,6 +20,9 @@ class CardStore(db: OpicDatabase, private val timeZone: TimeZone) {
     /** 모든 카드, 만든 시각이 최근인 것부터. 보관한 카드도 낸다. */
     fun cards(): Flow<List<ExpressionCard>> = dao.cards().map { rows -> rows.map { it.toCard() } }
 
+    /** 지운 카드면 null. 말로 복습이 판정 전 복습 값을 남길 때 읽는다(F16.8). */
+    suspend fun card(id: Long): ExpressionCard? = dao.card(id)?.toCard()
+
     /** 새 카드(id 0)는 넣고, 있는 카드는 고친 내용으로 덮어쓴다. 카드 id 를 돌려준다. */
     suspend fun save(card: ExpressionCard): Long = dao.save(card.toRow())
 
@@ -49,6 +52,7 @@ private fun ExpressionCard.toRow() = CardRow(
     context = context,
     practiceId = practiceId,
     createdAt = createdAt.toEpochMilliseconds(),
+    firstSeen = firstSeen,
     archived = archived,
     difficulty = difficulty,
     stability = stability,
@@ -73,6 +77,7 @@ private fun CardRow.toCard() = ExpressionCard(
     lastReviewedAt = lastReviewedAt?.let(Instant::fromEpochMilliseconds),
     reviewCount = reviewCount,
     againCount = againCount,
+    firstSeen = firstSeen,
     archived = archived,
     practiceId = practiceId,
 )

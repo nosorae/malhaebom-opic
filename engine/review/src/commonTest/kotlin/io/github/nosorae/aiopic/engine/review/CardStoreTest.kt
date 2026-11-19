@@ -57,9 +57,10 @@ class CardStoreTest {
     fun `F18_9 평가하면 기기 시간대의 그날이 복습한 날로 남는다`() = runTest {
         val id = store.save(card())
 
-        store.rate(id, Rating.Again, Instant.parse("2026-11-18T16:00:00Z"), ReviewAmount.Normal)
+        // 서울 11-19 02:00 은 새벽 4시 전이라 앱의 11-18 이다(F18.11).
+        store.rate(id, Rating.Again, Instant.parse("2026-11-18T17:00:00Z"), ReviewAmount.Normal)
 
-        assertEquals(setOf(20776L), store.reviewDays().first())
+        assertEquals(setOf(20775L), store.reviewDays().first())
     }
 
     @Test
@@ -70,6 +71,13 @@ class CardStoreTest {
         val today = now.localDay(seoul)
 
         assertEquals(setOf(today - 55, today), store.reviewDays().first())
+    }
+
+    @Test
+    fun `F16_8 카드 하나를 처음 봄 값까지 id 로 읽는다`() = runTest {
+        val id = store.save(card().copy(firstSeen = false))
+
+        assertEquals(card().copy(id = id, firstSeen = false), store.card(id))
     }
 
     @Test

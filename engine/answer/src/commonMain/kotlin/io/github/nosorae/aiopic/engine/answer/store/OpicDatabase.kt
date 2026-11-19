@@ -128,18 +128,23 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
         override suspend fun migrate(connection: SQLiteConnection) {
             connection.execSQL(
                 "CREATE TABLE IF NOT EXISTS `expression_card` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` TEXT NOT NULL, `said` TEXT NOT NULL, `better` TEXT NOT NULL, " +
-                    "`meaning` TEXT NOT NULL, `errorType` TEXT, `context` TEXT NOT NULL, `practiceId` TEXT, `createdAt` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `difficulty` REAL, " +
+                    "`meaning` TEXT NOT NULL, `errorType` TEXT, `context` TEXT NOT NULL, `practiceId` TEXT, `createdAt` INTEGER NOT NULL, `firstSeen` INTEGER NOT NULL, `archived` INTEGER NOT NULL, " +
+                    "`difficulty` REAL, " +
                     "`stability` REAL, `dueAt` INTEGER NOT NULL, `lastReviewedAt` INTEGER, `reviewCount` INTEGER NOT NULL, `againCount` INTEGER NOT NULL)",
             )
             connection.execSQL("CREATE TABLE IF NOT EXISTS `review_day` (`day` INTEGER NOT NULL, PRIMARY KEY(`day`))")
             connection.execSQL(
-                "CREATE TABLE IF NOT EXISTS `speaking_session` (`id` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `talkTimeMs` INTEGER NOT NULL, `topic` TEXT NOT NULL, " +
-                    "`questions` TEXT NOT NULL, `transcript` TEXT NOT NULL, `cardCount` INTEGER NOT NULL, `cardStatus` TEXT NOT NULL, `usage` TEXT NOT NULL, `costUsd` REAL NOT NULL, PRIMARY KEY(`id`))",
+                "CREATE TABLE IF NOT EXISTS `speaking_session` (`id` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `talkTimeMs` INTEGER NOT NULL, `userTalkMs` INTEGER NOT NULL, " +
+                    "`coachTalkMs` INTEGER NOT NULL, `topic` TEXT NOT NULL, `topicSwitches` INTEGER NOT NULL, `questions` TEXT NOT NULL, `transcript` TEXT NOT NULL, " +
+                    "`oralReviews` TEXT NOT NULL, `expressionUses` INTEGER NOT NULL, `cardCount` INTEGER NOT NULL, `skippedErrors` INTEGER NOT NULL, `reportCount` INTEGER NOT NULL, " +
+                    "`cardStatus` TEXT NOT NULL, `usage` TEXT NOT NULL, `costUsd` REAL NOT NULL, PRIMARY KEY(`id`))",
             )
             connection.execSQL(
                 "CREATE TABLE IF NOT EXISTS `speaking_active` (`id` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `plannedMinutes` INTEGER NOT NULL, `audioRoute` TEXT NOT NULL, " +
-                    "`phase` TEXT NOT NULL, `status` TEXT NOT NULL, `pausedAt` INTEGER, `talkTimeMs` INTEGER NOT NULL, `silenceCount` INTEGER NOT NULL, `reconnects` INTEGER NOT NULL, " +
-                    "`transcript` TEXT NOT NULL, `savedCount` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `usage` TEXT NOT NULL, `reviewCardIds` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                    "`phase` TEXT NOT NULL, `status` TEXT NOT NULL, `pausedAt` INTEGER, `talkTimeMs` INTEGER NOT NULL, `userTalkMs` INTEGER NOT NULL, `coachTalkMs` INTEGER NOT NULL, " +
+                    "`silenceCount` INTEGER NOT NULL, `reconnects` INTEGER NOT NULL, `topic` TEXT NOT NULL, `topicSwitches` INTEGER NOT NULL, `questions` TEXT NOT NULL, `currentQuestion` INTEGER, " +
+                    "`transcript` TEXT NOT NULL, `savedCount` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `usage` TEXT NOT NULL, `reviewCardIds` TEXT NOT NULL, " +
+                    "`oralReviews` TEXT NOT NULL, PRIMARY KEY(`id`))",
             )
         }
     },
@@ -209,7 +214,7 @@ interface CoachDao {
 
 /**
  * 표현 카드 하나(#286, design.md 12.3). 시각은 epoch 밀리초다. 종류와 틀린 유형은 enum 이름이다.
- * 난이도와 안정도가 null 이면 한 번도 복습하지 않은 새 카드다.
+ * 난이도와 안정도가 null 이면 FSRS 평가를 한 번도 받지 않은 카드다. [firstSeen] 은 처음 봄이다(F18.4).
  */
 @Entity(tableName = "expression_card")
 data class CardRow(
@@ -222,6 +227,7 @@ data class CardRow(
     val context: String,
     val practiceId: String?,
     val createdAt: Long,
+    val firstSeen: Boolean,
     val archived: Boolean,
     val difficulty: Double?,
     val stability: Double?,
@@ -235,16 +241,29 @@ data class CardRow(
 @Entity(tableName = "review_day")
 data class ReviewDayRow(@PrimaryKey val day: Long)
 
-/** 끝난 연습 하나(#286). [questions], [transcript], [usage] 는 JSON 이고 [cardStatus] 는 정리 전, 정리 중, 정리 끝, 정리 실패 가운데 하나다. */
+/**
+ * 끝난 연습 하나(#286, design.md 12.4). [questions], [transcript], [oralReviews], [usage] 는 JSON 이고
+ * [cardStatus] 는 정리 전, 정리 중, 정리 끝, 정리 실패 가운데 하나다.
+ */
 @Entity(tableName = "speaking_session")
 data class SpeakingSessionRow(
     @PrimaryKey val id: String,
     val startedAt: Long,
     val talkTimeMs: Long,
+    val userTalkMs: Long,
+    val coachTalkMs: Long,
     val topic: String,
+    val topicSwitches: Int,
     val questions: String,
     val transcript: String,
+    val oralReviews: String,
+    /** 표현을 쓴 횟수(F17.9). 정리 작업이 센다. */
+    val expressionUses: Int,
     val cardCount: Int,
+    /** 카드로 만들지 않고 넘긴 고칠 표현 수(F17.3). */
+    val skippedErrors: Int,
+    /** 틀린 지적 신고 수(F17.7). */
+    val reportCount: Int,
     val cardStatus: String,
     val usage: String,
     val costUsd: Double,
@@ -252,7 +271,7 @@ data class SpeakingSessionRow(
 
 /**
  * 진행 중인 연습(#286, F16.16). 표에는 많아야 한 줄이다. 응답마다 통째로 덮어써서 앱 프로세스가 끝나도 마지막 응답까지의 상태와
- * 이어 붙이기 핸들이 남는다. [transcript], [usage], [reviewCardIds] 는 JSON 이다.
+ * 이어 붙이기 핸들이 남는다. [questions], [transcript], [usage], [reviewCardIds], [oralReviews] 는 JSON 이다.
  */
 @Entity(tableName = "speaking_active")
 data class SpeakingActiveRow(
@@ -264,15 +283,26 @@ data class SpeakingActiveRow(
     val status: String,
     val pausedAt: Long?,
     val talkTimeMs: Long,
+    val userTalkMs: Long,
+    val coachTalkMs: Long,
     val silenceCount: Int,
     val reconnects: Int,
+    val topic: String,
+    val topicSwitches: Int,
+    val questions: String,
+    /** 마지막으로 물은 질문의 [questions] 위치. 없으면 null 이다. */
+    val currentQuestion: Int?,
     val transcript: String,
     val savedCount: Int,
     val resumeHandle: String?,
     val handleAt: Long?,
     val usage: String,
     val reviewCardIds: String,
+    val oralReviews: String,
 )
+
+/** 주제 하나의 연습 기록 요약(F16.5). [questions] 는 그 주제 마지막 연습의 다룬 질문 JSON 이다. */
+data class TopicRow(val topic: String, val lastAt: Long, val count: Int, val questions: String)
 
 @Dao
 abstract class ReviewDao {
@@ -343,6 +373,10 @@ abstract class SpeakingDao {
     /** 최근 것부터. */
     @Query("SELECT * FROM speaking_session ORDER BY startedAt DESC")
     abstract fun sessions(): Flow<List<SpeakingSessionRow>>
+
+    /** 주제마다 하나. SQLite 는 MAX 와 함께 고른 다른 열을 그 MAX 줄에서 가져와서 [TopicRow.questions] 가 마지막 연습의 것이다. */
+    @Query("SELECT topic, MAX(startedAt) AS lastAt, COUNT(*) AS count, questions FROM speaking_session GROUP BY topic")
+    abstract suspend fun topics(): List<TopicRow>
 }
 
 @Dao

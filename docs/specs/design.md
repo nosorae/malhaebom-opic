@@ -215,7 +215,7 @@ P1 의 미리 확인 노드 넷(`s1`~`s4`)으로 아래를 정했다. 숫자와 
 |---|---|---|
 | 듣는 중 | 마이크 소리를 보내고 사용자 말을 기다린다 | 시작, 다시 시작, 코치 말이 끝남 |
 | 코치가 말하는 중 | 코치 음성을 재생한다 | 코치 음성이 오기 시작함 |
-| 일시정지 | 마이크를 보내지 않고 대화 시간이 멈춘다 | 잠깐, 이어폰 한 번 누르기, 알림 버튼, 대답 없음 두 번, 오디오 끼어듦, 다시 연결 3번 실패 |
+| 일시정지 | 말소리는 보내 코치가 다시 시작과 그만할래만 듣게 하고, 대화 시간, 대답 없음, 내가 말한 시간은 멈춘다. 끊김으로 멈췄으면 보내지 않는다 | 잠깐, 이어폰 한 번 누르기, 알림 버튼, 대답 없음 두 번, 오디오 끼어듦, 다시 연결 3번 실패 |
 
 일어난 일은 시작, 시간 흐름(단조 시계), 사용자 말 시작과 끝, 코치 말 시작과 끝(재생한 길이), 대답 없음, 확인 질문, 질문함(문장과 유형), 명령 일곱(F16.9), 말로 복습 판정, 표현 저장, 오디오 끼어듦과 끝남, 연결 끊김, 다시 연결 성공, 끝내기다. 계산 규칙은 이렇다.
 
@@ -281,7 +281,7 @@ Room 을 version 4 에서 5로 올리고 표 4개를 더한다. 아직 출시 �
 |---|---|---|
 | `expression_card` | 표현 카드 하나 | `id`, `kind`(고칠 표현, 몰랐던 표현, 정형 표현, 더 자연스럽게), `said`, `better`, `meaning`, `errorType`, `context`, `practiceId`, `createdAt`, `firstSeen`(처음 봄), `archived`, `difficulty`, `stability`, `dueAt`, `lastReviewedAt`, `reviewCount`, `againCount` |
 | `speaking_session` | 끝난 연습 하나(연습 기록) | `id`, `startedAt`, `talkTimeMs`, `userTalkMs`(내가 말한 시간), `coachTalkMs`(코치가 말한 시간), `topic`, `topicSwitches`(주제 바꾼 횟수), `questions`(JSON. 질문마다 문장, 유형, 같은 질문을 말한 횟수, 문단이 끊기거나 시제가 무너졌는지), `transcript`(JSON), `oralReviews`(JSON. 카드마다 카드 id, 더 나은 표현, 판정, 판정한 시각, 판정 전 복습 값), `expressionUses`(표현을 쓴 횟수), `cardCount`, `skippedErrors`(이번에 넘긴 오류 수), `reportCount`(틀린 지적 신고 수), `cardStatus`(정리 전, 정리 중, 정리 끝, 정리 실패), `usage`(JSON), `costUsd` |
-| `speaking_active` | 진행 중인 연습. 많아야 한 줄 | `id`, `startedAt`, `plannedMinutes`, `audioRoute`(이어폰, 스피커), `phase`, `status`, `pausedAt`, `talkTimeMs`, `userTalkMs`, `coachTalkMs`, `silenceCount`, `reconnects`, `topic`, `topicSwitches`, `questions`(JSON, 지금 질문을 말한 횟수 포함), `transcript`(JSON), `savedCount`, `resumeHandle`, `handleAt`, `usage`(JSON), `reviewCardIds`(JSON), `oralReviews`(JSON) |
+| `speaking_active` | 진행 중인 연습. 많아야 한 줄 | `id`, `startedAt`, `plannedMinutes`, `audioRoute`(이어폰, 스피커), `phase`, `status`, `pausedAt`, `talkTimeMs`, `userTalkMs`, `coachTalkMs`, `silenceCount`, `reconnects`, `topic`, `topicSwitches`, `questions`(JSON, 질문마다 말한 횟수 포함), `currentQuestion`(마지막으로 물은 질문의 위치), `transcript`(JSON), `savedCount`, `resumeHandle`, `handleAt`, `usage`(JSON), `reviewCardIds`(JSON), `oralReviews`(JSON) |
 | `review_day` | 복습을 한 장 이상 끝낸 날 하나 | `day`(1970-01-01 을 0 으로 센 로컬 날짜 번호, 기본 키, [ADR 0040](../adr/0040-로컬-날짜는-kotlinx-datetime-으로-센다.md)). 8주보다 오래된 줄은 쓸 때 지운다 |
 
 시각은 epoch 밀리초다. 내 말 비율은 `userTalkMs` 와 `coachTalkMs` 로 계산하고 열을 두지 않는다. 주제별 마지막 연습 시각도 `speaking_session` 의 `topic`, `startedAt` 으로 묻고 표를 두지 않는다. 진행 중인 연습은 응답마다 통째로 덮어써서 프로세스가 죽으면 마지막 응답까지 남는다. 끝내기는 `speaking_active` 줄을 지우고 `speaking_session` 줄과 정리 작업을 넣는 일을 한 트랜잭션으로 한다. 4에서 5로 옮기는 테스트는 Android 와 iOS 에서 같이 돈다.

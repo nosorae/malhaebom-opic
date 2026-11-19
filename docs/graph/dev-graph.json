@@ -1625,8 +1625,13 @@
       ],
       "done": "./gradlew :engine:speaking:allTests :engine:review:allTests :engine:answer:allTests && ./gradlew :engine:speaking:testAndroidHostTest --tests '*SpeakingProgressTest*' --tests '*SpeakingSessionTest*' --tests '*TopicPickTest*' && ./gradlew :engine:review:testAndroidHostTest --tests '*ReviewQueueTest*' && ./gradlew :engine:answer:testAndroidHostTest --tests '*Migration4To5Test*'",
       "done_desc": "새 engine/speaking(ADR 0039). 단계(말로 복습, 대화, 마무리)와 상태(듣는 중, 코치가 말하는 중, 일시정지)를 reduce 순수 함수로 계산한다(design.md 12.1). 말로 복습은 처음 봄이 아닌 카드 3장, 판정 뒤 정답 들려주기와 따라 말하기, 판정 전 복습 값 남기기. 주제는 7~14일 재출제 먼저, 없으면 가장 적게 한 주제. 유형 6개와 연습 시간별 수, 같은 질문 3회(10분은 2회), 확인 질문 뒤 대답 없음 세지 않기, 문법 짚기 설정을 지시에 넣기, 한국어 섞으면 몰랐던 표현 카드. 내가 말한 시간과 코치가 말한 시간. 음성 명령 일곱을 도구 호출로 받는다. 대답 없음 두 번이면 일시정지, 일시정지 10분이면 끝, 남은 5분과 1분. 이어 붙이기 핸들로 3번까지 다시 연결. ADR 0042 대로 Room version 5 표에 열을 더하고(design.md 12.4) engine/review 에 처음 봄, 새 카드 고르기(F18.2), 새벽 4시 하루(F18.11), 카드 종류와 틀린 유형 값을 바꾼다. SpeakingProgressTest, SpeakingSessionTest, TopicPickTest(F16.5), ReviewQueueTest(F18.2, F18.11), Migration4To5Test(새 열)",
-      "status": "todo",
-      "issue": 287
+      "status": "done",
+      "issue": 287,
+      "start": "2026-11-19",
+      "attempts": {
+        "done": 2
+      },
+      "end": "2026-11-19"
     },
     {
       "id": "card-writer",

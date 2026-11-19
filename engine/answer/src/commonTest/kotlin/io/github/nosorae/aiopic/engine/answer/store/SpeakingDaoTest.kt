@@ -50,4 +50,13 @@ class SpeakingDaoTest {
 
         assertEquals(listOf("new", "mid", "old"), dao.sessions().first().map { it.id })
     }
+
+    @Test
+    fun `F16_5 주제마다 마지막 연습 시각과 연습 수와 그 연습의 다룬 질문을 낸다`() = runTest {
+        dao.save(sessionRow("a", startedAt = 1, topic = "home", questions = "old"))
+        dao.save(sessionRow("b", startedAt = 3, topic = "home", questions = "last"))
+        dao.save(sessionRow("c", startedAt = 2, topic = "cooking", questions = "only"))
+
+        assertEquals(setOf(TopicRow("home", 3, 2, "last"), TopicRow("cooking", 2, 1, "only")), dao.topics().toSet())
+    }
 }
