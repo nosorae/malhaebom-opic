@@ -5,7 +5,9 @@ import io.github.nosorae.aiopic.engine.answer.store.SpeakingActiveRow
 import io.github.nosorae.aiopic.engine.answer.store.SpeakingSessionRow
 import io.github.nosorae.aiopic.engine.review.ExpressionCard
 import io.github.nosorae.aiopic.engine.review.toRow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -100,6 +102,37 @@ class SpeakingStore(db: OpicDatabase) {
         ),
     )
 
+    /** 연습 기록, 최근 것부터. 연습 탭의 지난 연습 날짜와 연습 정리 화면이 읽는다(F16.1, F17.6). */
+    fun sessions(): Flow<List<SpeakingRecord>> = dao.sessions().map { rows ->
+        rows.map {
+            SpeakingRecord(
+                id = it.id,
+                startedAt = Instant.fromEpochMilliseconds(it.startedAt),
+                talkTime = it.talkTimeMs.milliseconds,
+                userTalk = it.userTalkMs.milliseconds,
+                coachTalk = it.coachTalkMs.milliseconds,
+                questions = json.decodeFromString(it.questions),
+                oralReviews = json.decodeFromString(it.oralReviews),
+                expressionUses = it.expressionUses,
+                cardCount = it.cardCount,
+                reportCount = it.reportCount,
+                cardStatus = CardStatus.valueOf(it.cardStatus),
+            )
+        }
+    }
+
+    /** 틀린 지적 신고 수를 하나 올린다(F17.7). 지운 연습이면 아무것도 하지 않는다. */
+    suspend fun report(id: String) {
+        val row = row(id) ?: return
+        dao.save(row.copy(reportCount = row.reportCount + 1))
+    }
+
+    /** 말로 복습 판정을 바꾼 카드와 판정 목록을 한 트랜잭션으로 쓴다(F17.10). 지운 연습이면 아무것도 하지 않는다. */
+    suspend fun saveJudgment(id: String, card: ExpressionCard, reviews: List<OralReview>) {
+        val row = row(id) ?: return
+        dao.finishCards(listOf(card.toRow()), row.copy(oralReviews = json.encodeToString(reviews)))
+    }
+
     /** 주제마다 마지막 연습 시각, 연습 수, 그 연습의 첫 질문(F16.5). */
     suspend fun topics(): List<TopicHistory> = dao.topics().map {
         TopicHistory(it.topic, Instant.fromEpochMilliseconds(it.lastAt), it.count, json.decodeFromString<List<Asked>>(it.questions).firstOf(it.topic)?.text)
@@ -134,6 +167,24 @@ class SpeakingStore(db: OpicDatabase) {
 
     /** 모든 연습 기록의 다룬 질문. 무너진 기록이 많은 유형을 고를 때 쓴다(F16.6). */
     suspend fun pastQuestions(): List<Asked> = dao.sessions().first().flatMap { json.decodeFromString<List<Asked>>(it.questions) }
+}
+
+/** 끝난 연습 하나(F17.6). 내 말 비율은 [userShare] 로 센다(F16.24). */
+data class SpeakingRecord(
+    val id: String,
+    val startedAt: Instant,
+    val talkTime: Duration,
+    val userTalk: Duration,
+    val coachTalk: Duration,
+    val questions: List<Asked>,
+    val oralReviews: List<OralReview>,
+    val expressionUses: Int,
+    val cardCount: Int,
+    val reportCount: Int,
+    val cardStatus: CardStatus,
+) {
+    /** 내가 말한 시간을 두 사람이 말한 시간의 합으로 나눈 값. 아무도 말하지 않았으면 0 이다. */
+    val userShare: Double get() = (userTalk + coachTalk).takeIf { it.isPositive() }?.let { userTalk / it } ?: 0.0
 }
 
 /** 정리 작업이 읽는 연습 기록(F17.4). */
