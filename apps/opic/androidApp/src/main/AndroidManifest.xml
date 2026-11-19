@@ -6,6 +6,7 @@
     <!-- 말하기 연습은 화면을 꺼도 마이크와 연결을 쓴다(ADR 0038). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".OpicApplication"

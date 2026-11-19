@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -75,7 +76,7 @@ class PracticeService : Service() {
         // 시작하고 5초 안에 포그라운드로 올려야 한다. 문구는 곧 상태 알림이 바꾼다.
         if (!foreground) {
             val placeholder = Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_btn_speak_now).build()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(ID, placeholder, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE) else startForeground(ID, placeholder)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) startForeground(ID, placeholder, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE) else startForeground(ID, placeholder)
             foreground = true
         }
         return START_NOT_STICKY
@@ -104,16 +105,16 @@ class PracticeService : Service() {
             .setUsesChronometer(notice.counting)
             .setWhen(System.currentTimeMillis() - state.talkTime.inWholeMilliseconds)
             .setContentIntent(PendingIntent.getActivity(this, 0, packageManager.getLaunchIntentForPackage(packageName), PendingIntent.FLAG_IMMUTABLE))
-            .addAction(action(notice.toggle, notice.toggleCommand))
-            .addAction(action(notice.finish, PracticeCommand.Finish))
+            .addAction(action(if (notice.toggleCommand == PracticeCommand.Resume) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause, notice.toggle, notice.toggleCommand))
+            .addAction(action(android.R.drawable.ic_menu_close_clear_cancel, notice.finish, PracticeCommand.Finish))
             .setStyle(Notification.MediaStyle().setMediaSession(media.sessionToken).setShowActionsInCompactView(0, 1))
             .build()
         getSystemService(NotificationManager::class.java).notify(ID, notification)
     }
 
-    private fun action(label: String, command: PracticeCommand): Notification.Action {
+    private fun action(icon: Int, label: String, command: PracticeCommand): Notification.Action {
         val intent = Intent(this, PracticeService::class.java).setAction(command.name)
-        return Notification.Action.Builder(null, label, PendingIntent.getService(this, command.ordinal, intent, PendingIntent.FLAG_IMMUTABLE)).build()
+        return Notification.Action.Builder(Icon.createWithResource(this, icon), label, PendingIntent.getService(this, command.ordinal, intent, PendingIntent.FLAG_IMMUTABLE)).build()
     }
 
     companion object {
