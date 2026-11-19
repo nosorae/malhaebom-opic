@@ -171,8 +171,7 @@ internal val Gutter = MontageSpacing.spacing20
 internal object ExpressionSamples {
     private val at = Instant.parse("2026-11-19T09:00:00Z")
 
-    private fun card(id: Long, kind: CardKind, said: String, better: String, meaning: String, errorType: ErrorType? = null, firstSeen: Boolean = false) =
-        ExpressionCard(id, kind, said, better, meaning, errorType, "주말에 한 일을 말하다가", createdAt = at, dueAt = at, firstSeen = firstSeen, reviewCount = 3, againCount = 1)
+    private fun card(id: Long, kind: CardKind, said: String, better: String, meaning: String, errorType: ErrorType? = null, firstSeen: Boolean = false) = ExpressionCard(id, kind, said, better, meaning, errorType, "주말에 한 일을 말하다가", createdAt = at, dueAt = at, firstSeen = firstSeen, reviewCount = 3, againCount = 1)
 
     val correction = card(1, CardKind.Correction, "I go to the park yesterday with my friend.", "I went to the park yesterday with my friend.", "어제 친구와 공원에 갔다.", ErrorType.Tense)
     val article = card(2, CardKind.Correction, "I have dog at home.", "I have a dog at home.", "집에 개가 한 마리 있다.", ErrorType.Article)

@@ -99,7 +99,7 @@ fun ExamScreen(state: ExamUiState, onIntent: (ExamIntent) -> Unit) { /* 그리�
 | Android 앱 틀: Navigation 3 `NavDisplay`, 하단 탭(Material 3 Expressive `ShortNavigationBar`), 예측 뒤로가기 | androidMain `AppShell.kt` |
 | iOS 앱 틀: SwiftUI `TabView` 안 탭마다 `NavigationStack`, 뒤로 버튼과 가장자리 스와이프 | `apps/opic/iosApp/iosApp/ContentView.swift` |
 
-- 하단 탭은 모의고사, 연습, 기록, 설정 넷이다(`AppRoute.tabs`). 앱을 켜면 모의고사 탭이 먼저 보인다
+- 하단 탭은 모의고사, 연습, 표현, 기록, 설정 다섯이다(`AppRoute.tabs`). 앱을 켜면 모의고사 탭이 먼저 보인다
 - Android 는 백스택이 하나다. 하위 화면에서 탭을 숨기므로 탭을 옮기는 건 탭 화면에서뿐이다. 다른 탭은 모의고사 탭 위에 쌓아 뒤로가기로 모의고사 탭에 돌아온다. iOS 는 탭마다 경로를 따로 둔다
 - 첫 실행의 키 입력과 동의(`StartKeyEntry`, `StartConsent`)는 탭 없이 혼자 뜨고, 끝나면 시작 분기를 다시 해 백스택을 통째로 바꾼다
 - 새 화면은 `AppRoute` 에 case 를 더하고 `RouteContent` 에 가지를 더한다. 빠뜨리면 `when` 이 컴파일되지 않는다. `ui/navigation` 모듈은 비어 있다

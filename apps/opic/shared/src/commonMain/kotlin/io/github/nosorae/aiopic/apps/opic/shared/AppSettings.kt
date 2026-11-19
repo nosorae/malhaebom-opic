@@ -2,9 +2,13 @@ package io.github.nosorae.aiopic.apps.opic.shared
 
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.SurveyAnswers
+import io.github.nosorae.aiopic.engine.review.Rating
+import io.github.nosorae.aiopic.engine.review.ReviewAmount
 import io.github.nosorae.aiopic.libs.haptics.api.Haptics
 import io.github.nosorae.aiopic.packs.opicen.OpicEn
 import io.github.nosorae.aiopic.ui.featureexam.SurveyStore
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewBatch
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewSettings
 import io.github.nosorae.aiopic.ui.featurelive.LiveConsent
 import io.github.nosorae.aiopic.ui.featurelive.TargetGradeStore
 import io.github.nosorae.aiopic.ui.featureonboarding.consent.VoiceConsent
@@ -20,7 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 
 /**
- * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 실시간 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급)을 플랫폼 설정 저장소에 둔다.
+ * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 실시간 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급, 복습의 소리 없이와 이번 묶음)을 플랫폼 설정 저장소에 둔다.
  * 플랫폼은 문자열 읽기와 쓰기 두 함수만 넘긴다(Android SharedPreferences, iOS NSUserDefaults). 키가 아니라서 암호화하지 않는다.
  */
 class AppSettings(private val read: (String) -> String?, private val write: (String, String) -> Unit) :
@@ -32,7 +36,8 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     HapticsStore,
     SurveyStore,
     TargetGradeStore,
-    LiveConsent {
+    LiveConsent,
+    ReviewSettings {
     private val mode = MutableStateFlow(ThemeMode.entries.firstOrNull { it.name == read(THEME_MODE) } ?: ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = mode.asStateFlow()
 
@@ -109,6 +114,24 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
 
     override suspend fun saveSurveyAnswers(answers: SurveyAnswers) = write(SURVEY_ANSWERS, Json.encodeToString(answers))
 
+    override suspend fun silent(): Boolean = read(REVIEW_SILENT) == "true"
+
+    override suspend fun setSilent(on: Boolean) = write(REVIEW_SILENT, on.toString())
+
+    // 복습 양을 고르는 설정 화면은 아직 없다(review-notify 노드). 고른 적이 없으면 보통이다.
+    override suspend fun reviewAmount(): ReviewAmount = ReviewAmount.entries.firstOrNull { it.name == read(REVIEW_AMOUNT) } ?: ReviewAmount.Normal
+
+    /** 이번 묶음은 "카드 id 들|결과들" 한 줄로 둔다. 결과는 평가 이름이고 처음 봄 카드의 다음은 빈 칸이다(F18.8). */
+    override suspend fun reviewBatch(): ReviewBatch? = read(REVIEW_BATCH)?.takeIf { it.isNotEmpty() }?.let { saved ->
+        val (ids, results) = saved.split('|')
+        ReviewBatch(
+            cardIds = ids.split(',').filter { it.isNotEmpty() }.map(String::toLong),
+            results = if (results.isEmpty()) emptyList() else results.split(',').map { name -> Rating.entries.firstOrNull { it.name == name } },
+        )
+    }
+
+    override suspend fun saveReviewBatch(batch: ReviewBatch) = write(REVIEW_BATCH, batch.cardIds.joinToString(",") + "|" + batch.results.joinToString(",") { it?.name.orEmpty() })
+
     /** 첫 분석을 시작할 때 알림 권한을 한 번 물었는가(#229). 거절해도 다시 묻지 않는다. */
     var notificationsAsked: Boolean
         get() = read(NOTIFICATIONS_ASKED) == "true"
@@ -132,6 +155,9 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         private const val SURVEY_ANSWERS = "survey_answers"
         private const val NOTIFICATIONS_ASKED = "notifications_asked"
         private const val TARGET_GRADE = "target_grade"
+        private const val REVIEW_SILENT = "review_silent"
+        private const val REVIEW_AMOUNT = "review_amount"
+        private const val REVIEW_BATCH = "review_batch"
 
         /** 앱 틀 테스트처럼 기기에 남길 필요가 없을 때 쓴다. */
         fun inMemory(): AppSettings {

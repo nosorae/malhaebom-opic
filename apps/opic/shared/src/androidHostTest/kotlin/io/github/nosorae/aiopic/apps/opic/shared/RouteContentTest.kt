@@ -21,6 +21,9 @@ class RouteContentTest {
         AppRoute.ExamTab -> "아직 마친 회차가 없습니다"
         AppRoute.PracticeTab -> "질문이 끝나면 바로 녹음돼요"
         AppRoute.History -> "아직 기록이 없습니다"
+        AppRoute.ExpressionsTab -> "말하기 연습을 하면 여기에 표현이 쌓여요"
+        is AppRoute.Expression -> "지워진 표현이에요"
+        AppRoute.Review -> "오늘 복습할 표현이 없어요"
         AppRoute.Settings -> "분석 모델"
         is AppRoute.ReportDetail -> "이 회차를 찾을 수 없습니다."
         is AppRoute.AnswerReport -> "이 답변을 찾을 수 없습니다."
@@ -47,6 +50,12 @@ class RouteContentTest {
     @Test fun practiceTab() = assertDraws(AppRoute.PracticeTab)
 
     @Test fun history() = assertDraws(AppRoute.History)
+
+    @Test fun expressionsTab() = assertDraws(AppRoute.ExpressionsTab)
+
+    @Test fun expression() = assertDraws(AppRoute.Expression(1))
+
+    @Test fun review() = assertDraws(AppRoute.Review)
 
     @Test fun settings() = assertDraws(AppRoute.Settings)
 

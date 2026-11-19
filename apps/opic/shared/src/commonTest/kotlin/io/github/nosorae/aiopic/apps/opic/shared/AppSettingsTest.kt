@@ -3,8 +3,11 @@ package io.github.nosorae.aiopic.apps.opic.shared
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.QuestionType
 import io.github.nosorae.aiopic.engine.question.model.SurveyAnswers
+import io.github.nosorae.aiopic.engine.review.Rating
+import io.github.nosorae.aiopic.engine.review.ReviewAmount
 import io.github.nosorae.aiopic.libs.haptics.api.HapticEffect
 import io.github.nosorae.aiopic.libs.haptics.api.Haptics
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewBatch
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -156,5 +159,20 @@ class AppSettingsTest {
         disk["target_grade"] = "NL"
 
         assertEquals("IH", reopen().targetGrade.value)
+    }
+
+    @Test
+    fun `F18_8 이번 묶음과 누른 결과는 앱을 다시 켜도 남는다`() = runTest {
+        val batch = ReviewBatch(listOf(3L, 1L, 2L), listOf(null, Rating.Again))
+        reopen().saveReviewBatch(batch)
+
+        assertEquals(batch, reopen().reviewBatch())
+    }
+
+    @Test
+    fun `F18_5 F18_7 소리 없이는 처음 꺼짐이고 복습 양은 처음 보통이다`() = runTest {
+        val settings = reopen()
+
+        assertEquals(false to ReviewAmount.Normal, settings.silent() to settings.reviewAmount())
     }
 }

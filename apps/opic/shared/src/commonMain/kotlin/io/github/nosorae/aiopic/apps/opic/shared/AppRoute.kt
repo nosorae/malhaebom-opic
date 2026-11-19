@@ -24,6 +24,9 @@ sealed class AppRoute {
     /** 연습 탭. Play 한 번으로 [Practice] 를 열어 바로 질문을 읽는다. */
     @Serializable data object PracticeTab : AppRoute()
 
+    /** 표현 탭(S19, F18.1). 오늘 복습, 자주 틀리는 유형, 묶음 칩, 표현 목록. */
+    @Serializable data object ExpressionsTab : AppRoute()
+
     @Serializable data object History : AppRoute()
 
     @Serializable data object Settings : AppRoute()
@@ -52,6 +55,12 @@ sealed class AppRoute {
     /** 코치 세션의 스크립트(F14). 코치 대화가 끝나면 대화 화면 자리에 열리고, 기록 탭의 스크립트 줄로 다시 연다. 질문 글은 다듬기 요청에 쓴다. */
     @Serializable data class CoachScript(val sessionId: String, val questionId: String, val question: String) : AppRoute()
 
+    /** 표현 상세(S20). 표현 탭의 목록 줄이 연다. */
+    @Serializable data class Expression(val cardId: Long) : AppRoute()
+
+    /** 복습(S21). 표현 탭의 복습 시작이 연다. 누른 평가는 바로 저장돼서 뒤로가기를 막지 않는다(F18.8). */
+    @Serializable data object Review : AppRoute()
+
     /** 설정의 제공사별 키 관리에서 여는 키 입력. [provider] 는 제공사 이름(`gemini`)이다. */
     @Serializable data class KeyEntry(val provider: String) : AppRoute()
 
@@ -75,8 +84,8 @@ sealed class AppRoute {
 
     private val chrome: Chrome
         get() = when (this) {
-            ExamTab, PracticeTab, History, Settings -> Chrome.TopLevel
-            is ReportDetail, is AnswerReport, is CoachScript, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo -> Chrome.Sub
+            ExamTab, PracticeTab, ExpressionsTab, History, Settings -> Chrome.TopLevel
+            is ReportDetail, is AnswerReport, is CoachScript, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo, is Expression, Review -> Chrome.Sub
             is Exam, is Practice, is Coach -> Chrome.FullScreen
             StartKeyEntry, StartConsent -> Chrome.Start
         }
@@ -85,6 +94,8 @@ sealed class AppRoute {
         get() = when (this) {
             ExamTab -> "모의고사"
             PracticeTab -> "연습"
+            ExpressionsTab, is Expression -> "표현"
+            Review -> "복습"
             History -> "기록"
             Settings -> "설정"
             is ReportDetail -> "회차 리포트"
@@ -118,7 +129,7 @@ sealed class AppRoute {
 
     companion object {
         /** 하단 탭 순서. 값으로 두면 하위 object 초기화와 순환해 null 이 들어가므로 읽을 때 만든다. */
-        val tabs: List<AppRoute> get() = listOf(ExamTab, PracticeTab, History, Settings)
+        val tabs: List<AppRoute> get() = listOf(ExamTab, PracticeTab, ExpressionsTab, History, Settings)
 
         /** 시작 분기(S0, F1.0) 결과의 첫 화면. 키 입력과 동의는 탭 위가 아니라 백스택 맨 아래에 혼자 둔다. */
         fun start(destination: StartDestination): AppRoute = when (destination) {

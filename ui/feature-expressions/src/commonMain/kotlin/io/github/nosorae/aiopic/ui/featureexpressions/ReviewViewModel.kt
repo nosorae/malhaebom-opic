@@ -85,13 +85,18 @@ class ReviewViewModel(
                 _uiState.update { it.copy(revealed = true) }
                 speakCurrent()
             }
+
             is ReviewIntent.Rate -> advance(intent.rating)
+
             ReviewIntent.Next -> advance(null)
+
             ReviewIntent.ShowAllRatings -> _uiState.update { it.copy(allRatings = true) }
+
             is ReviewIntent.SetSilent -> {
                 _uiState.update { it.copy(silent = intent.on) }
                 viewModelScope.launch { setSilentUseCase(intent.on) }
             }
+
             ReviewIntent.MoreCards -> start(more = true)
         }
     }

@@ -81,23 +81,33 @@ class ExpressionDetailViewModel(
         val card = _uiState.value.detail?.card
         when (intent) {
             ExpressionDetailIntent.Listen -> card?.let { viewModelScope.launch { speakExpressionUseCase(it.better) } }
+
             ExpressionDetailIntent.StartEdit -> card?.let { c -> _uiState.update { it.copy(editing = true, draftBetter = c.better, draftMeaning = c.meaning) } }
+
             is ExpressionDetailIntent.ChangeBetter -> _uiState.update { it.copy(draftBetter = intent.text) }
+
             is ExpressionDetailIntent.ChangeMeaning -> _uiState.update { it.copy(draftMeaning = intent.text) }
+
             ExpressionDetailIntent.SaveEdit -> {
                 val state = _uiState.value
                 if (!state.canSave) return
                 _uiState.update { it.copy(editing = false) }
                 viewModelScope.launch { editExpressionUseCase(cardId, state.draftBetter, state.draftMeaning) }
             }
+
             ExpressionDetailIntent.CancelEdit -> _uiState.update { it.copy(editing = false) }
+
             ExpressionDetailIntent.Know -> {
                 _uiState.update { it.copy(intervalExtended = true) }
                 viewModelScope.launch { knowExpressionUseCase(cardId) }
             }
+
             ExpressionDetailIntent.ToggleArchive -> card?.let { viewModelScope.launch { archiveExpressionUseCase(cardId, !it.archived) } }
+
             ExpressionDetailIntent.AskDelete -> _uiState.update { it.copy(confirmingDelete = true) }
+
             ExpressionDetailIntent.CancelDelete -> _uiState.update { it.copy(confirmingDelete = false) }
+
             ExpressionDetailIntent.ConfirmDelete -> {
                 _uiState.update { it.copy(confirmingDelete = false) }
                 viewModelScope.launch {
@@ -105,6 +115,7 @@ class ExpressionDetailViewModel(
                     _uiState.update { it.copy(deleted = true) }
                 }
             }
+
             ExpressionDetailIntent.NavigationHandled -> _uiState.update { it.copy(deleted = false) }
         }
     }

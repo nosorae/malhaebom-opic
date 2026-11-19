@@ -5,15 +5,15 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class AppRouteTest {
-    private val subScreens = listOf(AppRoute.ReportDetail("s"), AppRoute.AnswerReport("a"), AppRoute.CoachScript("c", "q", "Tell me about a trip."), AppRoute.KeyEntry("gemini"), AppRoute.FreeTierNotice, AppRoute.Survey, AppRoute.FlagExport, AppRoute.AppInfo)
+    private val subScreens = listOf(AppRoute.ReportDetail("s"), AppRoute.AnswerReport("a"), AppRoute.CoachScript("c", "q", "Tell me about a trip."), AppRoute.KeyEntry("gemini"), AppRoute.FreeTierNotice, AppRoute.Survey, AppRoute.FlagExport, AppRoute.AppInfo, AppRoute.Expression(1), AppRoute.Review)
     private val everyRoute = AppRoute.tabs + subScreens + listOf(AppRoute.Exam("s"), AppRoute.Practice("a"), AppRoute.Coach("c", "q", "Tell me about a trip.", "IH"), AppRoute.StartKeyEntry, AppRoute.StartConsent)
 
     private fun tabBar(platform: Platform) = everyRoute.filter { it.showsTabBar(platform) }
 
     @Test
-    fun `하단 탭은 모의고사 연습 기록 설정 넷이다`() {
-        assertEquals(listOf(AppRoute.ExamTab, AppRoute.PracticeTab, AppRoute.History, AppRoute.Settings), AppRoute.tabs)
-        assertEquals(listOf("모의고사", "연습", "기록", "설정"), AppRoute.tabs.map { it.title })
+    fun `F18_1 하단 탭은 모의고사 연습 표현 기록 설정 다섯이다`() {
+        assertEquals(listOf(AppRoute.ExamTab, AppRoute.PracticeTab, AppRoute.ExpressionsTab, AppRoute.History, AppRoute.Settings), AppRoute.tabs)
+        assertEquals(listOf("모의고사", "연습", "표현", "기록", "설정"), AppRoute.tabs.map { it.title })
     }
 
     @Test
