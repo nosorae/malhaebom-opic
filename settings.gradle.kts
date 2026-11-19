@@ -46,6 +46,7 @@ include(
     ":engine:answer",
     ":engine:question",
     ":engine:coach",
+    ":engine:review",
     ":engine:ai-gemini",
     ":libs:recorder",
     ":libs:duplex-audio",
