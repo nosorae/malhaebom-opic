@@ -142,7 +142,7 @@ val OPIC_MIGRATIONS: Array<Migration> = arrayOf(
             connection.execSQL(
                 "CREATE TABLE IF NOT EXISTS `speaking_active` (`id` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `plannedMinutes` INTEGER NOT NULL, `audioRoute` TEXT NOT NULL, " +
                     "`phase` TEXT NOT NULL, `status` TEXT NOT NULL, `pausedAt` INTEGER, `talkTimeMs` INTEGER NOT NULL, `userTalkMs` INTEGER NOT NULL, `coachTalkMs` INTEGER NOT NULL, " +
-                    "`silenceCount` INTEGER NOT NULL, `reconnects` INTEGER NOT NULL, `topic` TEXT NOT NULL, `topicSwitches` INTEGER NOT NULL, `questions` TEXT NOT NULL, " +
+                    "`silenceCount` INTEGER NOT NULL, `reconnects` INTEGER NOT NULL, `topic` TEXT NOT NULL, `topicSwitches` INTEGER NOT NULL, `questions` TEXT NOT NULL, `currentQuestion` INTEGER, " +
                     "`transcript` TEXT NOT NULL, `savedCount` INTEGER NOT NULL, `resumeHandle` TEXT, `handleAt` INTEGER, `usage` TEXT NOT NULL, `reviewCardIds` TEXT NOT NULL, " +
                     "`oralReviews` TEXT NOT NULL, PRIMARY KEY(`id`))",
             )
@@ -290,6 +290,8 @@ data class SpeakingActiveRow(
     val topic: String,
     val topicSwitches: Int,
     val questions: String,
+    /** 마지막으로 물은 질문의 [questions] 위치. 없으면 null 이다. */
+    val currentQuestion: Int?,
     val transcript: String,
     val savedCount: Int,
     val resumeHandle: String?,

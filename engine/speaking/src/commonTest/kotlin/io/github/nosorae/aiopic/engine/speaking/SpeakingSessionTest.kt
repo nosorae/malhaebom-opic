@@ -20,9 +20,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -210,14 +212,49 @@ class SpeakingSessionTest {
     }
 
     @Test
-    fun `F16_12 일시정지 중에는 마이크를 보내지 않는다`() = test { db ->
+    fun `F16_9 일시정지 중에도 말소리를 보내 resume 도구로 다시 시작된다`() = test { db ->
         val session = started(db)
 
         session.send(SpeakingEvent.Pause(now()))
+        audio.say(*Array(25) { LOUD }, *Array(30) { SILENT })
+        runCurrent()
+        assertEquals(1 to Duration.ZERO, link.audioEnds to session.now().userTalk)
+
+        link.server(tool("1", SpeakingTools.RESUME))
+        runCurrent()
+
+        assertEquals(SpeakingStatus.Listening, session.now().status)
+        assertEquals(listOf("Paused ", "Resumed "), link.texts)
+    }
+
+    @Test
+    fun `F16_15 끊김으로 멈췄으면 마이크를 보내지 않는다`() = test { db ->
+        val session = started(db)
+
+        repeat(4) {
+            link.server(LiveEvent.Failed(null, "down"))
+            advanceTimeBy(5.seconds)
+        }
         audio.say(LOUD, LOUD)
         runCurrent()
 
+        assertTrue(session.now().disconnected)
         assertEquals(0, link.audio.size)
+    }
+
+    @Test
+    fun `F16_20 같은 질문을 상한만큼 말했으면 ask_question 에 에러로 답하고 기록하지 않는다`() = test { db ->
+        val session = started(db)
+        val args = buildJsonObject {
+            put("question", "What do you cook?")
+            put("kind", "description")
+        }
+
+        link.server(*Array(4) { tool("$it", SpeakingTools.ASK_QUESTION, args) })
+        runCurrent()
+
+        assertEquals(3, session.now().questions.single().times)
+        assertEquals("asked 3 times already", link.responses.last().second.jsonObject["error"]?.jsonPrimitive?.content)
     }
 
     @Test
@@ -278,11 +315,13 @@ class SpeakingSessionTest {
 
         link.server(LiveEvent.ResumeHandle("h1"), LiveEvent.Disconnected(1006, "gone"))
         runCurrent()
+        assertEquals(1, link.connects.size)
+        advanceTimeBy(1.seconds + 1.seconds / 10)
         assertEquals("h1", link.connects[1].resumeHandle)
 
         repeat(3) {
             link.server(LiveEvent.Failed(null, "down"))
-            runCurrent()
+            advanceTimeBy(5.seconds)
         }
         assertEquals(4, link.connects.size)
         assertEquals(SpeakingStatus.Paused to true, session.now().status to session.now().disconnected)
@@ -290,6 +329,39 @@ class SpeakingSessionTest {
         session.send(SpeakingEvent.Resume)
         runCurrent()
         assertEquals(5, link.connects.size)
+    }
+
+    @Test
+    fun `F16_15 Connected 직후 Disconnected 가 반복되면 끊김으로 일시정지한다`() = test { db ->
+        val session = started(db)
+
+        repeat(4) {
+            link.server(LiveEvent.Connected, LiveEvent.Disconnected(1011, "quota"))
+            advanceTimeBy(5.seconds)
+        }
+
+        assertEquals(4, link.connects.size)
+        assertEquals(SpeakingStatus.Paused to true, session.now().status to session.now().disconnected)
+    }
+
+    @Test
+    fun `F16_15 다시 연결한 뒤 응답이 오면 다시 연결 횟수를 0 으로 돌린다`() = test { db ->
+        val session = started(db)
+
+        link.server(LiveEvent.Disconnected(1006, "gone"))
+        advanceTimeBy(1.seconds + 1.seconds / 10)
+        link.server(LiveEvent.Connected)
+        runCurrent()
+        assertEquals(1, session.now().reconnects)
+
+        link.server(LiveEvent.AudioChunk(COACH_SECOND))
+        runCurrent()
+        assertEquals(0, session.now().reconnects)
+    }
+
+    @Test
+    fun `지시에 엔진이 채우지 않는 빈칸이 있으면 코치 설정을 만들지 않는다`() {
+        assertFailsWith<IllegalArgumentException> { SpeakingProfile("topic={{topic}} {{level}}", emptyList(), emptyMap()) }
     }
 
     @Test

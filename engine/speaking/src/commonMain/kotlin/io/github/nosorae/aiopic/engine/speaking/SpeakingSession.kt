@@ -58,11 +58,18 @@ interface SpeakingLink {
 
 /**
  * 시험 팩이 넘기는 코치 설정. [instruction] 은 [KEYS] 빈칸을 가진 지시 글이고, [cues] 는 `{{question}}` 빈칸을 가질 수 있는 알림 글이다.
- * 도구 이름은 [SpeakingTools] 를 쓴다.
+ * 도구 이름은 [SpeakingTools] 를 쓴다. 엔진이 채우지 않는 빈칸이 지시에 있으면 만들지 않는다. `{{이름}}` 이 그대로 모델에 가지 않게 한다.
  */
 class SpeakingProfile(val instruction: String, val tools: List<JsonObject>, val cues: Map<Cue, String>) {
+    init {
+        val unknown = PLACEHOLDER.findAll(instruction).map { it.groupValues[1] }.toSet() - KEYS
+        require(unknown.isEmpty()) { "엔진이 채우지 않는 지시 빈칸 $unknown" }
+    }
+
     companion object {
+        /** 지시 빈칸 이름. [SpeakingSession] 이 이 이름마다 값을 채운다. */
         val KEYS = setOf("topic", "repeat_question", "minutes", "kinds", "review_cards", "frequent_errors", "grammar_nudge")
+        internal val PLACEHOLDER = Regex("""\{\{(\w+)\}\}""")
     }
 }
 
@@ -85,6 +92,9 @@ private val RESUME_LIMIT = 2.hours
 /** 코치 음성이 끝나고 이만큼 사용자 말소리가 없으면 대답 없음이다(F16.12). */
 // ponytail: 실기기에서 생각하는 시간보다 짧아 재촉하면 이 값만 늘린다.
 internal val NO_ANSWER_WAIT = 8.seconds
+
+/** 다시 연결은 이만큼 기다린 뒤 하고 실패할 때마다 두 배로 늘린다(1초, 2초, 4초). 잠깐 끊긴 네트워크가 돌아올 틈을 준다(F16.15). */
+private val RECONNECT_DELAY = 1.seconds
 
 /** 말이 멈춘 뒤 이만큼 침묵 조각을 보내고 오디오 끝을 보낸다. 라이브 코치와 같은 값이다. */
 private val SPEECH_END_GRACE = 1.seconds
@@ -175,7 +185,7 @@ class SpeakingSession(
         if (!state.disconnected && connection?.isActive != true) connection = scope.launch { connect() }
     }
 
-    /** 연결이 끝나면 끊김으로 넣고, 끊김으로 멈추지 않았으면 핸들로 다시 연다. */
+    /** 연결이 끝나면 끊김으로 넣고, 끊김으로 멈추지 않았으면 기다렸다가 핸들로 다시 연다. */
     private suspend fun connect() {
         while (true) {
             val state = _state.value ?: return
@@ -188,6 +198,8 @@ class SpeakingSession(
                 currentCoroutineContext().ensureActive()
             }
             dispatch(SpeakingEvent.Dropped(clock.now()))
+            val failed = _state.value?.reconnects ?: return
+            if (failed in 1..MAX_RECONNECTS) delay(RECONNECT_DELAY * (1 shl (failed - 1)))
         }
     }
 
@@ -196,6 +208,7 @@ class SpeakingSession(
         var turnStart: Instant? = null
         var queued = Duration.ZERO
         var waiting: Job? = null
+        var replied = false
 
         suspend fun endTurn(played: Duration) {
             turnStart = null
@@ -204,8 +217,13 @@ class SpeakingSession(
         }
 
         link.connect(instruction(state), profile.tools, handle).collect { event ->
+            // 연결을 받고 곧바로 닫는 서버(할당량 초과 등)를 성공으로 세지 않게, 응답이 처음 온 때 다시 연결 횟수를 0 으로 돌린다(F16.15).
+            if (!replied && event.isReply()) {
+                replied = true
+                dispatch(SpeakingEvent.Connected)
+            }
             when (event) {
-                LiveEvent.Connected, LiveEvent.Resumed -> dispatch(SpeakingEvent.Connected)
+                LiveEvent.Connected, LiveEvent.Resumed -> Unit
 
                 is LiveEvent.ResumeHandle -> dispatch(SpeakingEvent.HandleReceived(event.handle, clock.now()))
 
@@ -252,6 +270,9 @@ class SpeakingSession(
         }
     }
 
+    private fun LiveEvent.isReply() = this is LiveEvent.AudioChunk || this == LiveEvent.TurnComplete || this is LiveEvent.ToolCall || this is LiveEvent.InputTranscript || this is LiveEvent.OutputTranscript
+
+    /** [SpeakingProfile.KEYS] 마다 값을 채운다. 이름이 어긋나면 지시를 만들지 않는다. */
     private fun instruction(state: SpeakingState): String {
         val values = mapOf(
             "topic" to state.topic,
@@ -262,7 +283,7 @@ class SpeakingSession(
             "frequent_errors" to plan.errors.ifEmpty { NONE },
             "grammar_nudge" to if (plan.setup.grammarNudge) "on" else "off",
         )
-        return values.entries.fold(profile.instruction) { text, (key, value) -> text.replace("{{$key}}", value) }
+        return SpeakingProfile.PLACEHOLDER.replace(profile.instruction) { values.getValue(it.groupValues[1]) }
     }
 
     /** 카드와 주제를 고치는 도구는 여기서 처리하고, 나머지는 상태 계산에 넘긴다. 버린 호출에도 답해야 모델이 기다리지 않는다. */
@@ -307,8 +328,9 @@ class SpeakingSession(
             }
 
             else -> {
-                respond(call)
-                dispatch(SpeakingEvent.ToolCalled(call.name, call.args, clock.now()))
+                val limit = if (call.name == SpeakingTools.ASK_QUESTION) _state.value?.let { askError(it, call.args) } else null
+                respond(call, limit)
+                if (limit == null) dispatch(SpeakingEvent.ToolCalled(call.name, call.args, clock.now()))
             }
         }
     }
@@ -351,15 +373,17 @@ class SpeakingSession(
     }
 
     /**
-     * 일시정지가 아니면 말소리 조각과 말이 멈춘 뒤 [SPEECH_END_GRACE] 동안의 침묵 조각을 보내고 오디오 끝을 한 번 보낸다.
-     * 말소리 조각 길이를 모아 말이 끝날 때 내가 말한 시간으로 넣는다(F16.24). 일시정지 중에도 모아야 코치 음성이 재생된다.
+     * 말소리 조각과 말이 멈춘 뒤 [SPEECH_END_GRACE] 동안의 침묵 조각을 보내고 오디오 끝을 한 번 보낸다.
+     * 말소리 조각 길이를 모아 말이 끝날 때 내가 말한 시간으로 넣는다(F16.24). 마이크는 늘 모아야 코치 음성이 재생된다.
+     * 일시정지 중에도 보내 코치가 다시 시작과 그만할래를 듣게 하고(F16.9, F16.12), 내가 말한 시간은 [reduce] 가 세지 않는다.
+     * 끊김으로 멈췄으면 보낼 연결이 없다.
      */
     private suspend fun forwardMic() {
         var silence = Duration.INFINITE
         var spoken = Duration.ZERO
         audio.mic.catch { dispatch(SpeakingEvent.Pause(clock.now())) }.collect { chunk ->
             val state = _state.value ?: return@collect
-            if (state.status == SpeakingStatus.Paused) return@collect
+            if (state.disconnected) return@collect
             val length = (chunk.pcm.size / 2).seconds / DuplexAudio.MIC_SAMPLE_RATE
             if (chunk.speech) {
                 link.sendAudio(chunk.pcm)

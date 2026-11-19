@@ -22,6 +22,3 @@ fun pickTopic(topics: List<String>, history: List<TopicHistory>, now: Instant, e
     val topic = topics.filter { it !in exclude }.minByOrNull { counts[it] ?: 0 } ?: topics.first()
     return TopicPick(topic, null)
 }
-
-/** 한 연습의 다룬 질문 가운데 [topic] 의 첫 질문. */
-fun firstQuestion(questions: List<Asked>, topic: String): String? = questions.firstOrNull { it.topic == topic }?.text

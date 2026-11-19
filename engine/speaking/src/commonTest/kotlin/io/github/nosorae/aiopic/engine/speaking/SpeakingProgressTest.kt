@@ -83,6 +83,30 @@ class SpeakingProgressTest {
     }
 
     @Test
+    fun `F16_21 clarify 뒤 NoAnswer 면 silenceCount 는 그대로이고 코치에게 다시 묻게 한다`() {
+        val clarifying = state().after(tool(SpeakingTools.CLARIFY))
+        val after = clarifying.after(SpeakingEvent.NoAnswer(t0))
+
+        assertEquals(0, after.silenceCount)
+        assertEquals(listOf(Cue.Rephrase), cues(clarifying, after))
+        assertEquals(emptyList(), cues(clarifying, clarifying.after(SpeakingEvent.UserTalked(2.seconds))))
+    }
+
+    @Test
+    fun `F16_12 일시정지 중 사용자 말은 명령만 듣고 내가 말한 시간과 대답 없음에 세지 않는다`() {
+        val paused = state().after(SpeakingEvent.NoAnswer(t0), SpeakingEvent.Pause(t0))
+
+        assertEquals(paused, paused.after(SpeakingEvent.UserTalked(3.seconds)))
+    }
+
+    @Test
+    fun `F16_9 일시정지가 아닐 때 다시 시작은 아무것도 바꾸지 않는다`() {
+        val dropped = state().after(SpeakingEvent.Dropped(t0))
+
+        assertEquals(dropped, dropped.after(SpeakingEvent.Resume))
+    }
+
+    @Test
     fun `F16_12 일시정지가 10분 이어지면 끝낸다`() {
         val paused = state().after(SpeakingEvent.Pause(t0))
 
@@ -150,6 +174,21 @@ class SpeakingProgressTest {
         val after = state().after(ask("Q1"), ask("Q2"), tool(SpeakingTools.FLAG_BROKEN))
 
         assertEquals(listOf(false, true), after.questions.map { it.broken })
+    }
+
+    @Test
+    fun `F16_6 Q1, Q2, Q1 다시 물음 뒤 flag_broken 이면 Q1 이 broken 이다`() {
+        val after = state().after(ask("Q1"), ask("Q2"), ask("Q1"), tool(SpeakingTools.FLAG_BROKEN))
+
+        assertEquals(listOf(true, false), after.questions.map { it.broken })
+        assertEquals(2, after.questions[after.current!!].times)
+    }
+
+    @Test
+    fun `F16_6 주제를 바꾼 뒤 새 질문 전의 무너짐 표시는 앞 주제 질문에 붙이지 않는다`() {
+        val after = state().after(ask("Q1"), SpeakingEvent.TopicChanged("music"), tool(SpeakingTools.FLAG_BROKEN))
+
+        assertEquals(listOf(false), after.questions.map { it.broken })
     }
 
     @Test
@@ -222,7 +261,7 @@ class SpeakingProgressTest {
 
     @Test
     fun `F16_20 남은 5분이 되면 첫 질문을 다시 묻게 한다`() {
-        val before = state().talked(14.minutes)
+        val before = state().after(ask("Q1")).talked(14.minutes)
 
         assertEquals(listOf(Cue.Wrap), cues(before, before.talked(1.minutes)))
     }
@@ -234,20 +273,78 @@ class SpeakingProgressTest {
         assertEquals(listOf(Cue.Closing), cues(before, before.talked(1.minutes)))
     }
 
-    @Test
-    fun `F16_20 2회째가 끝나고 2분 넘게 남았으면 한 번 더 묻게 한다`() {
-        val second = state().after(ask("Q1")).talked(15.minutes).after(ask("Q1"))
+    /** 코치가 한 턴을 말하고 끝냈다. */
+    private fun SpeakingState.coachTurn() = after(SpeakingEvent.CoachStarted, SpeakingEvent.CoachTalked(2.seconds))
 
-        assertEquals(listOf(Cue.Again), cues(second, second.after(SpeakingEvent.UserTalked(30.seconds))))
+    @Test
+    fun `F16_20 2회째 대답이 끝나고 코치 턴이 끝났을 때 2분 넘게 남았으면 한 번 더 묻게 한다`() {
+        val answered = state().after(ask("Q1")).talked(15.minutes).after(ask("Q1")).coachTurn().after(SpeakingEvent.UserTalked(30.seconds))
+
+        assertEquals(listOf(Cue.Again), cues(answered, answered.coachTurn()))
+    }
+
+    @Test
+    fun `F16_20 2회째 대답 중 UserTalked 두 번이면 Again 은 한 번이고 대답이 끝난 뒤다`() {
+        val second = state().after(ask("Q1")).talked(15.minutes).after(ask("Q1")).coachTurn()
+        val pause = second.after(SpeakingEvent.UserTalked(5.seconds))
+        val answer = pause.after(SpeakingEvent.UserTalked(5.seconds))
+        val again = answer.coachTurn()
+
+        assertEquals(emptyList(), cues(second, pause) + cues(pause, answer))
+        assertEquals(listOf(Cue.Again), cues(answer, again))
+        assertEquals(emptyList(), cues(again, again.coachTurn()))
     }
 
     @Test
     fun `F16_20 2분 이하로 남았거나 정한 시간이 10분이면 3회째를 묻지 않는다`() {
-        val late = state().after(ask("Q1")).talked(18.minutes).after(ask("Q1"))
-        val short = state(planned = 10.minutes).after(ask("Q1")).talked(5.minutes).after(ask("Q1"))
+        val late = state().after(ask("Q1")).talked(18.minutes).after(ask("Q1"), SpeakingEvent.UserTalked(5.seconds))
+        val short = state(planned = 10.minutes).after(ask("Q1")).talked(5.minutes).after(ask("Q1"), SpeakingEvent.UserTalked(5.seconds))
 
-        assertEquals(emptyList(), cues(late, late.after(SpeakingEvent.UserTalked(5.seconds))))
-        assertEquals(emptyList(), cues(short, short.after(SpeakingEvent.UserTalked(5.seconds))))
+        assertEquals(emptyList(), cues(late, late.coachTurn()))
+        assertEquals(emptyList(), cues(short, short.coachTurn()))
+    }
+
+    @Test
+    fun `F16_20 상한을 넘는 질문은 에러 글로 돌려준다`() {
+        val three = state().after(*Array(3) { ask("Q1") })
+        val two = state(planned = 10.minutes).after(*Array(2) { ask("Q1") })
+
+        assertEquals("asked 3 times already", askError(three, ask("Q1").args))
+        assertEquals("asked 2 times already", askError(two, ask("Q1").args))
+        assertEquals(null, askError(three, ask("Q2").args))
+    }
+
+    @Test
+    fun `F16_20 말로 복습 중 남은 5분이면 대화를 시작하게 하고 빈 질문 Wrap 글을 보내지 않는다`() {
+        val before = state(reviewCardIds = listOf(1, 2, 3)).talked(14.minutes)
+        val wrap = before.talked(1.minutes)
+
+        assertEquals(SpeakingPhase.Wrap, wrap.phase)
+        assertEquals(listOf(Cue.Talk), cues(before, wrap))
+        assertEquals(listOf(1L), wrap.after(SpeakingEvent.Judged(review(1))).oralReviews.map { it.cardId })
+    }
+
+    @Test
+    fun `F16_20 주제를 막 바꿔 첫 질문이 없으면 남은 5분에 Wrap 글을 보내지 않는다`() {
+        val before = state().after(ask("Q1"), SpeakingEvent.TopicChanged("music")).talked(14.minutes)
+
+        assertEquals(emptyList(), cues(before, before.talked(1.minutes)))
+    }
+
+    @Test
+    fun `F16_12 F16_14 일시정지하면 다시 시작 말을 안내하게 하고 돌아오면 이어서 할지 묻게 한다`() {
+        val paused = state().after(SpeakingEvent.Pause(t0))
+
+        assertEquals(listOf(Cue.Paused), cues(state(), paused))
+        assertEquals(listOf(Cue.Resumed), cues(paused, paused.after(SpeakingEvent.Resume)))
+    }
+
+    @Test
+    fun `F16_15 끊김으로 멈추거나 다시 연결할 때는 코치에게 알리지 않는다`() {
+        val three = state().after(*Array(3) { SpeakingEvent.Dropped(t0) })
+        val four = three.after(SpeakingEvent.Dropped(t0))
+
+        assertEquals(emptyList(), cues(three, four) + cues(four, four.after(SpeakingEvent.Resume)))
     }
 
     @Test

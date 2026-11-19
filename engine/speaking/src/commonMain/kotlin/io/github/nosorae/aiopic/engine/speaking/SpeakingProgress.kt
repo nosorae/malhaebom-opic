@@ -40,12 +40,14 @@ fun reduce(state: SpeakingState, event: SpeakingEvent): SpeakingState {
     return when (event) {
         is SpeakingEvent.TimePassed -> state.timePassed(event)
 
-        is SpeakingEvent.UserTalked -> state.copy(userTalk = state.userTalk + event.duration, silenceCount = 0, clarifying = false)
+        is SpeakingEvent.UserTalked ->
+            if (state.status == SpeakingStatus.Paused) state else state.copy(userTalk = state.userTalk + event.duration, silenceCount = 0, clarifying = false, answered = true)
 
         SpeakingEvent.CoachStarted -> if (state.status == SpeakingStatus.Listening) state.copy(status = SpeakingStatus.CoachSpeaking) else state
 
         is SpeakingEvent.CoachTalked ->
             state.copy(coachTalk = state.coachTalk + event.played, status = if (state.status == SpeakingStatus.CoachSpeaking) SpeakingStatus.Listening else state.status)
+                .let { if (it.againDue) it.copy(againSent = true) else it }
 
         is SpeakingEvent.Heard -> state.copy(transcript = state.transcript.append(Line(event.speaker, event.text)))
 
@@ -62,11 +64,11 @@ fun reduce(state: SpeakingState, event: SpeakingEvent): SpeakingState {
 
         SpeakingEvent.ExpressionSaved -> state.copy(savedCount = state.savedCount + 1)
 
-        is SpeakingEvent.TopicChanged -> state.copy(topic = event.topic, topicSwitches = state.topicSwitches + 1)
+        is SpeakingEvent.TopicChanged -> state.copy(topic = event.topic, topicSwitches = state.topicSwitches + 1, current = null, answered = false)
 
         is SpeakingEvent.Pause -> state.pause(event.at)
 
-        SpeakingEvent.Resume -> state.copy(status = SpeakingStatus.Listening, pausedAt = null, silenceCount = 0, reconnects = 0)
+        SpeakingEvent.Resume -> if (state.status != SpeakingStatus.Paused) state else state.copy(status = SpeakingStatus.Listening, pausedAt = null, silenceCount = 0, reconnects = 0)
 
         SpeakingEvent.Connected -> state.copy(reconnects = 0)
 
@@ -92,11 +94,19 @@ private fun SpeakingState.timePassed(event: SpeakingEvent.TimePassed): SpeakingS
 
 private fun SpeakingState.pause(at: Instant) = if (status == SpeakingStatus.Paused) this else copy(status = SpeakingStatus.Paused, pausedAt = at)
 
+/** 말로 복습 중에 마무리로 넘어가도 늦게 온 판정은 받아 FSRS 에 반영한다. 단계는 말로 복습일 때만 대화로 바꾼다. */
 private fun SpeakingState.judged(review: OralReview): SpeakingState {
-    if (phase != SpeakingPhase.OralReview || review.cardId !in reviewCardIds || oralReviews.any { it.cardId == review.cardId }) return this
+    if (review.cardId !in reviewCardIds || oralReviews.any { it.cardId == review.cardId }) return this
     val next = copy(oralReviews = oralReviews + review)
-    return if (next.oralReviews.size == reviewCardIds.size) next.copy(phase = SpeakingPhase.Talk) else next
+    return if (phase == SpeakingPhase.OralReview && next.oralReviews.size == reviewCardIds.size) next.copy(phase = SpeakingPhase.Talk) else next
 }
+
+/** 마무리에서 첫 질문을 2회째 묻고 사용자가 대답한 뒤 코치 턴이 끝났다. 2분 넘게 남았고 10분 연습이 아니면 3회째를 묻게 한다(F16.20). */
+private val SpeakingState.againDue: Boolean
+    get() {
+        val first = firstQuestion ?: return false
+        return phase == SpeakingPhase.Wrap && !againSent && answered && current == questions.indexOf(first) && first.times == 2 && remaining > AGAIN_ABOVE && maxTimes == 3
+    }
 
 private fun SpeakingState.tool(event: SpeakingEvent.ToolCalled): SpeakingState = when (event.name) {
     SpeakingTools.PAUSE -> pause(event.at)
@@ -107,7 +117,7 @@ private fun SpeakingState.tool(event: SpeakingEvent.ToolCalled): SpeakingState =
 
     SpeakingTools.CLARIFY -> copy(clarifying = true)
 
-    SpeakingTools.FLAG_BROKEN -> if (questions.isEmpty()) this else copy(questions = questions.dropLast(1) + questions.last().copy(broken = true))
+    SpeakingTools.FLAG_BROKEN -> current?.let { copy(questions = questions.toMutableList().apply { set(it, get(it).copy(broken = true)) }) } ?: this
 
     SpeakingTools.ASK_QUESTION -> asked(event.args.text("question")!!, questionKind(event.args)!!)
 
@@ -117,10 +127,16 @@ private fun SpeakingState.tool(event: SpeakingEvent.ToolCalled): SpeakingState =
 
 private fun SpeakingState.asked(text: String, kind: QuestionKind): SpeakingState {
     val index = questions.indexOfFirst { it.text == text && it.topic == topic }
-    if (index < 0) return copy(questions = questions + Asked(text, kind, topic))
+    if (index < 0) return copy(questions = questions + Asked(text, kind, topic), current = questions.size, answered = false)
     val same = questions[index]
     if (same.times >= maxTimes) return this
-    return copy(questions = questions.toMutableList().apply { set(index, same.copy(times = same.times + 1)) })
+    return copy(questions = questions.toMutableList().apply { set(index, same.copy(times = same.times + 1)) }, current = index, answered = false)
+}
+
+/** 같은 질문을 상한만큼 말했으면 코치에게 돌려줄 에러 글. 상한을 넘는 질문은 기록하지 않으므로 코치가 알게 한다(F16.20). */
+fun askError(state: SpeakingState, args: JsonObject): String? {
+    val same = state.questions.firstOrNull { it.text == args.text("question") && it.topic == state.topic } ?: return null
+    return if (same.times >= state.maxTimes) "asked ${same.times} times already" else null
 }
 
 /** 받아쓰기는 조각으로 온다. 같은 사람이 이어 말하면 한 줄로 잇는다. */
@@ -162,15 +178,22 @@ private fun questionKind(args: JsonObject) = QuestionKind.entries.firstOrNull { 
 
 /**
  * 바뀐 상태에서 코치에게 글로 알릴 일(design.md 12.1). 단계가 바뀌어도 지시를 다시 열지 않고 이 글로 알린다.
- * 대답 없음(F16.12), 말로 복습 끝(F16.8), 남은 5분과 2회째 뒤 3회째(F16.20), 남은 1분(F16.13)이다.
+ * 대답 없음과 일시정지(F16.12), 다시 시작(F16.14), 말로 복습 끝(F16.8), 남은 5분과 2회째 뒤 3회째(F16.20), 남은 1분(F16.13)이다.
+ * 끊김으로 멈추거나 그 뒤 다시 시작할 때는 연결이 없어 보내지 않는다.
  */
 fun cues(before: SpeakingState, after: SpeakingState): List<Cue> = buildList {
     if (after.finished) return@buildList
-    if (before.phase == SpeakingPhase.OralReview && after.phase == SpeakingPhase.Talk) add(Cue.Talk)
-    if (after.silenceCount > before.silenceCount) add(if (after.silenceCount >= SILENCE_PAUSE) Cue.Paused else Cue.Rephrase)
-    if (before.phase != SpeakingPhase.Wrap && after.phase == SpeakingPhase.Wrap) add(Cue.Wrap)
-    // ponytail: 2회째 뒤 사용자 말이 끝날 때마다 본다. 코치가 3회째를 묻기 전에 사용자가 또 말하면 한 번 더 알린다. 횟수 상한이 4회째를 막는다.
-    if (after.phase == SpeakingPhase.Wrap && after.userTalk > before.userTalk && after.firstQuestion?.times == 2 && after.remaining > AGAIN_ABOVE && after.maxTimes == 3) add(Cue.Again)
+    val paused = before.status != SpeakingStatus.Paused && after.status == SpeakingStatus.Paused
+    // 말로 복습이 남은 5분을 넘겨 곧바로 마무리가 돼도 대화는 시작하게 한다.
+    if (before.phase == SpeakingPhase.OralReview && after.phase != SpeakingPhase.OralReview) add(Cue.Talk)
+    if (after.silenceCount > before.silenceCount && !paused) add(Cue.Rephrase)
+    // 확인 질문 뒤 대답 없음은 횟수를 올리지 않고 한 번 다시 묻는다(F16.21). 확인 질문을 끄는 일은 사용자 말과 대답 없음뿐이고 사용자 말은 내가 말한 시간을 늘린다.
+    if (before.clarifying && !after.clarifying && after.userTalk == before.userTalk) add(Cue.Rephrase)
+    if (paused && !after.disconnected) add(Cue.Paused)
+    if (before.status == SpeakingStatus.Paused && after.status != SpeakingStatus.Paused && !before.disconnected) add(Cue.Resumed)
+    // 주제를 막 바꿔 첫 질문이 없으면 다시 물을 질문이 없다. 빈 질문을 보내지 않는다.
+    if (before.phase != SpeakingPhase.Wrap && after.phase == SpeakingPhase.Wrap && after.firstQuestion != null) add(Cue.Wrap)
+    if (!before.againSent && after.againSent) add(Cue.Again)
     if (before.remaining > CLOSING_AT && after.remaining <= CLOSING_AT) add(Cue.Closing)
 }
 

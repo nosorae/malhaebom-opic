@@ -43,7 +43,10 @@ The review cards are done. Start the conversation now: say the topic and ask the
 The user did not answer. Ask the same question again in a shorter, simpler way.
 
 # paused
-The user did not answer again. Say in one short sentence that they can say "start again" when they are ready, then stop talking.
+The practice is paused. Say in one short sentence that the user can say "start again" when they are ready. Then stay silent until the user says "start again" or "stop", and do not answer anything else.
+
+# resumed
+The practice is back from a pause. If the user did not just say "start again", ask once in one short sentence if they want to continue. Then go on with the last question.
 
 # wrap
 Five minutes are left. Ask the first question of this topic again: "{{question}}". Ask the user to use expressions from today's conversation once. Call ask_question with the same question.

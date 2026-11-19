@@ -37,6 +37,7 @@ class SpeakingStore(db: OpicDatabase) {
             topic = state.topic,
             topicSwitches = state.topicSwitches,
             questions = json.encodeToString(state.questions),
+            currentQuestion = state.current,
             transcript = json.encodeToString(state.transcript),
             savedCount = state.savedCount,
             resumeHandle = state.resumeHandle,
@@ -66,6 +67,7 @@ class SpeakingStore(db: OpicDatabase) {
             reconnects = it.reconnects,
             topicSwitches = it.topicSwitches,
             questions = json.decodeFromString(it.questions),
+            current = it.currentQuestion,
             transcript = json.decodeFromString(it.transcript),
             savedCount = it.savedCount,
             resumeHandle = it.resumeHandle,
@@ -100,7 +102,7 @@ class SpeakingStore(db: OpicDatabase) {
 
     /** 주제마다 마지막 연습 시각, 연습 수, 그 연습의 첫 질문(F16.5). */
     suspend fun topics(): List<TopicHistory> = dao.topics().map {
-        TopicHistory(it.topic, Instant.fromEpochMilliseconds(it.lastAt), it.count, firstQuestion(json.decodeFromString(it.questions), it.topic))
+        TopicHistory(it.topic, Instant.fromEpochMilliseconds(it.lastAt), it.count, json.decodeFromString<List<Asked>>(it.questions).firstOf(it.topic)?.text)
     }
 
     /** 모든 연습 기록의 다룬 질문. 무너진 기록이 많은 유형을 고를 때 쓴다(F16.6). */

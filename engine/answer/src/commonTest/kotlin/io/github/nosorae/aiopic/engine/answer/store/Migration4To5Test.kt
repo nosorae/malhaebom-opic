@@ -131,6 +131,7 @@ internal fun activeRow(id: String, phase: String = "Talk") = SpeakingActiveRow(
     topic = "cooking",
     topicSwitches = 1,
     questions = "[{\"text\":\"What do you cook?\"}]",
+    currentQuestion = 0,
     transcript = "[]",
     savedCount = 3,
     resumeHandle = "handle-1",

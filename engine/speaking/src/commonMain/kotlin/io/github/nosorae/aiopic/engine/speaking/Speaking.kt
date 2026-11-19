@@ -58,8 +58,8 @@ private fun Map<String, Int>.merge(other: Map<String, Int>) = (keys + other.keys
 private fun cost(tokens: Map<String, Int>, prices: Map<String, Double>) = tokens.entries.sumOf { (modality, count) -> count * (prices[modality] ?: 0.0) / 1_000_000 }
 
 /**
- * 진행 중인 연습(F16.16). [reduce] 가 일어난 일로 다음 상태를 낸다. [clarifying] 과 [finished] 는 표에 두지 않는다.
- * 앱이 죽었다 살아나면 확인 질문 하나를 잊고, 끝난 연습은 연습 기록으로 옮겨져 있다.
+ * 진행 중인 연습(F16.16). [reduce] 가 일어난 일로 다음 상태를 낸다. [clarifying], [answered], [againSent], [finished] 는 표에 두지 않는다.
+ * 앱이 죽었다 살아나면 확인 질문 하나와 3회째 판단을 잊고, 끝난 연습은 연습 기록으로 옮겨져 있다.
  */
 data class SpeakingState(
     val id: String,
@@ -80,6 +80,8 @@ data class SpeakingState(
     val reconnects: Int = 0,
     val topicSwitches: Int = 0,
     val questions: List<Asked> = emptyList(),
+    /** 마지막으로 물은 질문의 [questions] 위치. 무너짐 표시와 지금 질문을 말한 횟수가 이 항목을 본다(F16.6, F16.16). 주제를 바꾸면 null 이다. */
+    val current: Int? = null,
     val transcript: List<Line> = emptyList(),
     val savedCount: Int = 0,
     val resumeHandle: String? = null,
@@ -88,6 +90,10 @@ data class SpeakingState(
     val oralReviews: List<OralReview> = emptyList(),
     /** 코치가 확인 질문을 했다. 그 뒤의 대답 없음은 세지 않는다(F16.21). */
     val clarifying: Boolean = false,
+    /** 마지막 질문 뒤 사용자가 말했다. 3회째는 2회째 대답이 끝난 뒤 코치 턴 끝에서 판단한다(F16.20). */
+    val answered: Boolean = false,
+    /** 3회째를 묻게 하는 알림을 보냈다. 한 번만 보낸다(F16.20). */
+    val againSent: Boolean = false,
     val finished: Boolean = false,
 ) {
     val remaining: Duration get() = planned - talkTime
@@ -96,15 +102,18 @@ data class SpeakingState(
     val disconnected: Boolean get() = reconnects > MAX_RECONNECTS
 
     /** 지금 주제의 첫 질문. 마무리에서 다시 묻는다(F16.20). */
-    val firstQuestion: Asked? get() = questions.firstOrNull { it.topic == topic }
+    val firstQuestion: Asked? get() = questions.firstOf(topic)
 }
+
+/** 다룬 질문 가운데 [topic] 의 첫 질문. 마무리에서 다시 묻는 질문과 다음 연습의 지난번 첫 질문이 같은 계산을 쓴다(F16.5, F16.20). */
+internal fun List<Asked>.firstOf(topic: String): Asked? = firstOrNull { it.topic == topic }
 
 /** 연습에 일어난 일(design.md 12.1). 시각이 필요한 일은 시각을 싣고 와서 [reduce] 가 시계를 모른다. */
 sealed interface SpeakingEvent {
     /** 대화 시계가 [duration] 만큼 흘렀다. 일시정지 중에는 [now] 로 일시정지 10분만 본다. */
     data class TimePassed(val duration: Duration, val now: Instant) : SpeakingEvent
 
-    /** 기기 말소리 감지로 잰 사용자 말 한 마디가 끝났다(F16.24). */
+    /** 기기 말소리 감지로 잰 사용자 말 한 마디가 끝났다(F16.24). 일시정지 중의 말은 명령을 듣는 데만 쓰고 세지 않는다. */
     data class UserTalked(val duration: Duration) : SpeakingEvent
 
     data object CoachStarted : SpeakingEvent
@@ -129,7 +138,7 @@ sealed interface SpeakingEvent {
     /** 화면 버튼, 알림 버튼, 이어폰 버튼, 오디오 끼어듦(F16.10, F16.14). */
     data class Pause(val at: Instant) : SpeakingEvent
 
-    /** 다시 시작. 끊김으로 멈췄으면 다시 연결도 된다(F16.15). */
+    /** 다시 시작. 끊김으로 멈췄으면 다시 연결도 된다(F16.15). 일시정지가 아니면 아무것도 바꾸지 않는다. */
     data object Resume : SpeakingEvent
 
     data object Connected : SpeakingEvent
@@ -161,4 +170,4 @@ object SpeakingTools {
 }
 
 /** 실행 쪽이 코치에게 글로 알리는 일. 글은 시험 팩의 [SpeakingProfile.cues] 이고 `{{question}}` 에 지금 주제의 첫 질문이 들어간다. */
-enum class Cue { Talk, Rephrase, Paused, Wrap, Again, Closing }
+enum class Cue { Talk, Rephrase, Paused, Resumed, Wrap, Again, Closing }

@@ -46,10 +46,4 @@ class TopicPickTest {
         assertEquals(TopicPick("cooking", "First cooking?"), pickTopic(topics, history, now, exclude = setOf("music")))
     }
 
-    @Test
-    fun `F16_5 지난번 첫 질문은 그 연습의 다룬 질문 가운데 그 주제의 첫 항목이다`() {
-        val questions = listOf(Asked("Old?", QuestionKind.Description, "music"), Asked("Cook?", QuestionKind.Description, "cooking"), Asked("Why?", QuestionKind.Routine, "cooking"))
-
-        assertEquals("Cook?", firstQuestion(questions, "cooking"))
-    }
 }
