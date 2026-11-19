@@ -1658,9 +1658,10 @@
       ],
       "done": "./gradlew :engine:ai-gemini:allTests :engine:speaking:allTests :apps:opic:shared:allTests && ./gradlew :engine:ai-gemini:testAndroidHostTest --tests '*GeminiCardWriterTest*' && ./gradlew :engine:speaking:testAndroidHostTest --tests '*CardJobTest*'",
       "done_desc": "engine/ai-gemini 에 카드 만들기 요청과 출력 스키마. 종류 넷(고칠 표현, 몰랐던 표현, 정형 표현, 더 자연스럽게), 최소 수정 지시. 내가 한 말이 전문에 그대로 있는지(F5.4 와 같은 검사), 같은 카드가 이미 있는지 확인하고 실패하면 한 번 다시 요청한다. 고칠 표현 8장(반복된 유형과 뜻을 막은 것 먼저), 더 자연스럽게 2장으로 엔진이 자르고 넘긴 오류 수를 센다. 표현을 쓴 횟수를 전문에서 센다. 새 카드는 처음 봄 예, 다음 복습 시각 다음 날 새벽 4시. 작업 표(analysis_job)에 연습 정리 작업, 다시 시도 30초, 2분, 10분. 앱이 보이지 않을 때만 정리 끝 알림. GeminiCardWriterTest(F17.1, F17.2, F17.3): 저장한 응답으로 해석, 전문에 없는 카드 버림, 상한과 넘긴 오류 수, 다시 요청 1번. CardJobTest(F17.4, F17.5, F17.9): 가짜 작성기로 정리 상태 전환, 다시 시도 간격, 다음 복습 시각, 표현을 쓴 횟수, 앱을 켤 때 정리 못 한 연습 다시 예약. engine/speaking 을 고쳐서 speaking-engine 뒤에 둔다",
-      "status": "doing",
+      "status": "done",
       "issue": 289,
-      "start": "2026-11-19"
+      "start": "2026-11-19",
+      "end": "2026-11-19"
     },
     {
       "id": "expressions-tab",
