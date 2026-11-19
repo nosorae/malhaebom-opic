@@ -63,20 +63,12 @@ class RunningPractice(
 
     /** 화면이 보일 때만 부른다(F16.4). 연습이 돌고 있으면 아무것도 하지 않는다. */
     suspend fun start(id: String, setup: SpeakingSetup) {
-        begin { it.start(id, setup) }
-    }
-
-    /** 앱 프로세스가 끝난 뒤 저장된 진행 중인 연습을 이어 간다(F16.16). 이어 갈 연습이 없으면 false 다. */
-    suspend fun restore(setup: SpeakingSetup): Boolean = begin { it.open(setup) }
-
-    private suspend fun begin(open: suspend (SpeakingSession) -> Unit): Boolean {
-        if (current?.finished == false) return false
+        if (current?.finished == false) return
         val next = newSession(scope)
-        open(next)
-        if (next.state.value == null) return false
+        next.start(id, setup)
+        if (next.state.value == null) return
         interruptedPause = false
         session.value = next
-        return true
     }
 
     suspend fun command(command: PracticeCommand) {
@@ -92,7 +84,10 @@ class RunningPractice(
         )
     }
 
-    /** 끼어듦이 시작되면 멈추고, 끼어듦으로 멈췄던 연습만 끝날 때 다시 시작한다. 다시 시작하면 코치가 이어서 할지 한 번 묻는다(F16.14). */
+    /**
+     * 끼어듦이 시작되면 멈추고, 끼어듦으로 멈췄던 연습만 끝날 때 다시 시작한다. 다시 시작하면 코치가 이어서 할지 한 번 묻는다(F16.14).
+     * 이어폰이 빠지면 멈추되 사용자가 다시 시작할 때까지 둔다. 뒤이은 끼어듦이 끝나도 스피커로 다시 시작하지 않는다.
+     */
     internal suspend fun interrupted(interruption: AudioInterruption) {
         val running = session.value ?: return
         val paused = current?.status == SpeakingStatus.Paused
@@ -102,11 +97,30 @@ class RunningPractice(
                 running.send(SpeakingEvent.Pause(clock.now()))
             }
 
+            AudioInterruption.Unplugged -> {
+                interruptedPause = false
+                if (!paused) running.send(SpeakingEvent.Pause(clock.now()))
+            }
+
             AudioInterruption.Ended -> {
                 if (interruptedPause && paused) running.send(SpeakingEvent.Resume)
                 interruptedPause = false
             }
         }
+    }
+}
+
+/**
+ * 이어폰 버튼은 한 번 누르기만 받는다(F16.10). 앞 누르기 뒤 [window] 밀리초 안에 다시 눌리면 두 번 누르기의 일부라 버린다.
+ * 버린 누르기도 앞 누르기로 쳐서 세 번 누르기도 첫 누르기만 남는다.
+ */
+class SinglePress(private val window: Long) {
+    private var last: Long? = null
+
+    fun accept(at: Long): Boolean {
+        val single = last.let { it == null || at - it >= window }
+        last = at
+        return single
     }
 }
 

@@ -33,6 +33,10 @@ import platform.AVFAudio.setActive
 import platform.Foundation.NSNotification
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNumber
+import platform.darwin.DISPATCH_TIME_NOW
+import platform.darwin.dispatch_after
+import platform.darwin.dispatch_get_main_queue
+import platform.darwin.dispatch_time
 import kotlin.concurrent.Volatile
 import kotlin.math.abs
 
@@ -66,25 +70,20 @@ public class IosDuplexAudio : DuplexAudio {
             stop()
             throw IllegalStateException("마이크를 열 수 없다")
         }
-        // 전화가 끝나거나 이어폰이 바뀌면 엔진이 멈춰 있다. 입력 형식이 바뀌었을 수 있어 탭부터 다시 연다. 못 열면 흐름을 끝낸다.
-        // 엔진이 돌고 있으면 다시 열지 않는다. 다시 열면서 생긴 설정 바뀜 알림으로 또 여는 일을 막는다.
-        val reopen: (NSNotification?) -> Unit = { note ->
-            val ended = note?.name != AVAudioSessionInterruptionNotification || note.number(AVAudioSessionInterruptionTypeKey) == AVAudioSessionInterruptionTypeEnded
-            if (ended && !engine.running) {
-                stop()
-                if (!start(onPcm)) close(IllegalStateException("마이크를 다시 열 수 없다"))
-            }
-        }
-        val center = NSNotificationCenter.defaultCenter
-        val observers = listOf(
-            center.addObserverForName(AVAudioSessionInterruptionNotification, null, null, reopen),
-            center.addObserverForName(AVAudioEngineConfigurationChangeNotification, engine, null, reopen),
-        )
-        awaitClose {
-            observers.forEach(center::removeObserver)
+        // 전화가 끝나거나 이어폰이 바뀌면 엔진이 멈춰 있다. 입력 형식이 바뀌었을 수 있어 탭부터 다시 연다.
+        val reopener = Reopener(engine, running = { engine.running }) {
             stop()
-            // 멈춰 있던 다른 앱의 소리가 다시 나게 세션을 놓는다.
-            AVAudioSession.sharedInstance().setActive(false, withOptions = AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation, error = null)
+            start(onPcm)
+        }
+        awaitClose {
+            reopener.remove()
+            stop()
+            // 멈춰 있던 다른 앱의 소리가 다시 나게 세션을 놓는다. 앱이 끝에 내는 효과음이 다 나간 뒤에 놓는다.
+            // 재생 중에 놓으면 실패해 세션이 켜진 채 남고, 놓은 뒤 효과음을 틀면 세션이 다시 켜진다. 그 사이 마이크를 다시 열었으면 놓지 않는다.
+            // ponytail: 효과음 길이를 모르고 넉넉한 시간을 기다린다. 끝 효과음이 이보다 길어지면 같이 늘린다.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, RELEASE_DELAY_NS), dispatch_get_main_queue()) {
+                if (!open) AVAudioSession.sharedInstance().setActive(false, withOptions = AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation, error = null)
+            }
         }
     }.buffer(Channel.UNLIMITED)
 
@@ -99,7 +98,7 @@ public class IosDuplexAudio : DuplexAudio {
             },
             // 이어폰을 빼면 소리가 스피커로 나가기 전에 멈춘다. 다시 끼워도 저절로 다시 시작하지 않는다.
             center.addObserverForName(AVAudioSessionRouteChangeNotification, null, null) { note ->
-                if (note.number(AVAudioSessionRouteChangeReasonKey) == AVAudioSessionRouteChangeReasonOldDeviceUnavailable) trySend(AudioInterruption.Began)
+                if (note.number(AVAudioSessionRouteChangeReasonKey) == AVAudioSessionRouteChangeReasonOldDeviceUnavailable) trySend(AudioInterruption.Unplugged)
             },
         )
         awaitClose { observers.forEach(center::removeObserver) }
@@ -168,6 +167,41 @@ public class IosDuplexAudio : DuplexAudio {
         for (i in 0 until buffer.frameLength.toInt()) max = maxOf(max, abs(samples[i]))
         return max
     }
+
+    private companion object {
+        /** 연습을 끝낸 뒤 세션을 놓기까지 기다리는 시간. 끝 효과음(0.5초 남짓)보다 넉넉하다. */
+        const val RELEASE_DELAY_NS = 1_000_000_000L
+    }
+}
+
+/**
+ * 마이크가 멈췄을 때 다시 연다(F16.14). 끼어듦이 끝나거나 엔진 설정이 바뀌었는데 엔진이 멈춰 있으면 [reopen] 을 부른다.
+ * 끼어듦 동안에는 설정이 바뀌어도 열지 않는다. 전화가 오면 경로가 수화기로 바뀌어 그 알림이 오지만 세션을 켤 수 없다.
+ * 열지 못해도 흐름을 닫지 않는다. 엔진이 멈춘 채라 다음 끝이나 설정 바뀜 알림에서 또 연다.
+ * 엔진이 돌고 있으면 열지 않아 다시 열면서 생긴 설정 바뀜 알림으로 또 여는 일을 막는다.
+ */
+internal class Reopener(engine: Any?, private val running: () -> Boolean, private val reopen: () -> Unit) {
+    private val center = NSNotificationCenter.defaultCenter
+    private var interrupted = false
+    private val observers = listOf(
+        center.addObserverForName(AVAudioSessionInterruptionNotification, null, null) { note ->
+            when (note.number(AVAudioSessionInterruptionTypeKey)) {
+                AVAudioSessionInterruptionTypeBegan -> interrupted = true
+
+                AVAudioSessionInterruptionTypeEnded -> {
+                    interrupted = false
+                    retry()
+                }
+            }
+        },
+        center.addObserverForName(AVAudioEngineConfigurationChangeNotification, engine, null) { if (!interrupted) retry() },
+    )
+
+    private fun retry() {
+        if (!running()) reopen()
+    }
+
+    fun remove() = observers.forEach(center::removeObserver)
 }
 
 private fun NSNotification?.number(key: String?): ULong? = (this?.userInfo?.get(key) as? NSNumber)?.unsignedLongLongValue

@@ -21,6 +21,7 @@ import android.view.ViewConfiguration
 import io.github.nosorae.aiopic.apps.opic.shared.Chime
 import io.github.nosorae.aiopic.apps.opic.shared.PracticeCommand
 import io.github.nosorae.aiopic.apps.opic.shared.RunningPractice
+import io.github.nosorae.aiopic.apps.opic.shared.SinglePress
 import io.github.nosorae.aiopic.apps.opic.shared.notice
 import io.github.nosorae.aiopic.engine.speaking.SpeakingState
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStatus
@@ -46,12 +47,19 @@ class PracticeService : Service() {
         super.onCreate()
         getSystemService(NotificationManager::class.java).createNotificationChannel(NotificationChannel(CHANNEL, "말하기 연습", NotificationManager.IMPORTANCE_LOW))
         // 이어폰 한 번 누르기만 쓴다(F16.10). 기본 처리(두 번 누르면 다음 곡)를 막으려고 버튼 키를 모두 여기서 받는다.
+        // 재생과 일시정지 키는 iOS 처럼 다시 시작과 일시정지다. 번갈아 키는 두 번 누르기와 길게 누르기를 버린다.
+        val singlePress = SinglePress(ViewConfiguration.getDoubleTapTimeout().toLong())
         media = MediaSession(this, "practice").apply {
             setCallback(
                 object : MediaSession.Callback() {
                     override fun onMediaButtonEvent(intent: Intent): Boolean {
                         val key = mediaKey(intent)?.takeIf { it.keyCode in BUTTON_KEYS } ?: return super.onMediaButtonEvent(intent)
-                        if (key.action == KeyEvent.ACTION_UP && key.eventTime - key.downTime < ViewConfiguration.getLongPressTimeout()) send(PracticeCommand.Toggle)
+                        if (key.action != KeyEvent.ACTION_UP || key.eventTime - key.downTime >= ViewConfiguration.getLongPressTimeout()) return true
+                        when (key.keyCode) {
+                            KeyEvent.KEYCODE_MEDIA_PLAY -> send(PracticeCommand.Resume)
+                            KeyEvent.KEYCODE_MEDIA_PAUSE -> send(PracticeCommand.Pause)
+                            else -> if (singlePress.accept(key.downTime)) send(PracticeCommand.Toggle)
+                        }
                         return true
                     }
                 },

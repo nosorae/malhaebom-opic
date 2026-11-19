@@ -43,10 +43,10 @@ public interface DuplexAudio {
 }
 
 /**
- * 전화, 다른 앱이 소리를 가져감, 이어폰 빠짐이 [Began] 이고 돌려받음이 [Ended] 다.
- * 이어폰이 빠지거나 다른 앱이 소리를 아주 가져가면 [Ended] 가 오지 않는다.
+ * 전화나 다른 앱이 소리를 가져감이 [Began] 이고 돌려받음이 [Ended] 다. 다른 앱이 소리를 아주 가져가면 [Ended] 가 오지 않는다.
+ * 이어폰 빠짐은 [Unplugged] 다. 끝이 없어 다시 끼워도 저절로 다시 시작하지 않는다.
  */
-public enum class AudioInterruption { Began, Ended }
+public enum class AudioInterruption { Began, Ended, Unplugged }
 
 /** 마이크 조각 하나. [speech] 가 false 면 생각하는 동안의 침묵이라 보내지 않는다. */
 public class MicChunk(public val pcm: ByteArray) {

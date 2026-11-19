@@ -88,6 +88,18 @@ class RunningPracticeTest {
     }
 
     @Test
+    fun `F16_14 이어폰을 빼서 멈춘 연습은 뒤에 전화가 왔다 끊겨도 멈춘 채로 둔다`() = runTest {
+        val practice = practice()
+        practice.start("p1", setup)
+
+        practice.interrupted(AudioInterruption.Unplugged)
+        practice.interrupted(AudioInterruption.Began)
+        practice.interrupted(AudioInterruption.Ended)
+
+        assertEquals(SpeakingStatus.Paused, practice.current?.status)
+    }
+
+    @Test
     fun `F16_11 F17_4 알림 버튼으로 끝내면 연습 정리 작업이 바로 들어간다`() = runTest {
         val practice = practice()
         practice.start("p1", setup)
