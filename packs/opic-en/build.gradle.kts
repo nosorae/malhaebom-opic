@@ -16,6 +16,7 @@ kotlin {
             api(project(":engine:session"))
             api(project(":engine:answer"))
             api(project(":engine:coach"))
+            api(project(":engine:speaking"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.components.resources)
         }

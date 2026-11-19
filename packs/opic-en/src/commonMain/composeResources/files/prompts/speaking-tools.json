@@ -1,0 +1,49 @@
+[
+  { "name": "pause", "description": "The user said wait or pause. Pause the practice." },
+  { "name": "resume", "description": "The user said to start again. Resume the practice." },
+  { "name": "hint", "description": "The user asked for a hint. Give one line of hint after calling this." },
+  { "name": "what_in_english", "description": "The user asked how to say something in English." },
+  { "name": "next_question", "description": "The user asked for the next question on the same topic." },
+  { "name": "switch_topic", "description": "The user asked for another topic. The response has the new topic and, if any, the question to ask first." },
+  { "name": "stop", "description": "The user wants to end the practice now." },
+  {
+    "name": "ask_question",
+    "description": "Record a main question you asked, or the same question asked again.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "question": { "type": "string", "description": "The exact question you asked." },
+        "kind": { "type": "string", "enum": ["description", "past_experience", "future_plan", "comparison", "routine", "unexpected"], "description": "The question kind." }
+      },
+      "required": ["question", "kind"]
+    }
+  },
+  { "name": "clarify", "description": "You asked what the user meant because you did not understand or it could mean two things." },
+  { "name": "flag_broken", "description": "The user's paragraph fell apart or their tenses broke down on the current question." },
+  {
+    "name": "judge_card",
+    "description": "Judge the user's answer to a review card.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "card_id": { "type": "integer", "description": "The card id from the review card list." },
+        "result": { "type": "string", "enum": ["correct", "wrong", "unknown"], "description": "correct, wrong, or unknown if the user said they do not know." }
+      },
+      "required": ["card_id", "result"]
+    }
+  },
+  {
+    "name": "save_expression",
+    "description": "Save an English expression the user did not know as a card.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "said": { "type": "string", "description": "The user's sentence exactly as they said it, Korean included." },
+        "better": { "type": "string", "description": "The short English expression you gave." },
+        "meaning": { "type": "string", "description": "A short Korean meaning of the expression." },
+        "context": { "type": "string", "description": "One short Korean line about the situation." }
+      },
+      "required": ["said", "better", "meaning", "context"]
+    }
+  }
+]
