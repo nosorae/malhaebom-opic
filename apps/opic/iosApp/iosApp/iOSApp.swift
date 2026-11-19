@@ -16,6 +16,10 @@ struct iOSApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(shell: shell)
+                // 복습 링크(malhaebom://review)로 열면 복습 화면을 연다(F19.5).
+                .onOpenURL { url in
+                    if let route = ReviewReminderKt.routeFromLink(link: url.absoluteString) { RouteOpener.shared.pending = route }
+                }
         }
     }
 }
@@ -44,14 +48,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         AppDelegate.shell?.whenUploadsDelivered(done: completionHandler)
     }
 
+    // 분석 끝 알림은 리포트 경로를, 복습 알림은 복습 링크를 싣는다(F19.5).
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        guard let json = response.notification.request.content.userInfo[IosShellKt.ROUTE_KEY] as? String,
-              let route = AnalysisNoticeKt.routeFromJson(json: json) else { return }
+        let info = response.notification.request.content.userInfo
+        guard let route = (info[IosShellKt.ROUTE_KEY] as? String).flatMap({ AnalysisNoticeKt.routeFromJson(json: $0) })
+            ?? (info[IosShellKt.LINK_KEY] as? String).flatMap({ ReviewReminderKt.routeFromLink(link: $0) }) else { return }
         await MainActor.run { RouteOpener.shared.pending = route }
     }
 }
 
-/** 알림을 눌러 열 리포트. 앱이 꺼져 있었으면 탭이 뜰 때까지 남겨 두었다가 연다. */
+/** 알림이나 링크로 열 화면. 앱이 꺼져 있었으면 탭이 뜰 때까지 남겨 두었다가 연다. */
 @Observable
 final class RouteOpener {
     static let shared = RouteOpener()

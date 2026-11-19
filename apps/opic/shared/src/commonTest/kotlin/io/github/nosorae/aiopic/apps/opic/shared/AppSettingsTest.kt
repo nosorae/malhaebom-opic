@@ -8,8 +8,11 @@ import io.github.nosorae.aiopic.engine.review.ReviewAmount
 import io.github.nosorae.aiopic.libs.haptics.api.HapticEffect
 import io.github.nosorae.aiopic.libs.haptics.api.Haptics
 import io.github.nosorae.aiopic.ui.featureexpressions.ReviewBatch
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.EndWait
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -181,5 +184,25 @@ class AppSettingsTest {
         val settings = reopen()
 
         assertEquals(false to ReviewAmount.Normal, settings.silent() to settings.reviewAmount())
+    }
+
+    @Test
+    fun `F19_1 말하기 연습과 복습 설정은 앱을 다시 켜도 남고 복습 양과 기본 연습 시간이 그 값을 따른다`() = runTest {
+        val prefs = SpeakingPrefs(minutes = 30, endWait = EndWait.Short, bargeIn = false, grammarNudge = true, oralReview = false, amount = ReviewAmount.Less, reminderOn = true, reminderAt = LocalTime(7, 30))
+        reopen().saveSpeakingPrefs(prefs)
+
+        val reopened = reopen()
+
+        assertEquals(prefs, reopened.speakingPrefs())
+        assertEquals(ReviewAmount.Less to 30, reopened.reviewAmount() to reopened.practiceMinutes)
+    }
+
+    @Test
+    fun `F19_2 알림을 켜면 구독하는 쪽이 바로 새 값을 본다`() = runTest {
+        val settings = reopen()
+
+        settings.saveSpeakingPrefs(SpeakingPrefs(reminderOn = true))
+
+        assertTrue(settings.speaking.value.reminderOn)
     }
 }

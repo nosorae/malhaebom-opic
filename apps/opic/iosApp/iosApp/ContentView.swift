@@ -107,11 +107,12 @@ struct Tabs: View {
             }
         }
         .onChange(of: busy) { _, busy in setTabBarEnabled(!busy) }
-        // 분석 끝 알림을 눌렀으면 모의고사 탭 위에 그 리포트를 연다(#229).
+        // 분석 끝 알림을 눌렀으면 모의고사 탭 위에 그 리포트를, 복습 알림이나 링크면 표현 탭 위에 복습을 연다(#229, F19.5).
         .onChange(of: RouteOpener.shared.pending, initial: true) { _, route in
             guard let route else { return }
-            tab = AppRoute.ExamTab.shared
-            paths[AppRoute.ExamTab.shared] = [route]
+            let home = route == AppRoute.Review.shared ? AppRoute.ExpressionsTab.shared : AppRoute.ExamTab.shared
+            tab = home
+            paths[home] = [route]
             RouteOpener.shared.pending = nil
         }
     }

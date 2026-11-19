@@ -16,16 +16,20 @@ import io.github.nosorae.aiopic.ui.featuresettings.haptics.HapticsStore
 import io.github.nosorae.aiopic.ui.featuresettings.model.ModelSelectionStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.AnswerTimerStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionFileStore
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.EndWait
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefsStore
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.datetime.LocalTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 실시간 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급, 복습의 소리 없이와 이번 묶음)을 플랫폼 설정 저장소에 둔다.
+ * 설정 값(화면 모드, 고른 분석 모델, 음성 전송 동의, 실시간 음성 전송 동의, 답변 타이머, 불러온 문항 파일, 진동, 서베이 답, 질문 음성, 코치 목표 등급, 복습의 소리 없이와 이번 묶음, 말하기 연습과 복습 설정)을 플랫폼 설정 저장소에 둔다.
  * 플랫폼은 문자열 읽기와 쓰기 두 함수만 넘긴다(Android SharedPreferences, iOS NSUserDefaults). 키가 아니라서 암호화하지 않는다.
  */
 class AppSettings(private val read: (String) -> String?, private val write: (String, String) -> Unit) :
@@ -38,7 +42,8 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
     SurveyStore,
     TargetGradeStore,
     LiveConsent,
-    ReviewSettings {
+    ReviewSettings,
+    SpeakingPrefsStore {
     private val mode = MutableStateFlow(ThemeMode.entries.firstOrNull { it.name == read(THEME_MODE) } ?: ThemeMode.System)
     override val themeMode: StateFlow<ThemeMode> = mode.asStateFlow()
 
@@ -119,8 +124,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
 
     override suspend fun setSilent(on: Boolean) = write(REVIEW_SILENT, on.toString())
 
-    // 복습 양을 고르는 설정 화면은 아직 없다(review-notify 노드). 고른 적이 없으면 보통이다.
-    override suspend fun reviewAmount(): ReviewAmount = ReviewAmount.entries.firstOrNull { it.name == read(REVIEW_AMOUNT) } ?: ReviewAmount.Normal
+    override suspend fun reviewAmount(): ReviewAmount = speaking.value.amount
 
     /** 이번 묶음은 JSON 한 줄로 둔다(F18.8). 읽지 못하는 값은 묶음이 없는 것으로 보고 새 묶음을 연다. */
     override suspend fun reviewBatch(): ReviewBatch? = read(REVIEW_BATCH)?.let { saved ->
@@ -129,8 +133,41 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
 
     override suspend fun saveReviewBatch(batch: ReviewBatch) = write(REVIEW_BATCH, Json.encodeToString(SavedReviewBatch(batch.day, batch.cardIds, batch.results)))
 
-    /** 말하기 연습의 기본 연습 시간(분). 고르는 설정 화면(F19.1)이 생기기 전까지 처음 값 20분이다(F16.2). */
-    val practiceMinutes: Int get() = read(PRACTICE_MINUTES)?.toIntOrNull() ?: 20
+    /** 말하기 연습의 기본 연습 시간(분). 처음 20분이다(F16.2). */
+    val practiceMinutes: Int get() = speaking.value.minutes
+
+    // 값마다 키 하나를 둔다. 읽지 못하는 값은 처음 값으로 본다.
+    private val speakingState = MutableStateFlow(
+        SpeakingPrefs().let { default ->
+            SpeakingPrefs(
+                minutes = read(PRACTICE_MINUTES)?.toIntOrNull() ?: default.minutes,
+                endWait = EndWait.entries.firstOrNull { it.name == read(END_WAIT) } ?: default.endWait,
+                bargeIn = read(BARGE_IN)?.toBooleanStrictOrNull() ?: default.bargeIn,
+                grammarNudge = read(GRAMMAR_NUDGE)?.toBooleanStrictOrNull() ?: default.grammarNudge,
+                oralReview = read(ORAL_REVIEW)?.toBooleanStrictOrNull() ?: default.oralReview,
+                amount = ReviewAmount.entries.firstOrNull { it.name == read(REVIEW_AMOUNT) } ?: default.amount,
+                reminderOn = read(REMINDER_ON)?.toBooleanStrictOrNull() ?: default.reminderOn,
+                reminderAt = read(REMINDER_AT)?.let { runCatching { LocalTime.parse(it) }.getOrNull() } ?: default.reminderAt,
+            )
+        },
+    )
+
+    /** 말하기 연습과 복습 설정(F19.1). 복습 알림은 바뀔 때마다 다시 건다. */
+    val speaking: StateFlow<SpeakingPrefs> = speakingState.asStateFlow()
+
+    override suspend fun speakingPrefs(): SpeakingPrefs = speaking.value
+
+    override suspend fun saveSpeakingPrefs(prefs: SpeakingPrefs) {
+        write(PRACTICE_MINUTES, prefs.minutes.toString())
+        write(END_WAIT, prefs.endWait.name)
+        write(BARGE_IN, prefs.bargeIn.toString())
+        write(GRAMMAR_NUDGE, prefs.grammarNudge.toString())
+        write(ORAL_REVIEW, prefs.oralReview.toString())
+        write(REVIEW_AMOUNT, prefs.amount.name)
+        write(REMINDER_ON, prefs.reminderOn.toString())
+        write(REMINDER_AT, prefs.reminderAt.toString())
+        speakingState.value = prefs
+    }
 
     /** 첫 분석을 시작할 때 알림 권한을 한 번 물었는가(#229). 거절해도 다시 묻지 않는다. */
     var notificationsAsked: Boolean
@@ -159,6 +196,12 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         private const val REVIEW_AMOUNT = "review_amount"
         private const val REVIEW_BATCH = "review_batch"
         private const val PRACTICE_MINUTES = "practice_minutes"
+        private const val END_WAIT = "speaking_end_wait"
+        private const val BARGE_IN = "speaking_barge_in"
+        private const val GRAMMAR_NUDGE = "speaking_grammar_nudge"
+        private const val ORAL_REVIEW = "speaking_oral_review"
+        private const val REMINDER_ON = "review_reminder_on"
+        private const val REMINDER_AT = "review_reminder_at"
 
         /** 앱 틀 테스트처럼 기기에 남길 필요가 없을 때 쓴다. */
         fun inMemory(): AppSettings {

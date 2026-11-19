@@ -23,15 +23,20 @@ import io.github.nosorae.aiopic.ui.design.LocalHaptics
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionPortDescription
 import platform.AVFAudio.currentRoute
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSOperationQueue
 import platform.Foundation.NSUserDefaults
 import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationState
+import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
@@ -41,7 +46,9 @@ import platform.UserNotifications.UNAuthorizationOptionSound
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
 import platform.UserNotifications.UNNotificationSound
+import platform.UserNotifications.UNTimeIntervalNotificationTrigger
 import platform.UserNotifications.UNUserNotificationCenter
+import kotlin.time.Instant
 
 /**
  * iOS 앱 틀(`ContentView.swift` 의 SwiftUI TabView, NavigationStack)이 목적지마다 Compose 화면을 하나씩 얻어 간다.
@@ -98,6 +105,20 @@ class IosShell {
         // 앱이 보내는 중에 죽었으면 진행 중으로 남은 작업을 대기로 돌리고 대기열을 깨운다.
         MainScope().launch { analysisJobs.recover() }
         if (UiTestLaunch.storeDemo) MainScope().launch { opicStore.seedStoreDemo(OpicEn.questionPool()) }
+    }
+
+    /** 앱이 앞으로 올 때마다 하나씩 오른다. 복습 알림을 다시 계산하는 때다(F19.4). */
+    private val foreground = MutableStateFlow(0)
+
+    init {
+        NSNotificationCenter.defaultCenter.addObserverForName(UIApplicationWillEnterForegroundNotification, null, NSOperationQueue.mainQueue) { _ -> foreground.value++ }
+        // 복습을 끝내거나(카드와 복습한 날이 바뀜) 연습 정리가 끝나거나(카드가 늘어남) 설정을 바꾸거나 앱이 앞으로 오면 다시 건다(F19.4).
+        MainScope().launch {
+            combine(graph.cardStore.cards(), graph.cardStore.reviewDays(), graph.settings.speaking, foreground) { cards, days, prefs, _ ->
+                val now = graph.clock.now()
+                if (prefs.reminderOn) upcomingReviewReminders(cards, days, now, prefs.reminderAt, graph.timeZone, REMINDER_DAYS) else emptyList()
+            }.collectLatest { scheduleReviewReminders(it, graph.clock.now()) }
+        }
     }
 
     private val haptics = graph.settings.haptics(iosHaptics())
@@ -184,6 +205,32 @@ private suspend fun postOutcome(outcome: AnalysisOutcome) {
     }
     // ponytail: 끝 알림은 하나만 둔다. 새 결과가 앞 알림을 바꾼다. 권한이 없으면 시스템이 띄우지 않는다.
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(UNNotificationRequest.requestWithIdentifier("analysis-done", content, null), null)
+}
+
+/** 복습 알림 링크를 담는 키. 앱 틀(Swift)이 알림을 누르면 이 값을 [routeFromLink] 로 읽어 복습 화면을 연다(F19.5). */
+const val LINK_KEY = "link"
+
+/**
+ * iOS 는 알림을 보낼 때 앱 코드를 돌릴 수 없어서 앞으로 며칠 치 복습 알림을 미리 건다(F19.4). 앱을 보고 있으면 시스템이 띄우지 않는다(F19.3).
+ * ponytail: 7일 치만 건다. 일주일 넘게 앱을 열지 않으면 알림이 멈추고, 앱을 열면 다시 건다.
+ */
+private const val REMINDER_DAYS = 7
+
+private val reminderIds = (0 until REMINDER_DAYS).map { "review-reminder-$it" }
+
+private suspend fun scheduleReviewReminders(reminders: List<ReviewReminder>, now: Instant) {
+    val center = UNUserNotificationCenter.currentNotificationCenter()
+    center.removePendingNotificationRequestsWithIdentifiers(reminderIds)
+    reminders.forEachIndexed { index, reminder ->
+        val content = UNMutableNotificationContent().apply {
+            setTitle(reminder.title())
+            setBody(reminder.text())
+            setSound(UNNotificationSound.defaultSound)
+            setUserInfo(mapOf<Any?, Any?>(LINK_KEY to REVIEW_LINK))
+        }
+        val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval((reminder.at - now).inWholeSeconds.coerceAtLeast(1).toDouble(), repeats = false)
+        center.addNotificationRequest(UNNotificationRequest.requestWithIdentifier(reminderIds[index], content, trigger), null)
+    }
 }
 
 /** 앱 Swift 의 흔들기(`UIWindow.motionEnded`)가 부른다. 릴리스 빌드는 빈 모듈이라 아무 일도 안 한다. */
