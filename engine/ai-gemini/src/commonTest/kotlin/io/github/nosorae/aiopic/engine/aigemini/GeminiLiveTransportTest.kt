@@ -205,7 +205,7 @@ class GeminiLiveTransportTest {
     private fun usage(input: Int, output: Int) = TokenUsage(mapOf(Modality.Audio to input), mapOf(Modality.Audio to output))
 }
 
-private class FakeSocket : LiveSocket {
+internal class FakeSocket : LiveSocket {
     val sent = mutableListOf<String>()
     private val frames = Channel<String>(Channel.UNLIMITED)
     override var closeReason: LiveEvent.Disconnected? = null
