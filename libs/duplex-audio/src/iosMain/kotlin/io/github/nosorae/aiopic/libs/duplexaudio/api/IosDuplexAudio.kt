@@ -13,14 +13,26 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import platform.AVFAudio.AVAudioEngine
+import platform.AVFAudio.AVAudioEngineConfigurationChangeNotification
 import platform.AVFAudio.AVAudioFormat
 import platform.AVFAudio.AVAudioPCMBuffer
 import platform.AVFAudio.AVAudioPlayerNode
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryOptionDefaultToSpeaker
 import platform.AVFAudio.AVAudioSessionCategoryPlayAndRecord
+import platform.AVFAudio.AVAudioSessionInterruptionNotification
+import platform.AVFAudio.AVAudioSessionInterruptionTypeBegan
+import platform.AVFAudio.AVAudioSessionInterruptionTypeEnded
+import platform.AVFAudio.AVAudioSessionInterruptionTypeKey
 import platform.AVFAudio.AVAudioSessionModeVoiceChat
+import platform.AVFAudio.AVAudioSessionRouteChangeNotification
+import platform.AVFAudio.AVAudioSessionRouteChangeReasonKey
+import platform.AVFAudio.AVAudioSessionRouteChangeReasonOldDeviceUnavailable
+import platform.AVFAudio.AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation
 import platform.AVFAudio.setActive
+import platform.Foundation.NSNotification
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSNumber
 import kotlin.concurrent.Volatile
 import kotlin.math.abs
 
@@ -40,23 +52,58 @@ public class IosDuplexAudio : DuplexAudio {
     override val micLevel: StateFlow<Float> = mutableMicLevel
     override val playbackLevel: StateFlow<Float> = mutablePlaybackLevel
 
-    // ponytail: 전화 같은 세션 끼어듦은 다루지 않는다. 라이브 코치 화면이 생기면 recorder 처럼 끼어듦 알림으로 다시 연다.
     override val mic: Flow<MicChunk> = callbackFlow {
         // 탭 버퍼 길이는 하드웨어가 정해서 100ms 를 넘기도 한다. 정해진 조각 길이로 다시 자른다.
         val chunker = PcmChunker(MIC_CHUNK_BYTES)
-        val started = start { pcm ->
+        val onPcm: (ByteArray) -> Unit = { pcm ->
             chunker.push(pcm).forEach {
                 val chunk = MicChunk(it)
                 mutableMicLevel.value = chunk.level
                 trySend(chunk)
             }
         }
-        if (!started) {
+        if (!start(onPcm)) {
             stop()
             throw IllegalStateException("마이크를 열 수 없다")
         }
-        awaitClose(::stop)
+        // 전화가 끝나거나 이어폰이 바뀌면 엔진이 멈춰 있다. 입력 형식이 바뀌었을 수 있어 탭부터 다시 연다. 못 열면 흐름을 끝낸다.
+        // 엔진이 돌고 있으면 다시 열지 않는다. 다시 열면서 생긴 설정 바뀜 알림으로 또 여는 일을 막는다.
+        val reopen: (NSNotification?) -> Unit = { note ->
+            val ended = note?.name != AVAudioSessionInterruptionNotification || note.number(AVAudioSessionInterruptionTypeKey) == AVAudioSessionInterruptionTypeEnded
+            if (ended && !engine.running) {
+                stop()
+                if (!start(onPcm)) close(IllegalStateException("마이크를 다시 열 수 없다"))
+            }
+        }
+        val center = NSNotificationCenter.defaultCenter
+        val observers = listOf(
+            center.addObserverForName(AVAudioSessionInterruptionNotification, null, null, reopen),
+            center.addObserverForName(AVAudioEngineConfigurationChangeNotification, engine, null, reopen),
+        )
+        awaitClose {
+            observers.forEach(center::removeObserver)
+            stop()
+            // 멈춰 있던 다른 앱의 소리가 다시 나게 세션을 놓는다.
+            AVAudioSession.sharedInstance().setActive(false, withOptions = AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation, error = null)
+        }
     }.buffer(Channel.UNLIMITED)
+
+    override val interruptions: Flow<AudioInterruption> = callbackFlow {
+        val center = NSNotificationCenter.defaultCenter
+        val observers = listOf(
+            center.addObserverForName(AVAudioSessionInterruptionNotification, null, null) { note ->
+                when (note.number(AVAudioSessionInterruptionTypeKey)) {
+                    AVAudioSessionInterruptionTypeBegan -> trySend(AudioInterruption.Began)
+                    AVAudioSessionInterruptionTypeEnded -> trySend(AudioInterruption.Ended)
+                }
+            },
+            // 이어폰을 빼면 소리가 스피커로 나가기 전에 멈춘다. 다시 끼워도 저절로 다시 시작하지 않는다.
+            center.addObserverForName(AVAudioSessionRouteChangeNotification, null, null) { note ->
+                if (note.number(AVAudioSessionRouteChangeReasonKey) == AVAudioSessionRouteChangeReasonOldDeviceUnavailable) trySend(AudioInterruption.Began)
+            },
+        )
+        awaitClose { observers.forEach(center::removeObserver) }
+    }
 
     private fun start(onPcm: (ByteArray) -> Unit): Boolean {
         val session = AVAudioSession.sharedInstance()
@@ -122,3 +169,5 @@ public class IosDuplexAudio : DuplexAudio {
         return max
     }
 }
+
+private fun NSNotification?.number(key: String?): ULong? = (this?.userInfo?.get(key) as? NSNumber)?.unsignedLongLongValue
