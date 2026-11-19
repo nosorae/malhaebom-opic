@@ -145,7 +145,7 @@ class AnalysisNoticeTest {
             notify = { notified += it },
         )
 
-        assertEquals(listOf(AnalysisOutcome(AppRoute.PracticeTab, failed = false, cards = 3)), notified)
+        assertEquals(listOf(AnalysisOutcome(null, failed = false, cards = 3)), notified)
     }
 
     @Test
