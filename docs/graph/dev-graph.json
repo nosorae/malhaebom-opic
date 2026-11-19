@@ -1502,8 +1502,10 @@
       ],
       "done": "./gradlew :libs:live-gemini:allTests :engine:coach:allTests && ./gradlew :libs:live-gemini:testAndroidHostTest --tests '*LiveSetupTest*'",
       "done_desc": "LiveConfig 에 침묵 판정 시간, 말 시작 감도, 말 끝 감도, 끼어들기 여부를 더하고 setup 의 realtimeInputConfig 로 보낸다(design.md 12.5). 값을 주지 않으면 지금과 같은 setup 이 나간다. LiveSetupTest(F16.17, F20.5): 값을 주면 setup JSON 에 automaticActivityDetection 과 activityHandling 이 들어가는지, 주지 않으면 지금 setup 과 글자 하나 다르지 않은지. 라이브 코치 기존 테스트가 그대로 통과한다",
-      "status": "todo",
-      "issue": 284
+      "status": "done",
+      "issue": 284,
+      "start": "2026-11-19",
+      "end": "2026-11-19"
     },
     {
       "id": "review-fsrs",

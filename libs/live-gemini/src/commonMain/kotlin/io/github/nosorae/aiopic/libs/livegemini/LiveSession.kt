@@ -28,9 +28,26 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import kotlin.io.encoding.Base64
+import kotlin.time.Duration
 
-/** 연결 설정. [tools] 는 functionDeclarations 의 항목 하나하나를 그대로 넣는다. */
-public data class LiveConfig(val model: String, val systemInstruction: String, val voice: String, val tools: List<JsonObject> = emptyList())
+/**
+ * 연결 설정. [tools] 는 functionDeclarations 의 항목 하나하나를 그대로 넣는다.
+ * [silenceDuration] 은 말 끝으로 보는 침묵 길이, [startSensitivity] 와 [endSensitivity] 는 말 시작과 끝 감도다. null 이면 서버 기본값을 쓴다.
+ * [interruptible] 이 false 면 코치가 말하는 중에 사용자가 말해도 코치를 끊지 않는다(F16.17, F20.5).
+ */
+public data class LiveConfig(
+    val model: String,
+    val systemInstruction: String,
+    val voice: String,
+    val tools: List<JsonObject> = emptyList(),
+    val silenceDuration: Duration? = null,
+    val startSensitivity: LiveSensitivity? = null,
+    val endSensitivity: LiveSensitivity? = null,
+    val interruptible: Boolean = true,
+)
+
+/** 서버 음성 감지의 감도. 스피커처럼 주변 소리가 섞이면 LOW 로 둔다. */
+public enum class LiveSensitivity { HIGH, LOW }
 
 /**
  * Gemini Live 연결 하나. [connect] 의 흐름을 모으는 동안 연결을 유지하고, GoAway 가 오면 이어 붙이기 핸들로 새 연결을 연다.
@@ -135,7 +152,7 @@ public class LiveSession(private val open: suspend (url: String) -> LiveSocket =
         return false
     }
 
-    private fun setup(config: LiveConfig, handle: String?) = buildJsonObject {
+    internal fun setup(config: LiveConfig, handle: String?) = buildJsonObject {
         putJsonObject("setup") {
             put("model", "models/${config.model}")
             putJsonObject("generationConfig") {
@@ -149,6 +166,18 @@ public class LiveSession(private val open: suspend (url: String) -> LiveSocket =
             putJsonObject("contextWindowCompression") {
                 put("triggerTokens", COMPRESSION_TRIGGER_TOKENS)
                 putJsonObject("slidingWindow") { put("targetTokens", COMPRESSION_TARGET_TOKENS) }
+            }
+            val detection = buildJsonObject {
+                config.startSensitivity?.let { put("startOfSpeechSensitivity", "START_SENSITIVITY_${it.name}") }
+                config.endSensitivity?.let { put("endOfSpeechSensitivity", "END_SENSITIVITY_${it.name}") }
+                config.silenceDuration?.let { put("silenceDurationMs", it.inWholeMilliseconds) }
+            }
+            // 값을 하나도 주지 않으면 realtimeInputConfig 를 빼서 라이브 코치와 같은 setup 을 보낸다.
+            if (detection.isNotEmpty() || !config.interruptible) {
+                putJsonObject("realtimeInputConfig") {
+                    if (detection.isNotEmpty()) put("automaticActivityDetection", detection)
+                    if (!config.interruptible) put("activityHandling", "NO_INTERRUPTION")
+                }
             }
             // 핸들 없이도 빈 설정을 보내야 서버가 이어 붙이기 핸들을 보내 준다.
             putJsonObject("sessionResumption") { handle?.let { put("handle", it) } }

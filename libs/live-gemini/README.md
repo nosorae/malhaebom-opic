@@ -20,9 +20,10 @@ session.sendAudio(pcm)
 - 서버가 곧 끊는다고 알리면(goAway) 마지막 이어 붙이기 핸들로 새 연결을 열고 `Resumed` 를 낸다. 끊긴 뒤 같은 세션으로 다시 `connect` 해도 받아 둔 핸들로 이어 붙인다
 - 새 핸들을 받을 때마다 `ResumeHandle(handle)` 을 낸다. 앱이 저장해 두었다가 `connect(apiKey, config, resumeHandle)` 로 넣으면 앱이 죽었다 살아나도 이어 붙인다. 핸들은 2시간 유효해서 나이는 부르는 쪽이 본다
 - 핸드셰이크 실패는 `Failed(status, message)`, 연결 뒤 서버가 닫거나 망이 끊기면 `Disconnected(code, reason)` 다. 모양이 다른 메시지 하나는 버리고 다음 메시지를 읽는다
+- 말 끝 판정은 `LiveConfig` 의 `silenceDuration`, `startSensitivity`, `endSensitivity`, `interruptible` 로 정한다. setup 의 `realtimeInputConfig` 로 가고, 하나도 주지 않으면 이 칸 없이 보내 서버 기본값을 쓴다
 - 키는 주소의 `?key=` 로 보낸다. 이 라이브러리는 주소를 찍지 않고, 엔진 예외 글에 실린 key 쿼리는 지운다
 - 대상은 Android, iOS, JVM 이다. 엔진은 Android 와 JVM 이 OkHttp, iOS 가 Darwin 이고, HttpClient 하나를 같이 쓴다
 
 ## 테스트
 
-`commonTest` 의 `LiveSessionTest` 가 가짜 `LiveSocket` 으로 보내는 JSON 모양, 서버 메시지 해석, goAway 뒤 재연결, 소켓 예외를 본다. Android 엔진은 `androidHostTest` 가 본다. 실제 서버는 부르지 않는다.
+`commonTest` 의 `LiveSetupTest` 가 setup 메시지 모양을, `LiveSessionTest` 가 가짜 `LiveSocket` 으로 보내는 JSON 모양, 서버 메시지 해석, goAway 뒤 재연결, 소켓 예외를 본다. Android 엔진은 `androidHostTest` 가 본다. 실제 서버는 부르지 않는다.
