@@ -2,6 +2,7 @@ import BackgroundTasks
 import SwiftUI
 import Shared
 import UserNotifications
+import WidgetKit
 
 @main
 struct iOSApp: App {
@@ -41,6 +42,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             // 26 미만은 진행 표시 없이 지금처럼 백그라운드 처리 작업으로 비운다. 알림 권한 요청만 같은 때 한다.
             shell.watchProgress { _ in }
         }
+        // 복습이나 연습 정리로 위젯 장면이 바뀌면 위젯을 다시 그린다(F19.7).
+        shell.watchReviewWidget { WidgetCenter.shared.reloadAllTimelines() }
         return true
     }
 
