@@ -33,19 +33,20 @@ import io.github.nosorae.aiopic.ui.design.montageItemMotion
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
 
-/** 표현 탭의 바깥 겹. [onOpenCard] 는 표현 상세를, [onStartReview] 는 복습 화면을 연다. */
+/** 표현 탭의 바깥 겹. [onOpenCard] 는 표현 상세를, [onStartReview] 는 복습 화면을, [onStartPractice] 는 말하기 연습 시작 시트를 연다. */
 @Composable
 fun ExpressionsRoute(
     viewModel: ExpressionsViewModel,
     onOpenCard: (Long) -> Unit,
     onStartReview: () -> Unit,
     modifier: Modifier = Modifier,
+    onStartPractice: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    ExpressionsScreen(state, viewModel::onIntent, onOpenCard, onStartReview, modifier)
+    ExpressionsScreen(state, viewModel::onIntent, onOpenCard, onStartReview, modifier, onStartPractice)
 }
 
-/** 표현 탭(S19, F18.1). 위에서부터 오늘 복습, 자주 틀리는 유형, 묶음 칩, 표현 목록이다. */
+/** 표현 탭(S19, F18.1). 위에서부터 오늘 복습, 자주 틀리는 유형, 묶음 칩, 표현 목록이다. 목록이 비면 말하기 연습 시작 버튼을 둔다. */
 @Composable
 fun ExpressionsScreen(
     state: ExpressionsUiState,
@@ -53,6 +54,7 @@ fun ExpressionsScreen(
     onOpenCard: (Long) -> Unit,
     onStartReview: () -> Unit,
     modifier: Modifier = Modifier,
+    onStartPractice: () -> Unit = {},
 ) {
     MontageScreen(modifier = modifier, topBar = { MontageTopBar(title = stringResource(Res.string.expressions_title)) }) {
         when {
@@ -63,6 +65,7 @@ fun ExpressionsScreen(
                 verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16),
             ) {
                 Body(stringResource(Res.string.expressions_empty))
+                MontageButton(text = stringResource(Res.string.expressions_start_practice), onClick = onStartPractice, modifier = Modifier.fillMaxWidth())
             }
 
             else -> LazyColumn(Modifier.fillMaxWidth()) {

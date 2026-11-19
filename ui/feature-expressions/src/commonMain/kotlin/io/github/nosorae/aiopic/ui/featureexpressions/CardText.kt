@@ -34,9 +34,9 @@ internal val ErrorType.label: StringResource
         ErrorType.SentenceStructure -> Res.string.error_sentence_structure
     }
 
-/** 목록 줄의 꼬리표(F18.1). 고칠 표현은 틀린 유형, 더 자연스럽게는 "틀린 건 아니에요", 나머지는 종류 이름이다. */
+/** 목록 줄의 꼬리표(F18.1, F17.6). 고칠 표현은 틀린 유형, 더 자연스럽게는 "틀린 건 아니에요", 나머지는 종류 이름이다. 연습 정리 화면도 같이 쓴다. */
 @Composable
-internal fun cardTag(card: ExpressionCard): String = when (card.kind) {
+fun cardTag(card: ExpressionCard): String = when (card.kind) {
     CardKind.Correction -> stringResource(card.errorType?.label ?: CardKind.Correction.label)
     CardKind.MoreNatural -> stringResource(Res.string.expressions_not_wrong)
     else -> stringResource(card.kind.label)
