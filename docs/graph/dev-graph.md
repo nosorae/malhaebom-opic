@@ -2,7 +2,7 @@
 
 `scripts/graph/render.py` 가 `dev-graph.json` 에서 만든다. 손으로 고치지 않는다.
 
-노드 55개: todo 1, doing 0, done 54, blocked 0. 색은 회색 todo, 노랑 doing, 초록 done, 빨강 blocked 이다.
+노드 67개: todo 12, doing 0, done 55, blocked 0. 색은 회색 todo, 노랑 doing, 초록 done, 빨강 blocked 이다.
 
 ```mermaid
 flowchart TD
@@ -74,6 +74,20 @@ flowchart TD
     e2e_ios["e2e-ios #124<br/>iOS XCUITest: 실제 터치로 모의시험 앞부분과 강제 종료 뒤 이어 보기"]
     live["live #125<br/>실제 Gemini 확인: 앱 분석 경로와 품질 확인 첫 보고서"]
     g5["g5 #126<br/>확인: 요구사항 번호마다 테스트가 있는지"]
+  end
+  subgraph P7["P7 말하기 연습"]
+    speaking_spec["speaking-spec #283<br/>말하기 연습 요구사항, 설계, 결정 기록, 개발 그래프"]
+    live_config["live-config #284<br/>Live 연결에 말 끝 판정 설정 넘기기"]
+    review_fsrs["review-fsrs #285<br/>표현 카드와 FSRS 복습 계산"]
+    speaking_db["speaking-db #286<br/>표현 카드, 연습 기록 저장 표"]
+    speaking_engine["speaking-engine #287<br/>말하기 연습 세션 상태와 코치 흐름"]
+    card_writer["card-writer #289<br/>연습 정리: 대화 전문에서 표현 카드 만들기"]
+    expressions_tab["expressions-tab #291<br/>표현 탭과 복습 화면"]
+    speaking_service["speaking-service #288<br/>화면이 꺼져도 도는 연습, 이어폰과 알림 조작"]
+    speaking_ui["speaking-ui #290<br/>말하기 연습 화면"]
+    review_notify["review-notify #292<br/>말하기 연습과 복습 설정, 복습 알림"]
+    review_widget["review-widget #293<br/>오늘 복습 위젯"]
+    speaker_mode["speaker-mode #294<br/>이어폰 없이 스피커로 하는 연습"]
   end
   h0 --> h1
   h1 --> h2
@@ -178,11 +192,32 @@ flowchart TD
   t_resume --> g5
   e2e_ios --> g5
   live --> g5
+  g5 --> speaking_spec
+  speaking_spec --> live_config
+  speaking_spec --> review_fsrs
+  speaking_spec --> speaking_db
+  review_fsrs --> speaking_db
+  live_config --> speaking_engine
+  review_fsrs --> speaking_engine
+  speaking_db --> speaking_engine
+  speaking_db --> card_writer
+  speaking_engine --> card_writer
+  review_fsrs --> expressions_tab
+  speaking_db --> expressions_tab
+  card_writer --> expressions_tab
+  speaking_engine --> speaking_service
+  expressions_tab --> speaking_service
+  speaking_service --> speaking_ui
+  card_writer --> speaking_ui
+  expressions_tab --> review_notify
+  speaking_ui --> review_notify
+  review_notify --> review_widget
+  speaking_service --> speaker_mode
   classDef todo fill:#eeeeee,stroke:#999999,color:#000
-  class g4 todo
+  class g4,live_config,review_fsrs,speaking_db,speaking_engine,card_writer,expressions_tab,speaking_service,speaking_ui,review_notify,review_widget,speaker_mode todo
   classDef doing fill:#fff3b0,stroke:#d4a017,color:#000
   classDef done fill:#c8f7c5,stroke:#2e7d32,color:#000
-  class h0,h1,h2,h3,h4,g0,s1,s2,s3,s4,g1,c1,c2,c3,c5,c4,g2,n_state,n_db,n_gemini,n_route,n_key,n_tts,n_rec_a,n_rec_i,n_queue,n_quest,n_weak,n_eval,u_onb,u_shell,u_exam,u_single,u_report,u_flag,u_model,g3,n_data,n_di,u_copy,u_wire,u_settings2,e2e,docs,store,n_json,n_grade,n_flag2,n_gen,n_survey,t_resume,e2e_ios,live,g5 done
+  class h0,h1,h2,h3,h4,g0,s1,s2,s3,s4,g1,c1,c2,c3,c5,c4,g2,n_state,n_db,n_gemini,n_route,n_key,n_tts,n_rec_a,n_rec_i,n_queue,n_quest,n_weak,n_eval,u_onb,u_shell,u_exam,u_single,u_report,u_flag,u_model,g3,n_data,n_di,u_copy,u_wire,u_settings2,e2e,docs,store,n_json,n_grade,n_flag2,n_gen,n_survey,t_resume,e2e_ios,live,g5,speaking_spec done
   classDef blocked fill:#ffcdd2,stroke:#c62828,color:#000
 ```
 
