@@ -1561,6 +1561,31 @@
       "end": "2026-11-19"
     },
     {
+      "id": "speaking-research",
+      "phase": "P7",
+      "kind": "docs",
+      "title": "말하기 연습 요구사항을 습득 연구에 맞춘다",
+      "dependsOn": [
+        "speaking-db"
+      ],
+      "owns": [
+        "docs/specs/",
+        "docs/adr/",
+        "docs/graph/"
+      ],
+      "reqs": [
+        "F16",
+        "F17",
+        "F18"
+      ],
+      "done": "python3 scripts/graph/validate.py && python3 -m unittest discover -s scripts/graph",
+      "done_desc": "product.md F16~F18 을 고친다(같은 질문 3회, 유형 6개와 연습 시간별 수, 7~14일 재출제, 확인 질문과 문법 짚기 설정, 카드 8장 상한, 정형 표현과 더 자연스럽게, 처음 봄, 첫 복습 다음 날, 이미 알아요와 필요 없어요, 말로 복습 정답 들려주기와 판정 바꾸기, 내가 말한 시간, 하루는 새벽 4시). design.md 12절과 Room version 5 표 열. ADR 0041(습득 연구에 맞춘다), 0042(출시 전이라 version 5 를 고쳐 쓴다). speaking-engine, card-writer, expressions-tab 을 이 노드 뒤에 둔다. 코드는 고치지 않는다. 그래프 검사와 그래프 스크립트 테스트가 0 으로 끝난다",
+      "status": "done",
+      "issue": 299,
+      "start": "2026-11-19",
+      "end": "2026-11-19"
+    },
+    {
       "id": "speaking-engine",
       "phase": "P7",
       "kind": "ai",
@@ -1568,12 +1593,16 @@
       "dependsOn": [
         "live-config",
         "review-fsrs",
-        "speaking-db"
+        "speaking-db",
+        "speaking-research"
       ],
       "owns": [
         "engine/speaking/",
         "packs/",
-        "settings.gradle.kts"
+        "settings.gradle.kts",
+        "engine/answer/src/commonMain/kotlin/io/github/nosorae/aiopic/engine/answer/store/",
+        "engine/answer/src/commonTest/",
+        "engine/review/"
       ],
       "reqs": [
         "F16.5",
@@ -1585,10 +1614,17 @@
         "F16.12",
         "F16.13",
         "F16.15",
-        "F16.16"
+        "F16.16",
+        "F16.20",
+        "F16.21",
+        "F16.22",
+        "F16.23",
+        "F16.24",
+        "F18.2",
+        "F18.11"
       ],
-      "done": "./gradlew :engine:speaking:allTests && ./gradlew :engine:speaking:testAndroidHostTest --tests '*SpeakingProgressTest*' --tests '*SpeakingSessionTest*'",
-      "done_desc": "새 engine/speaking(ADR 0039). 단계(말로 복습, 대화, 마무리)와 상태(듣는 중, 코치가 말하는 중, 일시정지)를 reduce 순수 함수로 계산한다(design.md 12.1). 시작 때 복습 카드 3장을 말로 풀고 FSRS 로 고친다. 음성 명령 일곱(잠깐, 다시 시작, 힌트, 이거 영어로 뭐야, 다음 질문, 다른 주제, 그만할래)을 도구 호출로 받는다. 대답 없음 두 번이면 일시정지, 일시정지 10분이면 저장하고 끝, 남은 5분과 1분 처리. 연결이 끊기면 이어 붙이기 핸들로 3번까지 다시 연결. 응답마다 대화 전문과 사용량을 진행 중인 연습에 저장. 코치 프로필(packs)에 주제 연습 지시. SpeakingProgressTest: 단계 전환, 명령, 시간 처리를 상태와 일어난 일의 조합으로. SpeakingSessionTest: 가짜 연결과 가짜 오디오로 다시 연결 3번과 그 뒤 일시정지, 프로세스가 끝난 뒤 저장된 줄에서 이어 가기",
+      "done": "./gradlew :engine:speaking:allTests :engine:review:allTests :engine:answer:allTests && ./gradlew :engine:speaking:testAndroidHostTest --tests '*SpeakingProgressTest*' --tests '*SpeakingSessionTest*' --tests '*TopicPickTest*' && ./gradlew :engine:review:testAndroidHostTest --tests '*ReviewQueueTest*' && ./gradlew :engine:answer:testAndroidHostTest --tests '*Migration4To5Test*'",
+      "done_desc": "새 engine/speaking(ADR 0039). 단계(말로 복습, 대화, 마무리)와 상태(듣는 중, 코치가 말하는 중, 일시정지)를 reduce 순수 함수로 계산한다(design.md 12.1). 말로 복습은 처음 봄이 아닌 카드 3장, 판정 뒤 정답 들려주기와 따라 말하기, 판정 전 복습 값 남기기. 주제는 7~14일 재출제 먼저, 없으면 가장 적게 한 주제. 유형 6개와 연습 시간별 수, 같은 질문 3회(10분은 2회), 확인 질문 뒤 대답 없음 세지 않기, 문법 짚기 설정을 지시에 넣기, 한국어 섞으면 몰랐던 표현 카드. 내가 말한 시간과 코치가 말한 시간. 음성 명령 일곱을 도구 호출로 받는다. 대답 없음 두 번이면 일시정지, 일시정지 10분이면 끝, 남은 5분과 1분. 이어 붙이기 핸들로 3번까지 다시 연결. ADR 0042 대로 Room version 5 표에 열을 더하고(design.md 12.4) engine/review 에 처음 봄, 새 카드 고르기(F18.2), 새벽 4시 하루(F18.11), 카드 종류와 틀린 유형 값을 바꾼다. SpeakingProgressTest, SpeakingSessionTest, TopicPickTest(F16.5), ReviewQueueTest(F18.2, F18.11), Migration4To5Test(새 열)",
       "status": "todo",
       "issue": 287
     },
@@ -1599,7 +1635,8 @@
       "title": "연습 정리: 대화 전문에서 표현 카드 만들기",
       "dependsOn": [
         "speaking-db",
-        "speaking-engine"
+        "speaking-engine",
+        "speaking-research"
       ],
       "owns": [
         "engine/ai-gemini/",
@@ -1611,10 +1648,11 @@
         "F17.2",
         "F17.3",
         "F17.4",
-        "F17.5"
+        "F17.5",
+        "F17.9"
       ],
       "done": "./gradlew :engine:ai-gemini:allTests :engine:speaking:allTests :apps:opic:shared:allTests && ./gradlew :engine:ai-gemini:testAndroidHostTest --tests '*GeminiCardWriterTest*' && ./gradlew :engine:speaking:testAndroidHostTest --tests '*CardJobTest*'",
-      "done_desc": "engine/ai-gemini 에 카드 만들기 요청과 출력 스키마. 내가 한 말이 전문에 그대로 있는지(F5.4 와 같은 검사), 같은 카드가 이미 있는지 확인하고 실패하면 한 번 다시 요청한다. 작업 표(analysis_job)에 연습 정리 작업, 다시 시도 30초, 2분, 10분. 앱이 보이지 않을 때만 정리 끝 알림. GeminiCardWriterTest(F17.1, F17.2, F17.3): 저장한 응답으로 해석, 전문에 없는 카드 버림, 다시 요청 1번. CardJobTest(F17.4, F17.5): 가짜 작성기로 정리 상태 전환, 다시 시도 간격, 앱을 켤 때 정리 못 한 연습 다시 예약. engine/speaking 을 고쳐서 speaking-engine 뒤에 둔다",
+      "done_desc": "engine/ai-gemini 에 카드 만들기 요청과 출력 스키마. 종류 넷(고칠 표현, 몰랐던 표현, 정형 표현, 더 자연스럽게), 최소 수정 지시. 내가 한 말이 전문에 그대로 있는지(F5.4 와 같은 검사), 같은 카드가 이미 있는지 확인하고 실패하면 한 번 다시 요청한다. 고칠 표현 8장(반복된 유형과 뜻을 막은 것 먼저), 더 자연스럽게 2장으로 엔진이 자르고 넘긴 오류 수를 센다. 표현을 쓴 횟수를 전문에서 센다. 새 카드는 처음 봄 예, 다음 복습 시각 다음 날 새벽 4시. 작업 표(analysis_job)에 연습 정리 작업, 다시 시도 30초, 2분, 10분. 앱이 보이지 않을 때만 정리 끝 알림. GeminiCardWriterTest(F17.1, F17.2, F17.3): 저장한 응답으로 해석, 전문에 없는 카드 버림, 상한과 넘긴 오류 수, 다시 요청 1번. CardJobTest(F17.4, F17.5, F17.9): 가짜 작성기로 정리 상태 전환, 다시 시도 간격, 다음 복습 시각, 표현을 쓴 횟수, 앱을 켤 때 정리 못 한 연습 다시 예약. engine/speaking 을 고쳐서 speaking-engine 뒤에 둔다",
       "status": "todo",
       "issue": 289
     },
@@ -1626,7 +1664,8 @@
       "dependsOn": [
         "review-fsrs",
         "speaking-db",
-        "card-writer"
+        "card-writer",
+        "speaking-research"
       ],
       "owns": [
         "ui/feature-expressions/",
@@ -1643,7 +1682,7 @@
         "F18.10"
       ],
       "done": "./gradlew :ui:feature-expressions:allTests :ui:feature-expressions:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests && ./gradlew :ui:feature-expressions:testAndroidHostTest --tests '*ReviewRatingTest*'",
-      "done_desc": "하단 탭을 모의고사, 연습, 표현, 기록, 설정 다섯 개로 한다. 표현 탭(오늘 복습, 틀린 유형별 묶음, 표현 목록), 표현 상세(다른 부분 색칠, 듣기, 고치기, 보관, 삭제 확인), 복습 화면(소리 내기와 소리 없이, 다시와 알았음, 길게 누르면 어려움과 쉬움), 복습 끝(이번 주 복습한 날 수, 6장 더). 스크린샷 테스트(라이트, 다크, 글자 200%). ReviewRatingTest(F18.6): 평가하면 다음 복습 시각과 복습 횟수가 바뀌고 오늘이 복습한 날에 들어가는지. apps/opic 을 같이 고쳐서 card-writer 뒤에 둔다",
+      "done_desc": "하단 탭을 모의고사, 연습, 표현, 기록, 설정 다섯 개로 한다. 표현 탭(오늘 복습, 고칠 표현만 센 틀린 유형별 묶음, 묶음 칩 여섯, 표현 목록), 표현 상세(들어오면 처음 봄 끄기, 다른 부분 색칠, 듣기, 고치기, 이미 알아요는 쉬움 평가, 필요 없어요는 보관, 삭제 확인), 복습 화면(처음 봄 카드는 가리지 않고 읽어 주고 다음 버튼 하나, 그 밖은 소리 내기와 소리 없이, 다시와 알았음, 길게 누르면 어려움과 쉬움), 복습 끝(알았음, 다시, 처음 본 장 수, 이번 주 복습한 날 수, 6장 더). 스크린샷 테스트(라이트, 다크, 글자 200%). ReviewRatingTest(F18.3, F18.6): 평가하면 다음 복습 시각과 복습 횟수가 바뀌고 오늘이 복습한 날에 들어가는지, 다음 버튼은 평가 없이 다음 날 새벽 4시로 옮기는지, 이미 알아요가 카드를 빼지 않는지. apps/opic 을 같이 고쳐서 card-writer 뒤에 둔다",
       "status": "todo",
       "issue": 291
     },
@@ -1692,10 +1731,11 @@
         "F16.3",
         "F16.18",
         "F17.6",
-        "F17.7"
+        "F17.7",
+        "F17.10"
       ],
       "done": "./gradlew :ui:feature-speaking:allTests :ui:feature-speaking:verifyRoborazziAndroidHostTest :ui:feature-practice:allTests :ui:feature-practice:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests",
-      "done_desc": "연습 탭 맨 위 카드 둘(말하기 연습, 오늘 복습). 연습 시작 시트(시간 10, 20, 30분, 소리 환경, 말로 하는 조작 안내, 대략 비용). 연습 중 화면(큰 상태 원, 큰 일시정지와 끝내기 버튼, 접는 대화창, 비용 줄)은 서비스가 가진 세션을 지켜보기만 한다. 연습 정리 화면(카드 목록, 밀어서 빼기와 되돌리기, 정리 중과 실패 상태). 스크린샷 테스트(라이트, 다크, 글자 200%)",
+      "done_desc": "연습 탭 맨 위 카드 둘(말하기 연습, 오늘 복습). 연습 시작 시트(시간 10, 20, 30분, 소리 환경, 말로 하는 조작 안내, 대략 비용). 연습 중 화면(큰 상태 원, 큰 일시정지와 끝내기 버튼, 접는 대화창, 비용 줄)은 서비스가 가진 세션을 지켜보기만 한다. 연습 정리 화면(카드 목록, 밀어서 빼기와 되돌리기, 정리 중과 실패 상태). 스크린샷 테스트(라이트, 다크, 글자 200%). 정리 화면 요약에 내가 말한 시간과 내 말 비율, 표현을 쓴 횟수(말 속도와 쉼 횟수는 보이지 않음), 더 자연스럽게 카드의 틀린 건 아니에요, 길게 눌러 틀린 지적 신고, 말로 복습 결과와 판정 바꾸기(F17.10, 그 뒤 다시 복습한 카드는 막음)",
       "status": "todo",
       "issue": 290
     },
@@ -1720,7 +1760,7 @@
         "F19.5"
       ],
       "done": "human",
-      "done_desc": "설정 탭 말하기 연습 묶음(기본 시간, 말 끝 기다림, 말로 끊기, 시작 때 말로 복습)과 복습 묶음(복습 양, 알림 받기, 알림 시각), 시각 고르기. 복습 알림은 하루 한 번, 정한 시각에, 할 카드가 있고 그날 아직 안 했을 때만. iOS 는 조건을 미리 계산해 다시 건다. 알림을 누르면 malhaebom://review 로 복습 화면. 알림 권한은 처음 켤 때 요청. 자동 확인: ./gradlew :ui:feature-settings:verifyRoborazziAndroidHostTest 와 알림 조건 계산 단위 테스트(ReviewReminderTest, F19.3). 사람 확인: 실기기에서 알림을 눌러 복습 화면이 열린다. apps/opic 을 같이 고쳐서 speaking-ui 뒤에 둔다",
+      "done_desc": "설정 탭 말하기 연습 묶음(기본 시간, 말 끝 기다림, 말로 끊기, 연습 중 문법 짚기, 시작 때 말로 복습)과 복습 묶음(복습 양, 알림 받기, 알림 시각), 시각 고르기. 복습 알림은 하루 한 번, 정한 시각에, 할 카드가 있고 그날 아직 안 했을 때만. iOS 는 조건을 미리 계산해 다시 건다. 알림을 누르면 malhaebom://review 로 복습 화면. 알림 권한은 처음 켤 때 요청. 자동 확인: ./gradlew :ui:feature-settings:verifyRoborazziAndroidHostTest 와 알림 조건 계산 단위 테스트(ReviewReminderTest, F19.3). 사람 확인: 실기기에서 알림을 눌러 복습 화면이 열린다. apps/opic 을 같이 고쳐서 speaking-ui 뒤에 둔다",
       "status": "todo",
       "issue": 292
     },
