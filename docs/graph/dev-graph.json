@@ -1480,9 +1480,10 @@
       ],
       "done": "python3 scripts/graph/validate.py && python3 -m unittest discover -s scripts/graph",
       "done_desc": "product.md 에 F16(말하기 연습 세션), F17(연습 정리와 표현 카드), F18(표현 탭과 복습), F19(복습 알림과 위젯), F20(스피커 모드)과 세부 수락 기준. design.md 12절에 연습 세션 단계와 상태, 서비스가 세션을 소유하는 구조, 카드와 FSRS, Room version 5 표 4개. ADR 0038(세션은 서비스가 소유), 0039(말하기 연습 엔진을 코치 엔진과 따로). 그래프에 말하기 연습 노드 12개. 그래프 검사와 그래프 스크립트 테스트가 0 으로 끝난다",
-      "status": "doing",
+      "status": "done",
       "issue": 283,
-      "start": "2026-11-19"
+      "start": "2026-11-19",
+      "end": "2026-11-19"
     },
     {
       "id": "live-config",
