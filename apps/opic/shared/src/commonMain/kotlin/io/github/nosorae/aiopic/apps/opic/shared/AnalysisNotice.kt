@@ -26,10 +26,10 @@ data class ProgressNotice(val done: Int, val total: Int, val title: String, val 
 suspend fun AnalysisProgress.notice(): ProgressNotice = ProgressNotice(done, total, getString(Res.string.analysis_progress_title), getString(Res.string.analysis_progress_text, total, done))
 
 /**
- * 앱이 화면에 없을 때 분석이 끝나면 띄우는 알림. 누르면 [route] 로 간다.
+ * 앱이 화면에 없을 때 분석이 끝나면 띄우는 알림. 누르면 [route] 로 가고, null 이면 앱 첫 화면을 연다.
  * [cards] 가 있으면 연습 정리 끝 알림이고 그 연습에서 만든 카드 수다(F17.5).
  */
-data class AnalysisOutcome(val route: AppRoute, val failed: Boolean, val cards: Int? = null) {
+data class AnalysisOutcome(val route: AppRoute?, val failed: Boolean, val cards: Int? = null) {
     suspend fun title(): String = getString(
         when {
             cards != null -> Res.string.cards_ready_title
@@ -62,7 +62,7 @@ fun analysisProgress(jobs: List<AnalysisJob>, since: Instant): AnalysisProgress?
  * [sessionOf] 는 답변 id 로 회차 id 를 찾는다. 연습 답변이면 null 이다. [cardsOf] 는 연습 id 로 만든 카드 수를 찾는다.
  * 연습 정리는 끝났을 때만 알린다(F17.5). 실패한 정리는 앱을 켤 때 다시 넣는다.
  */
-// ponytail: 연습 정리 끝 알림은 연습 탭으로 보낸다. 연습 정리 화면(speaking-ui)이 생기면 그 화면 경로로 바꾼다.
+// ponytail: 연습 정리 끝 알림은 경로 없이 앱 첫 화면을 연다. 지금 연습 탭은 시험 연습 탭이라 정리와 상관없다. 연습 정리 화면(speaking-ui)이 생기면 그 화면 경로로 바꾼다.
 fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, cardsOf: (String) -> Int? = { null }, sessionOf: (String) -> String?): AnalysisOutcome? {
     if (jobs.any { it.state.active }) return null
     val finished = jobs.filter { it.updatedAt >= since && !(it.kind == JobKind.Cards && it.state == JobState.Failed) }
@@ -70,7 +70,7 @@ fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, cardsOf: (String) -
     val route = when (job.kind) {
         JobKind.Grade -> AppRoute.ReportDetail(job.targetId)
         JobKind.Answer -> sessionOf(job.targetId)?.let { AppRoute.ReportDetail(it) } ?: AppRoute.AnswerReport(job.targetId)
-        JobKind.Cards -> return AnalysisOutcome(AppRoute.PracticeTab, failed = false, cards = cardsOf(job.targetId) ?: 0)
+        JobKind.Cards -> return AnalysisOutcome(null, failed = false, cards = cardsOf(job.targetId) ?: 0)
     }
     return AnalysisOutcome(route, failed = job.state == JobState.Failed)
 }
@@ -106,8 +106,8 @@ suspend fun AppGraph.drainAndNotify(visible: () -> Boolean, notify: suspend (Ana
 /** 작업 표는 시각을 밀리초로 저장한다. 시작 시각도 밀리초로 잘라야 같은 밀리초에 끝난 작업을 놓치지 않는다. */
 private fun Clock.nowMillis(): Instant = Instant.fromEpochMilliseconds(now().toEpochMilliseconds())
 
-/** 알림에 실어 보낼 경로. 누르면 [routeFromJson] 으로 되읽는다. */
-val AnalysisOutcome.routeJson: String get() = Json.encodeToString(AppRoute.serializer(), route)
+/** 알림에 실어 보낼 경로. 누르면 [routeFromJson] 으로 되읽는다. 경로가 없으면 null 이다. */
+val AnalysisOutcome.routeJson: String? get() = route?.let { Json.encodeToString(AppRoute.serializer(), it) }
 
 /** 알림에서 받은 경로. 앱 밖에서 온 값이라 읽지 못하면 null 이다. */
 fun routeFromJson(json: String): AppRoute? = runCatching { Json.decodeFromString(AppRoute.serializer(), json) }.getOrNull()

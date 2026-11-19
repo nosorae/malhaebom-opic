@@ -70,10 +70,11 @@ class AnalysisNoticeTest {
     }
 
     @Test
-    fun `F17_5 연습 정리가 끝나면 만든 카드 수를 싣고 연습 탭으로 보낸다`() {
+    fun `F17_5 연습 정리가 끝나면 만든 카드 수를 싣고 경로 없이 앱 첫 화면을 연다`() {
         val outcome = analysisOutcome(listOf(job("p1", JobState.Succeeded, at = 1_001, JobKind.Cards)), start, sessionOf = { null }, cardsOf = { if (it == "p1") 5 else null })
 
-        assertEquals(AnalysisOutcome(AppRoute.PracticeTab, failed = false, cards = 5), outcome)
+        assertEquals(AnalysisOutcome(null, failed = false, cards = 5), outcome)
+        assertNull(outcome?.routeJson)
     }
 
     @Test
@@ -85,7 +86,7 @@ class AnalysisNoticeTest {
     fun `229 알림에 실은 경로를 되읽고 읽지 못하는 값은 버린다`() {
         val outcome = AnalysisOutcome(AppRoute.ReportDetail("s1"), failed = false)
 
-        assertEquals(outcome.route, routeFromJson(outcome.routeJson))
+        assertEquals(outcome.route, routeFromJson(outcome.routeJson!!))
         assertNull(routeFromJson("not a route"))
     }
 

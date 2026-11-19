@@ -3,6 +3,8 @@ package io.github.nosorae.aiopic.engine.speaking
 import io.github.nosorae.aiopic.engine.answer.store.OpicDatabase
 import io.github.nosorae.aiopic.engine.answer.store.SpeakingActiveRow
 import io.github.nosorae.aiopic.engine.answer.store.SpeakingSessionRow
+import io.github.nosorae.aiopic.engine.review.ExpressionCard
+import io.github.nosorae.aiopic.engine.review.toRow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlin.time.Duration
@@ -103,10 +105,17 @@ class SpeakingStore(db: OpicDatabase) {
         TopicHistory(it.topic, Instant.fromEpochMilliseconds(it.lastAt), it.count, json.decodeFromString<List<Asked>>(it.questions).firstOf(it.topic)?.text)
     }
 
-    /** 정리 상태를 바꾸고, 정리가 끝났으면 만든 카드 수, 넘긴 오류 수, 표현을 쓴 횟수를 적는다(F17.4, F17.5). 지운 연습이면 아무것도 하지 않는다. */
-    suspend fun finishCards(id: String, status: CardStatus, cardCount: Int = 0, skippedErrors: Int = 0, expressionUses: Int = 0) {
+    /**
+     * 정리 상태를 바꾸고, 정리가 끝났으면 [cards] 를 저장하고 만든 카드 수, 넘긴 오류 수, 표현을 쓴 횟수를 적는다(F17.4, F17.5).
+     * 정리 끝은 카드와 연습 기록을 한 트랜잭션으로 쓴다. 지운 연습이면 아무것도 하지 않는다.
+     */
+    suspend fun finishCards(id: String, status: CardStatus, cards: List<ExpressionCard> = emptyList(), cardCount: Int = 0, skippedErrors: Int = 0, expressionUses: Int = 0) {
         val row = row(id) ?: return
-        dao.save(if (status == CardStatus.Done) row.copy(cardStatus = status.name, cardCount = cardCount, skippedErrors = skippedErrors, expressionUses = expressionUses) else row.copy(cardStatus = status.name))
+        if (status == CardStatus.Done) {
+            dao.finishCards(cards.map { it.toRow() }, row.copy(cardStatus = status.name, cardCount = cardCount, skippedErrors = skippedErrors, expressionUses = expressionUses))
+        } else {
+            dao.save(row.copy(cardStatus = status.name))
+        }
     }
 
     /** 그 연습에서 만든 카드 수. 정리 끝 알림이 쓴다(F17.5). 지운 연습이면 null 이다. */

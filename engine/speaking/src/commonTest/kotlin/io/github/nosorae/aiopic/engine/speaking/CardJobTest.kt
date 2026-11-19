@@ -195,6 +195,22 @@ class CardJobTest {
     }
 
     @Test
+    fun `F17_4 정리를 쓴 뒤 작업 줄을 끝내기 전에 앱이 죽어 다시 돌려도 카드가 늘지 않는다`() = test {
+        finish()
+        repeat(2) { writer.results += AnalysisResult.Success(CardBatch(listOf(draft(CardKind.Correction, "I went to the beach", ErrorType.Tense)), skippedErrors = 0)) }
+        jobs.enqueueCards("p1")
+        jobs.drain()
+        OpicStore(db).save(job().copy(state = JobState.Running))
+
+        jobs.recover()
+        jobs.drain()
+
+        assertEquals(1, cards.cards().first().size)
+        assertEquals(1, writer.results.size)
+        assertEquals(1, row().cardCount)
+    }
+
+    @Test
     fun `F17_4 녹음 전송 동의를 철회해도 연습 정리는 멈추지 않는다`() = test {
         finish()
         jobs.enqueueCards("p1")

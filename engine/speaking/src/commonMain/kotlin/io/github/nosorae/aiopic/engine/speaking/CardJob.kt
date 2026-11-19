@@ -67,12 +67,13 @@ class CardJob(
         val now = clock.now()
         // ponytail: 끝낸 시각은 시작 시각에 대화 시간을 더해 어림한다. 일시정지한 동안 새벽 4시를 넘긴 연습은 하루 이르게 나온다. 연습 기록에 끝낸 시각 열을 더하면 고친다.
         val due = (practice.startedAt + practice.talkTime).nextDayStart(timeZone)
-        batch.cards.forEach { cards.save(ExpressionCard(kind = it.kind, said = it.said, better = it.better, meaning = it.meaning, errorType = it.errorType, context = it.context, createdAt = now, dueAt = due, practiceId = targetId)) }
+        val saved = batch.cards.map { ExpressionCard(kind = it.kind, said = it.said, better = it.better, meaning = it.meaning, errorType = it.errorType, context = it.context, createdAt = now, dueAt = due, practiceId = targetId) }
         // 연습을 시작할 때 있던 카드와, 연습 중 코치가 들려주고 몰랐던 표현으로 저장한 카드다(F17.9, F16.23).
         val phrases = all.filter { it.createdAt < practice.startedAt || (it.practiceId == targetId && it.kind == CardKind.UnknownExpression) }.map { it.better }
         store.finishCards(
             targetId,
             CardStatus.Done,
+            cards = saved,
             cardCount = all.count { it.practiceId == targetId } + batch.cards.size,
             skippedErrors = batch.skippedErrors,
             expressionUses = expressionUses(practice.transcript, phrases),

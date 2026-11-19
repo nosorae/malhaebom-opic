@@ -175,7 +175,7 @@ private suspend fun postOutcome(outcome: AnalysisOutcome) {
         setTitle(title)
         setBody(body)
         setSound(UNNotificationSound.defaultSound)
-        setUserInfo(mapOf<Any?, Any?>(ROUTE_KEY to outcome.routeJson))
+        outcome.routeJson?.let { setUserInfo(mapOf<Any?, Any?>(ROUTE_KEY to it)) }
     }
     // ponytail: 끝 알림은 하나만 둔다. 새 결과가 앞 알림을 바꾼다. 권한이 없으면 시스템이 띄우지 않는다.
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(UNNotificationRequest.requestWithIdentifier("analysis-done", content, null), null)
