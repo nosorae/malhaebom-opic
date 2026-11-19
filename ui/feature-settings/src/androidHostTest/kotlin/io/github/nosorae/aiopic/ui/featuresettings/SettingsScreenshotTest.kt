@@ -11,7 +11,7 @@ import org.robolectric.annotation.GraphicsMode
 /** 설정 탭은 모든 묶음이 한 화면에 다 보이게 높이를 넉넉히 잡는다. 지우기, 철회 확인 대화상자는 창이 따로라 찍지 않는다. */
 @RunWith(AndroidJUnit4::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [35], qualifiers = "w360dp-h1500dp-xhdpi")
+@Config(sdk = [35], qualifiers = "w360dp-h2600dp-xhdpi")
 class SettingsScreenshotTest {
     @Test fun light() = shot(SettingsSamples.default)
 
@@ -36,6 +36,11 @@ class SettingsScreenshotTest {
 
     /** #161: 기기 음성을 골랐는데 고품질 기기 음성이 없으면 받는 곳을 안내한다. */
     @Test fun deviceVoice() = shot(SettingsSamples.deviceVoice)
+
+    /** F19.1, F19.2: 말하기 연습과 복습 값을 처음 값에서 바꾸고 복습 알림을 켰다. 알림 시각이 진하게 보인다. */
+    @Test fun speakingSet() = shot(SettingsSamples.speakingSet)
+
+    @Test fun speakingSetDark() = shot(SettingsSamples.speakingSet, dark = true)
 
     private fun shot(state: SettingsUiState, dark: Boolean = false) = captureRoboImage {
         MontageTheme(darkTheme = dark) { SettingsScreen(state, onIntent = {}, onOpenKeyEntry = {}, onOpenFreeTierNotice = {}, onOpenFlagExport = {}, onOpenAppInfo = {}, onPickQuestionFile = {}) }

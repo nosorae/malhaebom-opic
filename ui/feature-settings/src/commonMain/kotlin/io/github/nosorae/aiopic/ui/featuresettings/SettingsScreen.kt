@@ -1,12 +1,22 @@
 package io.github.nosorae.aiopic.ui.featuresettings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -19,13 +29,17 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nosorae.aiopic.engine.answer.model.ModelInfo
 import io.github.nosorae.aiopic.engine.answer.model.Stability
+import io.github.nosorae.aiopic.engine.review.ReviewAmount
 import io.github.nosorae.aiopic.libs.haptics.api.HapticEffect
 import io.github.nosorae.aiopic.ui.design.LocalHaptics
+import io.github.nosorae.aiopic.ui.design.MontageBottomSheet
 import io.github.nosorae.aiopic.ui.design.MontageButton
 import io.github.nosorae.aiopic.ui.design.MontageButtonSize
 import io.github.nosorae.aiopic.ui.design.MontageButtonType
 import io.github.nosorae.aiopic.ui.design.MontageButtonVariant
 import io.github.nosorae.aiopic.ui.design.MontageCheckbox
+import io.github.nosorae.aiopic.ui.design.MontageChip
+import io.github.nosorae.aiopic.ui.design.MontageChipVariant
 import io.github.nosorae.aiopic.ui.design.MontageConfirmDialog
 import io.github.nosorae.aiopic.ui.design.MontageListCell
 import io.github.nosorae.aiopic.ui.design.MontageScreen
@@ -38,7 +52,11 @@ import io.github.nosorae.aiopic.ui.featureonboarding.key.KeyProvider
 import io.github.nosorae.aiopic.ui.featuresettings.key.KeyStatus
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionImportResult
 import io.github.nosorae.aiopic.ui.featuresettings.practice.rememberQuestionFilePicker
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.EndWait
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.PRACTICE_MINUTES
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
+import kotlinx.datetime.LocalTime
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import io.github.nosorae.aiopic.ui.design.Res as DesignRes
@@ -181,6 +199,9 @@ fun SettingsScreen(
             )
             state.questionImport?.let { QuestionImportNotice(it) }
 
+            SpeakingSection(state.speaking, onIntent)
+            ReviewSection(state.speaking, onIntent)
+
             SectionLabel(Res.string.settings_target_grade_section)
             TargetGradeChips(
                 grades = state.targetGrades,
@@ -257,6 +278,144 @@ fun SettingsScreen(
             onCancel = { onIntent(SettingsIntent.CancelConsentRevoke) },
         )
     }
+}
+
+/** 말하기 연습 묶음(F19.1). 시작 시트의 처음 값과 연습 중 코치의 말 끝 판정, 끊기, 문법 짚기, 말로 복습을 정한다. */
+@Composable
+private fun SpeakingSection(prefs: SpeakingPrefs, onIntent: (SettingsIntent) -> Unit) {
+    Column {
+        SectionLabel(Res.string.settings_speaking_section)
+        Choices(
+            title = stringResource(Res.string.settings_speaking_minutes),
+            options = PRACTICE_MINUTES,
+            selected = prefs.minutes,
+            label = { stringResource(Res.string.settings_speaking_minutes_value, it) },
+            onSelect = { onIntent(SettingsIntent.SetPracticeMinutes(it)) },
+        )
+        Choices(
+            title = stringResource(Res.string.settings_speaking_end_wait),
+            options = EndWait.entries,
+            selected = prefs.endWait,
+            label = { stringResource(endWaitLabel(it)) },
+            onSelect = { onIntent(SettingsIntent.SetEndWait(it)) },
+            caption = stringResource(Res.string.settings_speaking_end_wait_caption),
+        )
+        Toggle(Res.string.settings_speaking_barge_in, Res.string.settings_speaking_barge_in_caption, prefs.bargeIn, onChange = { onIntent(SettingsIntent.SetBargeIn(it)) })
+        Choices(
+            title = stringResource(Res.string.settings_speaking_grammar),
+            options = listOf(false, true),
+            selected = prefs.grammarNudge,
+            label = { stringResource(if (it) Res.string.settings_speaking_grammar_once else Res.string.settings_speaking_grammar_off) },
+            onSelect = { onIntent(SettingsIntent.SetGrammarNudge(it)) },
+            caption = stringResource(Res.string.settings_speaking_grammar_caption),
+        )
+        Toggle(Res.string.settings_speaking_oral_review, Res.string.settings_speaking_oral_review_caption, prefs.oralReview, onChange = { onIntent(SettingsIntent.SetOralReview(it)) })
+    }
+}
+
+/** 복습 묶음(F19.1, F19.2). 알림이 꺼져 있으면 알림 시각을 흐리게 두고 누를 수 없다. */
+@Composable
+private fun ReviewSection(prefs: SpeakingPrefs, onIntent: (SettingsIntent) -> Unit) {
+    Column {
+        SectionLabel(Res.string.settings_review_section)
+        Choices(
+            title = stringResource(Res.string.settings_review_amount),
+            options = ReviewAmount.entries,
+            selected = prefs.amount,
+            label = { stringResource(amountLabel(it)) },
+            onSelect = { onIntent(SettingsIntent.SetReviewAmount(it)) },
+            caption = stringResource(Res.string.settings_review_amount_caption),
+        )
+        Toggle(
+            Res.string.settings_review_reminder,
+            Res.string.settings_review_reminder_caption,
+            prefs.reminderOn,
+            onChange = { onIntent(SettingsIntent.SetReviewReminder(it)) },
+            modifier = Modifier.testTag("settings-review-reminder"),
+        )
+        var picking by rememberSaveable { mutableStateOf(false) }
+        MontageListCell(
+            title = stringResource(Res.string.settings_review_reminder_time),
+            caption = clockLabel(prefs.reminderAt),
+            enabled = prefs.reminderOn,
+            chevron = true,
+            onClick = { picking = true },
+            modifier = Modifier.testTag("settings-review-reminder-time"),
+        )
+        if (picking) {
+            ReminderTimeSheet(
+                prefs.reminderAt,
+                onDismiss = { picking = false },
+                onSave = {
+                    picking = false
+                    onIntent(SettingsIntent.SetReminderTime(it))
+                },
+            )
+        }
+    }
+}
+
+/** 시각 고르기. 시계 판 고르기는 두 플랫폼 모두 Material 3 시계를 쓰고, 저장을 눌러야 바뀐다. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderTimeSheet(initial: LocalTime, onDismiss: () -> Unit, onSave: (LocalTime) -> Unit, modifier: Modifier = Modifier) {
+    val picker = rememberTimePickerState(initialHour = initial.hour, initialMinute = initial.minute, is24Hour = false)
+    MontageBottomSheet(onDismissRequest = onDismiss) { close ->
+        Column(
+            modifier.fillMaxWidth().padding(horizontal = MontageSpacing.spacing20).padding(bottom = MontageSpacing.spacing24),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16),
+        ) {
+            Text(stringResource(Res.string.settings_review_reminder_time), style = MontageTheme.typography.heading2.bold, color = MontageTheme.colors.foregroundNeutralPrimary)
+            TimePicker(picker)
+            MontageButton(
+                text = stringResource(Res.string.settings_review_reminder_time_save),
+                onClick = { close { onSave(LocalTime(picker.hour, picker.minute)) } },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** 제목 아래 칩으로 하나를 고르는 줄. 고를 값이 서너 개라 목록 행보다 한눈에 보인다. */
+@Composable
+private fun <T> Choices(title: String, options: List<T>, selected: T, label: @Composable (T) -> String, onSelect: (T) -> Unit, caption: String? = null) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = MontageSpacing.spacing20, vertical = MontageSpacing.spacing12),
+        verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8),
+    ) {
+        Text(title, style = MontageTheme.typography.body2.medium, color = MontageTheme.colors.foregroundNeutralPrimary)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8), verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing8)) {
+            options.forEach { MontageChip(text = label(it), onClick = { onSelect(it) }, active = it == selected, variant = MontageChipVariant.Outlined) }
+        }
+        caption?.let { Text(it, style = MontageTheme.typography.label2.regular, color = MontageTheme.colors.foregroundNeutralTertiary) }
+    }
+}
+
+@Composable
+private fun Toggle(title: StringResource, caption: StringResource, checked: Boolean, onChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    MontageListCell(title = stringResource(title), caption = stringResource(caption), onClick = { onChange(!checked) }, modifier = modifier) {
+        MontageCheckbox(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
+private fun clockLabel(time: LocalTime): String {
+    val hour = (time.hour + 11) % 12 + 1
+    val minute = time.minute.toString().padStart(2, '0')
+    return stringResource(if (time.hour < 12) Res.string.settings_time_am else Res.string.settings_time_pm, hour, minute)
+}
+
+private fun endWaitLabel(wait: EndWait) = when (wait) {
+    EndWait.Short -> Res.string.settings_speaking_end_wait_short
+    EndWait.Normal -> Res.string.settings_speaking_end_wait_normal
+    EndWait.Long -> Res.string.settings_speaking_end_wait_long
+}
+
+private fun amountLabel(amount: ReviewAmount) = when (amount) {
+    ReviewAmount.Less -> Res.string.settings_review_amount_less
+    ReviewAmount.Normal -> Res.string.settings_review_amount_normal
+    ReviewAmount.More -> Res.string.settings_review_amount_more
 }
 
 /** 서버가 없어 방침 문서는 저장소에 둔다. 스토어 등록 화면에도 같은 주소를 넣는다. */
@@ -386,6 +545,11 @@ internal object SettingsSamples {
 
     /** 기기 음성을 골랐는데 고품질 기기 음성이 없다. */
     val deviceVoice = default.copy(naturalVoiceOn = false, highQualityDeviceVoice = false)
+
+    /** 말하기 연습과 복습 설정을 처음 값에서 모두 바꾸고 복습 알림을 켰다(F19.1, F19.2). */
+    val speakingSet = default.copy(
+        speaking = SpeakingPrefs(minutes = 30, endWait = EndWait.Long, bargeIn = false, grammarNudge = true, oralReview = false, amount = ReviewAmount.More, reminderOn = true, reminderAt = LocalTime(7, 30)),
+    )
     val imported = default.copy(answerTimerOn = true, importedQuestionCount = 12, questionImport = QuestionImportResult.Imported(12))
 }
 

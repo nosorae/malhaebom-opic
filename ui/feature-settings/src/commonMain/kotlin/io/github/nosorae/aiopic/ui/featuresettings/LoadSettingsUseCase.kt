@@ -14,6 +14,8 @@ import io.github.nosorae.aiopic.ui.featuresettings.key.maskKey
 import io.github.nosorae.aiopic.ui.featuresettings.model.ModelSelectionStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.AnswerTimerStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionFileStore
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefs
+import io.github.nosorae.aiopic.ui.featuresettings.speaking.SpeakingPrefsStore
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeMode
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
 import io.github.nosorae.aiopic.ui.featuresettings.voice.QuestionVoiceStore
@@ -30,6 +32,7 @@ data class LoadedSettings(
     val naturalVoiceOn: Boolean,
     val highQualityDeviceVoice: Boolean,
     val importedQuestionCount: Int,
+    val speaking: SpeakingPrefs,
 )
 
 /**
@@ -48,6 +51,7 @@ class LoadSettingsUseCase(
     private val questionFileStore: QuestionFileStore,
     private val hapticsStore: HapticsStore,
     private val questionVoiceStore: QuestionVoiceStore,
+    private val speakingPrefsStore: SpeakingPrefsStore,
 ) {
     suspend operator fun invoke(): LoadedSettings {
         val choice = modelCatalog.choose(modelSelectionStore.selectedModelId())
@@ -65,6 +69,7 @@ class LoadSettingsUseCase(
             highQualityDeviceVoice = questionVoiceStore.hasHighQualityDeviceVoice(),
             // 저장할 때 검사를 마친 파일이라 다시 읽어도 통과한다.
             importedQuestionCount = questionFileStore.questionFile()?.let { parseQuestions(it).size } ?: 0,
+            speaking = speakingPrefsStore.speakingPrefs(),
         )
     }
 }
