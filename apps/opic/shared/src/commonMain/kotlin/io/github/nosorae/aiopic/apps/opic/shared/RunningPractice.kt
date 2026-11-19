@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
+import org.jetbrains.compose.resources.getString
 import kotlin.time.Clock
 
 /** 연습을 조작하는 명령(F16.10). 화면 버튼, 알림 버튼, 이어폰 버튼이 모두 이 값으로 [RunningPractice.command] 에 넣는다. 끊김으로 멈췄을 때 다시 시작은 다시 연결이다(F16.15). */
@@ -107,6 +108,22 @@ class RunningPractice(
             }
         }
     }
+}
+
+/**
+ * 진행 알림(F16.10)에 띄울 값. [toggle] 버튼은 [toggleCommand] 를 넣고, 다른 버튼은 끝내기다.
+ * [counting] 이면 대화 시간이 흐르는 중이라 알림이 지난 시간을 센다.
+ */
+data class PracticeNotice(val title: String, val text: String, val toggle: String, val toggleCommand: PracticeCommand, val finish: String, val counting: Boolean)
+
+suspend fun SpeakingState.notice(): PracticeNotice {
+    val paused = status == SpeakingStatus.Paused
+    val (title, text, toggle) = when {
+        disconnected -> Triple(Res.string.practice_dropped_title, Res.string.practice_dropped_text, Res.string.practice_reconnect)
+        paused -> Triple(Res.string.practice_paused_title, Res.string.practice_paused_text, Res.string.practice_resume)
+        else -> Triple(Res.string.practice_running_title, Res.string.practice_running_text, Res.string.practice_pause)
+    }
+    return PracticeNotice(getString(title), getString(text), getString(toggle), if (paused) PracticeCommand.Resume else PracticeCommand.Pause, getString(Res.string.practice_finish), counting = !paused)
 }
 
 /** 앱이 만드는 연습 세션. 끝내면 연습 정리 작업을 바로 넣는다(F16.11, F17.4). */

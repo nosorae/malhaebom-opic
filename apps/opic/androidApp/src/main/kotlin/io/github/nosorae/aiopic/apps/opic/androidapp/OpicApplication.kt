@@ -22,6 +22,7 @@ import io.github.nosorae.aiopic.libs.recorder.api.Recorder
 import io.github.nosorae.aiopic.libs.tts.AndroidTts
 import io.github.nosorae.aiopic.libs.workqueue.api.WorkManagerWorkQueue
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -60,6 +61,13 @@ open class OpicApplication : Application() {
         graph.registerDebugPanels(audio = ::audioRows)
         // 앱이 보내는 중에 죽었으면 진행 중으로 남은 작업을 대기로 돌리고 대기열을 깨운다.
         MainScope().launch { graph.analysisJobs.recover() }
+        // 말하기 연습이 시작되면 서비스가 프로세스를 붙잡고(ADR 0038), 상태가 바뀔 때마다 효과음을 낸다(F16.19).
+        val practice = graph.runningPractice
+        MainScope().launch {
+            practice.state.map { it != null && !it.finished }.distinctUntilChanged().collect { running -> if (running) PracticeService.start(this@OpicApplication) }
+        }
+        val chimes = AndroidChimes()
+        MainScope().launch { practice.chimes.collect(chimes::play) }
     }
 
     /** 시나리오 테스트가 저장해 둔 응답을 돌려주는 클라이언트로 바꾼다. */

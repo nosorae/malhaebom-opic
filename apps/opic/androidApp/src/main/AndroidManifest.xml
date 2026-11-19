@@ -3,6 +3,9 @@
 
     <!-- 분석 진행과 리포트 준비 알림(#229). 거절해도 분석은 그대로 돈다. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 말하기 연습은 화면을 꺼도 마이크와 연결을 쓴다(ADR 0038). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application
         android:name=".OpicApplication"
@@ -26,6 +29,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+            android:name=".PracticeService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 
 </manifest>

@@ -89,6 +89,7 @@ class IosShell {
         gemini = debugGeminiClient(upload = upload),
     ).apply {
         registerDebugPanels(audio = ::audioSessionRows)
+        watchPractice(runningPractice)
         // 앱이 보내는 중에 죽었으면 진행 중으로 남은 작업을 대기로 돌리고 대기열을 깨운다.
         MainScope().launch { analysisJobs.recover() }
         if (UiTestLaunch.storeDemo) MainScope().launch { opicStore.seedStoreDemo(OpicEn.questionPool()) }

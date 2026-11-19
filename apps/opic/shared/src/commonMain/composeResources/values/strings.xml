@@ -11,4 +11,15 @@
     <string name="cards_ready_title">표현을 정리했어요</string>
     <string name="cards_ready_text">새 표현 %1$d개가 복습에 들어갔어요</string>
     <string name="cards_none_text">이번에는 고칠 표현이 없었어요</string>
+    <!-- 말하기 연습 진행 알림(F16.10) -->
+    <string name="practice_running_title">말하기 연습 중</string>
+    <string name="practice_running_text">화면을 꺼도 계속돼요</string>
+    <string name="practice_paused_title">일시정지했어요</string>
+    <string name="practice_paused_text">"다시 시작" 이라고 말해도 돼요</string>
+    <string name="practice_dropped_title">연결이 끊겨 멈췄어요</string>
+    <string name="practice_dropped_text">대화와 저장한 표현은 남아 있어요</string>
+    <string name="practice_pause">일시정지</string>
+    <string name="practice_resume">다시 시작</string>
+    <string name="practice_reconnect">다시 연결</string>
+    <string name="practice_finish">끝내기</string>
 </resources>
