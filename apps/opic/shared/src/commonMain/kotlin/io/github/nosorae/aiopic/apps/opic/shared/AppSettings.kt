@@ -129,6 +129,9 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
 
     override suspend fun saveReviewBatch(batch: ReviewBatch) = write(REVIEW_BATCH, Json.encodeToString(SavedReviewBatch(batch.day, batch.cardIds, batch.results)))
 
+    /** 말하기 연습의 기본 연습 시간(분). 고르는 설정 화면(F19.1)이 생기기 전까지 처음 값 20분이다(F16.2). */
+    val practiceMinutes: Int get() = read(PRACTICE_MINUTES)?.toIntOrNull() ?: 20
+
     /** 첫 분석을 시작할 때 알림 권한을 한 번 물었는가(#229). 거절해도 다시 묻지 않는다. */
     var notificationsAsked: Boolean
         get() = read(NOTIFICATIONS_ASKED) == "true"
@@ -155,6 +158,7 @@ class AppSettings(private val read: (String) -> String?, private val write: (Str
         private const val REVIEW_SILENT = "review_silent"
         private const val REVIEW_AMOUNT = "review_amount"
         private const val REVIEW_BATCH = "review_batch"
+        private const val PRACTICE_MINUTES = "practice_minutes"
 
         /** 앱 틀 테스트처럼 기기에 남길 필요가 없을 때 쓴다. */
         fun inMemory(): AppSettings {

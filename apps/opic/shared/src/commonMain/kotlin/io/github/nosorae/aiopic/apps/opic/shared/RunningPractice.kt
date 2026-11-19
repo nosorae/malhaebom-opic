@@ -12,10 +12,13 @@ import io.github.nosorae.aiopic.engine.speaking.SpeakingStatus
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStore
 import io.github.nosorae.aiopic.libs.duplexaudio.api.AudioInterruption
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeAction
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeControl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -29,14 +32,14 @@ enum class PracticeCommand { Pause, Resume, Toggle, Finish }
 
 /**
  * 지금 도는 말하기 연습 하나(ADR 0038, design.md 12.2). 앱 범위에 하나 두고 Android 포그라운드 서비스와 iOS 백그라운드 오디오가 붙잡는다.
- * 화면은 세션을 만들지 않고 [state] 를 지켜보며 명령만 넘긴다. 오디오 끼어듦도 여기서 일시정지로 넣는다(F16.14).
+ * 화면은 세션을 만들지 않고 [state] 를 지켜보며 명령만 넘긴다([PracticeControl]). 오디오 끼어듦도 여기서 일시정지로 넣는다(F16.14).
  */
 class RunningPractice(
     private val newSession: suspend (CoroutineScope) -> SpeakingSession,
     audio: DuplexAudio,
     private val clock: Clock,
     private val scope: CoroutineScope,
-) {
+) : PracticeControl {
     private val session = MutableStateFlow<SpeakingSession?>(null)
 
     /** 끼어듦으로 멈췄다. 끼어듦이 끝나면 이 경우에만 다시 시작한다. 사용자가 명령을 넣으면 지운다. */
@@ -44,7 +47,10 @@ class RunningPractice(
 
     /** 시작 전에는 null 이고, 끝나면 끝난 마지막 상태가 다음 연습을 시작할 때까지 남는다. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val state: Flow<SpeakingState?> = session.flatMapLatest { it?.state ?: flowOf(null) }
+    override val state: Flow<SpeakingState?> = session.flatMapLatest { it?.state ?: flowOf(null) }
+
+    /** 코치가 말하는 중이면 코치 목소리, 아니면 내 목소리 크기. */
+    override val level: Flow<Float> = combine(state, audio.micLevel, audio.playbackLevel) { practice, mic, playback -> if (practice?.status == SpeakingStatus.CoachSpeaking) playback else mic }
 
     val current: SpeakingState? get() = session.value?.state?.value
 
@@ -62,7 +68,7 @@ class RunningPractice(
     }
 
     /** 화면이 보일 때만 부른다(F16.4). 연습이 돌고 있으면 아무것도 하지 않는다. */
-    suspend fun start(id: String, setup: SpeakingSetup) {
+    override suspend fun start(id: String, setup: SpeakingSetup) {
         if (current?.finished == false) return
         val next = newSession(scope)
         next.start(id, setup)
@@ -70,6 +76,14 @@ class RunningPractice(
         interruptedPause = false
         session.value = next
     }
+
+    override suspend fun send(action: PracticeAction) = command(
+        when (action) {
+            PracticeAction.Pause -> PracticeCommand.Pause
+            PracticeAction.Resume -> PracticeCommand.Resume
+            PracticeAction.Finish -> PracticeCommand.Finish
+        },
+    )
 
     suspend fun command(command: PracticeCommand) {
         val running = session.value ?: return

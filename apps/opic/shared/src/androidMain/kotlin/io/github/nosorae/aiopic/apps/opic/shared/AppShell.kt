@@ -56,6 +56,8 @@ import io.github.nosorae.aiopic.ui.featureonboarding.start.StartDestination
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartUiState
 import io.github.nosorae.aiopic.ui.featureonboarding.start.StartViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.painterResource
 
@@ -76,7 +78,10 @@ fun OpicApp(graph: AppGraph, start: StartViewModel, opened: AppRoute? = null) {
     }
 }
 
-/** Android 13 이상에서 첫 분석을 시작할 때 알림 권한을 한 번 묻는다(#229). 거절해도 분석은 그대로 돌고 다시 묻지 않는다. */
+/**
+ * Android 13 이상에서 첫 분석이나 첫 말하기 연습을 시작할 때 알림 권한을 한 번 묻는다(#229, F16.3). 연습 진행 알림과 정리 끝 알림이 이 권한을 쓴다.
+ * 거절해도 분석과 연습은 그대로 돌고 다시 묻지 않는다.
+ */
 @Composable
 private fun AskNotificationsOnFirstAnalysis(graph: AppGraph) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
@@ -84,7 +89,7 @@ private fun AskNotificationsOnFirstAnalysis(graph: AppGraph) {
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(graph) {
         if (graph.settings.notificationsAsked) return@LaunchedEffect
-        graph.opicStore.analyzing().first { it }
+        merge(graph.opicStore.analyzing(), graph.runningPractice.state.map { it?.finished == false }).first { it }
         graph.settings.notificationsAsked = true
         if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
     }

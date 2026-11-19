@@ -36,6 +36,8 @@ class RouteContentTest {
         AppRoute.FreeTierNotice, AppRoute.StartConsent -> "동의하고 계속하기"
         AppRoute.FlagExport -> "아직 \"틀림\"을 누른 교정이 없습니다"
         AppRoute.AppInfo -> "Montage by Wantedlab"
+        AppRoute.Speaking -> "말하기 연습"
+        is AppRoute.SpeakingSummary -> "다 봤어요"
     }
 
     private fun assertDraws(route: AppRoute) {
@@ -78,6 +80,10 @@ class RouteContentTest {
     @Test fun survey() = assertDraws(AppRoute.Survey)
 
     @Test fun flagExport() = assertDraws(AppRoute.FlagExport)
+
+    @Test fun speaking() = assertDraws(AppRoute.Speaking)
+
+    @Test fun speakingSummary() = assertDraws(AppRoute.SpeakingSummary("p"))
 
     @Test fun appInfo() = assertDraws(AppRoute.AppInfo)
 

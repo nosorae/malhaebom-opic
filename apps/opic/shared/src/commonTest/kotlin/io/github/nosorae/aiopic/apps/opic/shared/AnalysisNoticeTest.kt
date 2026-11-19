@@ -70,11 +70,11 @@ class AnalysisNoticeTest {
     }
 
     @Test
-    fun `F17_5 연습 정리가 끝나면 만든 카드 수를 싣고 경로 없이 앱 첫 화면을 연다`() {
+    fun `F17_5 연습 정리가 끝나면 만든 카드 수를 싣고 그 연습의 정리 화면을 연다`() {
         val outcome = analysisOutcome(listOf(job("p1", JobState.Succeeded, at = 1_001, JobKind.Cards)), start, sessionOf = { null }, cardsOf = { if (it == "p1") 5 else null })
 
-        assertEquals(AnalysisOutcome(null, failed = false, cards = 5), outcome)
-        assertNull(outcome?.routeJson)
+        assertEquals(AnalysisOutcome(AppRoute.SpeakingSummary("p1"), failed = false, cards = 5), outcome)
+        assertEquals(AppRoute.SpeakingSummary("p1"), routeFromJson(outcome?.routeJson!!))
     }
 
     @Test
@@ -145,7 +145,7 @@ class AnalysisNoticeTest {
             notify = { notified += it },
         )
 
-        assertEquals(listOf(AnalysisOutcome(null, failed = false, cards = 3)), notified)
+        assertEquals(listOf(AnalysisOutcome(AppRoute.SpeakingSummary("p1"), failed = false, cards = 3)), notified)
     }
 
     @Test
