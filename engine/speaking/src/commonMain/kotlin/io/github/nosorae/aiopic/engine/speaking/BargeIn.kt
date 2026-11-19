@@ -13,8 +13,8 @@ val BARGE_IN_AFTER: Duration = 600.milliseconds
 val BARGE_IN_GAP: Duration = 200.milliseconds
 
 /**
- * 코치가 말하는 중의 마이크 조각을 보내지 않고 붙잡는다(F20.4). 첫 말소리부터 [after] 넘게 말소리가 이어지면 붙잡은 조각을 모두 내놓고,
- * 그 전에 [gap] 넘게 끊기면 버린다. 물소리나 에코 제거 뒤에 남은 코치 목소리가 잠깐 말소리로 잡혀도 코치를 끊지 않는다.
+ * 코치가 말하는 중의 마이크 조각을 보내지 않고 붙잡는다(F20.4). 말소리 조각 길이만 더해 [after] 를 넘으면 붙잡은 조각을 모두 내놓고,
+ * 그 전에 [gap] 넘게 끊기면 버린다. 틈 조각은 순서를 지키려 붙잡기만 하고 말소리 길이에 세지 않는다. 물소리나 에코 제거 뒤에 남은 코치 목소리가 잠깐 말소리로 잡혀도 코치를 끊지 않는다.
  */
 internal class BargeIn(private val after: Duration = BARGE_IN_AFTER, private val gap: Duration = BARGE_IN_GAP) {
     private val held = mutableListOf<ByteArray>()
@@ -26,23 +26,22 @@ internal class BargeIn(private val after: Duration = BARGE_IN_AFTER, private val
         if (!speech) {
             if (held.isEmpty()) return null
             quiet += length
-            if (quiet > gap) clear() else keep(pcm, length)
+            if (quiet > gap) clear() else held += pcm
             return null
         }
         quiet = Duration.ZERO
-        keep(pcm, length)
+        held += pcm
+        heard += length
         if (heard <= after) return null
-        return held.toList().also { clear() }
+        return drain()
     }
+
+    /** 붙잡은 조각을 순서대로 꺼내고 처음부터 다시 잰다. */
+    fun drain(): List<ByteArray> = held.toList().also { clear() }
 
     fun clear() {
         held.clear()
         heard = Duration.ZERO
         quiet = Duration.ZERO
-    }
-
-    private fun keep(pcm: ByteArray, length: Duration) {
-        held += pcm
-        heard += length
     }
 }

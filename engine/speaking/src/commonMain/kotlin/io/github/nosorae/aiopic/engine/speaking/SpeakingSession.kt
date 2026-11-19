@@ -41,9 +41,10 @@ import kotlin.time.Instant
  * 코치와의 Live 연결 하나(F16). 앱이 `libs/live-gemini` 의 LiveSession 에 키와 연결 설정(말 끝 판정, 끼어들기)을 넣어 감싼다.
  * 모으는 동안 연결을 유지하고, [resumeHandle] 이 있으면 앞 대화를 이어 붙인다. 연결이 끝나면 흐름이 끝난다.
  * [route] 가 스피커면 주변 소리가 섞이므로 말 시작과 끝 감도를 낮게 둔다(F20.5).
+ * [interruptible] 이 false 면 코치가 말하는 중에 사용자가 말해도 서버가 끊지 않는다(F16.17). 세션이 기기 쪽 끊기와 같은 값을 넘긴다.
  */
 interface SpeakingLink {
-    fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent>
+    fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute, interruptible: Boolean): Flow<LiveEvent>
 
     /** 16kHz 모노 16비트 PCM. */
     suspend fun sendAudio(pcm: ByteArray)
@@ -76,7 +77,7 @@ class SpeakingProfile(val instruction: String, val tools: List<JsonObject>, val 
 
 /**
  * 시작 시트와 설정에서 고른 값(F16.2, F16.8, F16.22, F18.7). [topics] 는 서베이 주제와 업무 주제다.
- * [bargeIn] 은 설정의 말로 끊기다(F16.17). 스피커 모드는 기기가 끊으므로 연결 설정과 별도로 세션도 안다(F20.4).
+ * [bargeIn] 은 설정의 말로 끊기다(F16.17). 세션이 이 값 하나로 서버의 끊기(연결 설정)와 스피커 모드의 기기 끊기(F20.4)를 함께 정한다.
  */
 data class SpeakingSetup(
     val planned: Duration,
@@ -248,7 +249,7 @@ class SpeakingSession(
         waiting = null
         dropping = false
 
-        link.connect(instruction(state), profile.tools, handle, state.route).collect { event ->
+        link.connect(instruction(state), profile.tools, handle, state.route, plan.setup.bargeIn).collect { event ->
             // 연결을 받고 곧바로 닫는 서버(할당량 초과 등)를 성공으로 세지 않게, 응답이 처음 온 때 다시 연결 횟수를 0 으로 돌린다(F16.15).
             if (!replied && event.isReply()) {
                 replied = true
@@ -415,6 +416,7 @@ class SpeakingSession(
      *
      * 스피커 모드는 목소리 주기가 없는 조각을 말소리로 치지 않는다(F20.3). 코치가 말하는 중에는 조각을 [bargeIn] 에 붙잡아 두고,
      * 내 말소리가 이어져 끊을 때가 되면 재생을 멈추고 붙잡은 조각부터 보낸다. 서버는 그 말소리를 듣고 끼어듦으로 처리한다(F20.4).
+     * 끊기 전에 코치 말이 끝나면 붙잡은 조각을 먼저 보내고 다음 조각을 보낸다.
      */
     private suspend fun forwardMic() {
         var silence = Duration.INFINITE
@@ -446,7 +448,8 @@ class SpeakingSession(
             if (state.disconnected) return@collect
             if (state.route == AudioRoute.Earphones) return@collect forward(chunk.pcm, chunk.speech)
             if (state.status != SpeakingStatus.CoachSpeaking) {
-                bargeIn.clear()
+                // 코치 말 끝에 겹쳐 시작한 대답의 앞부분이다. 버리면 첫 낱말이 빠진다.
+                bargeIn.drain().forEach { forward(it, speech = true) }
                 return@collect forward(chunk.pcm, chunk.voiced)
             }
             if (!plan.setup.bargeIn) return@collect

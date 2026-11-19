@@ -16,16 +16,15 @@ import kotlin.time.Duration
 /**
  * 말하기 연습 연결을 Gemini Live 로 연다(F16). [apiKey] 는 사용자가 넣은 키이고 없으면 열지 않고 흐름을 끝낸다.
  * 연습 하나가 [session] 하나를 끝까지 쓴다. 사용량은 코치와 같은 [TurnUsage] 로 턴별 값으로 맞춰 넘긴다(F16.24).
- * [silence] 는 설정의 말 끝 기다림이고, [interruptible] 이 false 면 코치가 말하는 중에 사용자가 말해도 끊지 않는다(F16.17).
+ * [silence] 는 설정의 말 끝 기다림이다(F16.17).
  */
 class GeminiSpeakingLink(
     private val apiKey: suspend () -> String?,
     private val voice: String,
     private val silence: Duration? = null,
-    private val interruptible: Boolean = true,
     private val session: LiveSession = LiveSession(),
 ) : SpeakingLink {
-    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent> = flow {
+    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute, interruptible: Boolean): Flow<LiveEvent> = flow {
         val key = apiKey() ?: return@flow
         var usage = TurnUsage()
         // 스피커면 물소리와 남은 코치 목소리를 말 시작으로 잡지 않게 감도를 낮춘다(F20.5). 이어폰은 서버 기본값이다.

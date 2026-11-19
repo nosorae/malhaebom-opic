@@ -294,6 +294,13 @@ class SpeakingSessionTest {
     }
 
     @Test
+    fun `F16_17 시작 설정의 말로 끊기 값을 연결에 넘긴다`() = test { db ->
+        started(db, speaker.copy(bargeIn = false))
+
+        assertEquals(false, link.connects.single().interruptible)
+    }
+
+    @Test
     fun `F20_3 스피커 모드는 주기가 없는 잡음 조각을 보내지 않고 목소리는 보낸다`() = test { db ->
         val session = started(db, speaker)
 
@@ -349,6 +356,25 @@ class SpeakingSessionTest {
         link.server(LiveEvent.Interrupted, LiveEvent.AudioChunk(COACH_SECOND))
         runCurrent()
         assertEquals(1, audio.queued.size)
+    }
+
+    @Test
+    fun `F20_4 코치 턴이 끝나기 직전 시작한 말소리 조각이 턴이 끝난 뒤 순서대로 보내진다`() = test { db ->
+        val session = started(db, speaker)
+        val chunks = List(15) { VOICE.copyOf() }
+        link.server(LiveEvent.AudioChunk(COACH_SECOND), LiveEvent.TurnComplete)
+        runCurrent()
+
+        audio.say(*chunks.take(10).toTypedArray())
+        runCurrent()
+        assertEquals(0, link.audio.size)
+
+        advanceTimeBy(1.seconds + 1.seconds / 10)
+        assertEquals(SpeakingStatus.Listening, session.now().status)
+        audio.say(*chunks.drop(10).toTypedArray())
+        runCurrent()
+
+        assertEquals(chunks, link.audio)
     }
 
     @Test

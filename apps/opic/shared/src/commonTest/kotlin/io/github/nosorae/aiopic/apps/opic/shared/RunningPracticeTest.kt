@@ -125,7 +125,7 @@ private val PROFILE = SpeakingProfile("Talk about {{topic}}.", emptyList(), empt
 
 /** 연결을 열어 두기만 한다. 끊기지 않아 다시 연결하지 않는다. */
 private object QuietLink : SpeakingLink {
-    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent> = flow { awaitCancellation() }
+    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute, interruptible: Boolean): Flow<LiveEvent> = flow { awaitCancellation() }
 
     override suspend fun sendAudio(pcm: ByteArray) = Unit
 

@@ -23,7 +23,7 @@ expect fun inMemoryDatabase(context: CoroutineContext? = null): OpicDatabase
 
 /** 가짜 연결. 연결마다 받은 지시와 핸들을 남기고, [server] 로 넣은 일을 지금 연결에 낸다. 끊김이나 실패를 내면 흐름이 끝난다. */
 class FakeLink : SpeakingLink {
-    data class Connect(val instruction: String, val tools: List<JsonObject>, val resumeHandle: String?, val route: AudioRoute = AudioRoute.Earphones)
+    data class Connect(val instruction: String, val tools: List<JsonObject>, val resumeHandle: String?, val route: AudioRoute = AudioRoute.Earphones, val interruptible: Boolean = true)
 
     val connects = mutableListOf<Connect>()
     val audio = mutableListOf<ByteArray>()
@@ -34,8 +34,8 @@ class FakeLink : SpeakingLink {
 
     fun server(vararg event: LiveEvent) = event.forEach { events.trySend(it) }
 
-    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent> = flow {
-        connects += Connect(instruction, tools, resumeHandle, route)
+    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute, interruptible: Boolean): Flow<LiveEvent> = flow {
+        connects += Connect(instruction, tools, resumeHandle, route, interruptible)
         events = Channel(Channel.UNLIMITED)
         for (event in events) {
             emit(event)

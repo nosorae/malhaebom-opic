@@ -22,7 +22,7 @@ class GeminiSpeakingLinkTest {
     @Test
     fun `F16_24 쌓여 오는 사용량을 엔진이 더하는 턴별 값으로 바꿔 넘긴다`() = runTest {
         val events = mutableListOf<LiveEvent>()
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Earphones).collect { events += it } }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Earphones, interruptible = true).collect { events += it } }
 
         sockets.last().server("""{"setupComplete":{}}""")
         sockets.last().server(usage(100, 10))
@@ -36,15 +36,15 @@ class GeminiSpeakingLinkTest {
     fun `키가 없으면 연결하지 않고 흐름을 끝낸다`() = runTest {
         key = null
 
-        val events = link.connect("Practice.", emptyList(), null, AudioRoute.Earphones).toList()
+        val events = link.connect("Practice.", emptyList(), null, AudioRoute.Earphones, interruptible = true).toList()
 
         assertTrue(events.isEmpty() && sockets.isEmpty())
     }
 
     @Test
     fun `F16_17 설정의 말 끝 기다림과 말로 끊기 끔을 연결 setup 에 넣는다`() = runTest {
-        val tuned = GeminiSpeakingLink(apiKey = { key }, voice = "Kore", silence = 1.5.seconds, interruptible = false, session = LiveSession(open = { FakeSocket().also { sockets += it } }))
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { tuned.connect("Practice.", emptyList(), null, AudioRoute.Earphones).collect {} }
+        val tuned = GeminiSpeakingLink(apiKey = { key }, voice = "Kore", silence = 1.5.seconds, session = LiveSession(open = { FakeSocket().also { sockets += it } }))
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { tuned.connect("Practice.", emptyList(), null, AudioRoute.Earphones, interruptible = false).collect {} }
 
         val setup = sockets.last().sent.first()
         job.cancelAndJoin()
@@ -54,7 +54,7 @@ class GeminiSpeakingLinkTest {
 
     @Test
     fun `F20_5 스피커 모드면 말 시작과 끝 감도를 낮게 둔다`() = runTest {
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Speaker).collect {} }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Speaker, interruptible = true).collect {} }
 
         val setup = sockets.last().sent.first()
         job.cancelAndJoin()
@@ -64,7 +64,7 @@ class GeminiSpeakingLinkTest {
 
     @Test
     fun `F20_5 이어폰이면 감도를 서버 기본값에 맡긴다`() = runTest {
-        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Earphones).collect {} }
+        val job = launch(UnconfinedTestDispatcher(testScheduler)) { link.connect("Practice.", emptyList(), null, AudioRoute.Earphones, interruptible = true).collect {} }
 
         val setup = sockets.last().sent.first()
         job.cancelAndJoin()

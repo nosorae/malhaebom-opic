@@ -28,10 +28,18 @@ class BargeInTest {
     }
 
     @Test
-    fun `F20_4 말소리 사이 짧은 틈은 이어진 것으로 본다`() {
-        val results = feed(*BooleanArray(8) { true }, false, false, *BooleanArray(6) { true })
+    fun `F20_4 말소리 사이 짧은 틈은 이어진 것으로 보고 틈은 말소리 길이에 세지 않는다`() {
+        val results = feed(*BooleanArray(8) { true }, false, false, *BooleanArray(8) { true })
 
-        assertEquals(16, results.last()?.size)
+        assertEquals(List(17) { null }, results.dropLast(1))
+        assertEquals(18, results.last()?.size)
+    }
+
+    @Test
+    fun `F20_4 말소리 한 조각과 짧은 틈이 되풀이되면 말소리가 0점6초가 될 때까지 끊지 않는다`() {
+        val results = feed(*List(15) { listOf(true, false, false, false, false, false) }.flatten().toBooleanArray())
+
+        assertEquals(List(90) { null }, results)
     }
 
     @Test
