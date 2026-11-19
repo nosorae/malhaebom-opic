@@ -1527,8 +1527,10 @@
       ],
       "done": "./gradlew :engine:review:allTests && ./gradlew :engine:review:testAndroidHostTest --tests '*FsrsTest*' --tests '*ReviewQueueTest*'",
       "done_desc": "새 engine/review 모듈. 카드 모델(종류, 내가 한 말, 더 나은 표현, 뜻, 틀린 유형, 복습 값)과 FSRS 간격 계산(design.md 12.3). 평가는 다시, 어려움, 알았음, 쉬움이고 목표 기억률은 복습 양(85, 90, 95%)을 따른다. KMP 라이브러리가 있으면 쓰고 없으면 수식을 옮긴다. FsrsTest(F18.6, F18.7): 알려진 입력과 결과 쌍으로 다음 복습 시각과 난이도, 안정도를 확인한다. ReviewQueueTest(F18.2, F18.9): 한 번 6장, 하루 30장, 새 카드 하루 10장, 보관 카드 제외, 잊었을 확률 순, 이번 주(월요일부터) 복습한 날 수",
-      "status": "todo",
-      "issue": 285
+      "status": "done",
+      "issue": 285,
+      "start": "2026-11-19",
+      "end": "2026-11-19"
     },
     {
       "id": "speaking-db",
