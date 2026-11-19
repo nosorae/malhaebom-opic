@@ -102,7 +102,7 @@ internal fun RouteContent(
 
         is AppRoute.Expression -> ExpressionDetailRoute(
             viewModel = viewModel(key = route.toString()) { graph.expressionDetailViewModelFactory.create(route.cardId) },
-            onDeleted = onBack,
+            onExit = onBack,
             modifier = modifier,
         )
 

@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -28,13 +29,14 @@ import io.github.nosorae.aiopic.ui.design.MontageTopBar
 import kotlinx.datetime.LocalDate
 import org.jetbrains.compose.resources.stringResource
 
-/** 표현 상세의 바깥 겹. 지우면 [onDeleted] 로 표현 탭에 돌아간다(F18.3). */
+/** 표현 상세의 바깥 겹. 지우면 [onExit] 로 표현 탭에 돌아간다(F18.3). */
 @Composable
-fun ExpressionDetailRoute(viewModel: ExpressionDetailViewModel, onDeleted: () -> Unit, modifier: Modifier = Modifier) {
+fun ExpressionDetailRoute(viewModel: ExpressionDetailViewModel, onExit: () -> Unit, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentOnExit by rememberUpdatedState(onExit)
     LaunchedEffect(state.deleted) {
         if (state.deleted) {
-            onDeleted()
+            currentOnExit()
             viewModel.onIntent(ExpressionDetailIntent.NavigationHandled)
         }
     }

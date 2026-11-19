@@ -116,9 +116,11 @@ private fun Answer(card: ExpressionCard, silent: Boolean, prompt: Boolean) {
 /** 복습 끝(F18.8). 알았음, 다시, 처음 본 장 수와 이번 주 며칠째인지. */
 @Composable
 private fun Done(state: ReviewUiState) {
-    Text(stringResource(Res.string.review_done_title), style = MontageTheme.typography.title3.bold, color = MontageTheme.colors.foregroundNeutralPrimary)
-    Prompt(stringResource(Res.string.review_done_counts, state.knewCount, state.againCount, state.firstSeenCount))
-    Prompt(stringResource(Res.string.review_done_week, state.weekDays))
+    Column(verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16)) {
+        Text(stringResource(Res.string.review_done_title), style = MontageTheme.typography.title3.bold, color = MontageTheme.colors.foregroundNeutralPrimary)
+        Prompt(stringResource(Res.string.review_done_counts, state.knewCount, state.againCount, state.firstSeenCount))
+        Prompt(stringResource(Res.string.review_done_week, state.weekDays))
+    }
 }
 
 @Composable
