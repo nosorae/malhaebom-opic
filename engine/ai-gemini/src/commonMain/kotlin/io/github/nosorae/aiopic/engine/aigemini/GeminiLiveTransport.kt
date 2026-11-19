@@ -86,7 +86,7 @@ private fun dropReason(status: Int?, text: String): String {
 }
 
 /** 서버의 모달리티 이름(`AUDIO`, `TEXT`)을 엔진 값으로 바꾼다. 코치가 쓰지 않는 모달리티(영상 등)는 버린다. */
-private fun Map<String, Int>.modalities(): Map<Modality, Int> = entries.mapNotNull { (name, count) -> Modality.entries.firstOrNull { it.name.uppercase() == name }?.let { it to count } }.toMap()
+internal fun Map<String, Int>.modalities(): Map<Modality, Int> = entries.mapNotNull { (name, count) -> Modality.entries.firstOrNull { it.name.uppercase() == name }?.let { it to count } }.toMap()
 
 /**
  * 연결 하나의 usageMetadata 를 엔진이 더하는 턴별 값으로 바꾼다. Gemini Live 가 누적값을 주는지 턴별 값을 주는지 확인하지 못해서 둘 다 견딘다.

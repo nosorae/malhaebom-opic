@@ -1716,8 +1716,9 @@
       ],
       "done": "human",
       "done_desc": "ADR 0038 대로 세션을 플랫폼 서비스가 소유한다(design.md 12.2). 처음에 실기기로 통화용 오디오 재생 중에 이어폰 버튼이 앱으로 오는지 확인하고, 안 오면 말과 알림 버튼으로만 조작하고 이슈에 적는다. Android: 마이크 포그라운드 서비스, 진행 알림의 일시정지, 끝내기, 다시 연결 버튼, MediaSession 이어폰 한 번 누르기, 오디오 포커스와 전화 끼어듦. iOS: 오디오 세션 수명, 끼어듦과 이어폰 연결 바뀜, MPRemoteCommandCenter. 효과음 5종. 세션을 만들 때 onFinished = analysisJobs::enqueueCards 로 이어 연습을 끝내면 바로 정리 작업이 들어가게 한다(F17.4). 그 전까지는 앱을 켤 때 recover 가 정리를 넣는다. 사람 확인: 양 플랫폼 실기기에서 화면을 끄고 20분 연습을 끝까지 하고, 이어폰 버튼과 알림 버튼으로 일시정지와 다시 시작이 된다. apps/opic 을 같이 고쳐서 expressions-tab 뒤에 둔다",
-      "status": "todo",
-      "issue": 288
+      "status": "doing",
+      "issue": 288,
+      "start": "2026-11-20"
     },
     {
       "id": "speaking-ui",

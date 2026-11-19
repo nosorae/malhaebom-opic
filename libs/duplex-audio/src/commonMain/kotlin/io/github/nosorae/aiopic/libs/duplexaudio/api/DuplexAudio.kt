@@ -2,6 +2,7 @@ package io.github.nosorae.aiopic.libs.duplexaudio.api
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 
 /**
  * 코치 음성을 재생하는 동안에도 마이크를 연다. 사용자가 코치 말 도중에 끼어들 수 있게 하고(F11.4),
@@ -26,6 +27,9 @@ public interface DuplexAudio {
     /** 재생 중인 코치 목소리 크기(0~1). 재생할 것이 없으면 0 이다. */
     public val playbackLevel: StateFlow<Float>
 
+    /** 다른 소리가 끼어들고 끝난 일(F16.14). 끼어듦을 다루지 않는 구현(테스트 대역)은 아무것도 내지 않는다. */
+    public val interruptions: Flow<AudioInterruption> get() = emptyFlow()
+
     public companion object {
         public const val MIC_SAMPLE_RATE: Int = 16_000
         public const val PLAYBACK_SAMPLE_RATE: Int = 24_000
@@ -37,6 +41,12 @@ public interface DuplexAudio {
         public const val MIC_CHUNK_BYTES: Int = MIC_SAMPLE_RATE * 2 * 40 / 1_000
     }
 }
+
+/**
+ * 전화나 다른 앱이 소리를 가져감이 [Began] 이고 돌려받음이 [Ended] 다. 다른 앱이 소리를 아주 가져가면 [Ended] 가 오지 않는다.
+ * 이어폰 빠짐은 [Unplugged] 다. 끝이 없어 다시 끼워도 저절로 다시 시작하지 않는다.
+ */
+public enum class AudioInterruption { Began, Ended, Unplugged }
 
 /** 마이크 조각 하나. [speech] 가 false 면 생각하는 동안의 침묵이라 보내지 않는다. */
 public class MicChunk(public val pcm: ByteArray) {

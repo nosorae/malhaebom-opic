@@ -1,7 +1,10 @@
 package io.github.nosorae.aiopic.libs.duplexaudio.api
 
 import android.annotation.SuppressLint
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
@@ -10,12 +13,14 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
+import android.os.Build
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio.Companion.MIC_CHUNK_BYTES
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio.Companion.MIC_SAMPLE_RATE
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio.Companion.PLAYBACK_SAMPLE_RATE
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.buffer
@@ -28,14 +33,43 @@ import kotlin.concurrent.thread
  * 플랫폼이 재생 소리를 에코 제거 기준으로 쓴다. 마이크와 재생은 각자 스레드에서 막히는 읽기, 쓰기로 돈다.
  */
 public class AndroidDuplexAudio(context: Context) : DuplexAudio {
-    private val audio = context.applicationContext.getSystemService(AudioManager::class.java)
+    private val context = context.applicationContext
+    private val audio = this.context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
         .build()
 
-    // ponytail: 포커스는 잡고 놓기만 한다. 전화가 끼어들 때 멈추고 다시 여는 일은 라이브 코치 화면이 생기면 recorder 처럼 더한다.
-    private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(attributes).build()
+    private val interrupted = MutableSharedFlow<AudioInterruption>(extraBufferCapacity = 8)
+    override val interruptions: Flow<AudioInterruption> = interrupted
+
+    // 전화가 오면 전화 앱이 포커스를 가져간다. 길 안내 음성처럼 소리를 줄여 달라는 잠깐의 끼어듦(CAN_DUCK)은 멈출 일이 아니라 버린다.
+    // 마이크와 재생은 그대로 두어 끼어듦이 끝난 뒤 다시 열지 않는다. 그동안 마이크는 조용한 소리를 낸다.
+    // 다른 앱이 소리를 아주 가져가면(LOSS) 다시 요청하기 전에는 아무것도 오지 않는다. 사용자가 다시 시작해 코치 소리를 낼 때 다시 요청한다.
+    private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+        .setAudioAttributes(attributes)
+        .setOnAudioFocusChangeListener { change ->
+            when (change) {
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    focusLost = true
+                    interrupted.tryEmit(AudioInterruption.Began)
+                }
+
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> interrupted.tryEmit(AudioInterruption.Began)
+
+                AudioManager.AUDIOFOCUS_GAIN -> interrupted.tryEmit(AudioInterruption.Ended)
+            }
+        }
+        .build()
+
+    @Volatile private var focusLost = false
+
+    /** 이어폰이 빠져 소리가 스피커로 나가려 한다. */
+    private val unplugged = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            interrupted.tryEmit(AudioInterruption.Unplugged)
+        }
+    }
     private val queue = LinkedBlockingQueue<ByteArray>()
 
     @Volatile private var open = false
@@ -82,6 +116,7 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
         }
 
         audio.requestAudioFocus(focus)
+        focusLost = false
         if (record.state == AudioRecord.STATE_INITIALIZED) record.startRecording()
         if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
             // 권한이 없거나 다른 앱이 마이크를 쥐고 있다.
@@ -90,6 +125,8 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
         }
         track.play()
         open = true
+        val noisy = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) context.registerReceiver(unplugged, noisy, Context.RECEIVER_NOT_EXPORTED) else context.registerReceiver(unplugged, noisy)
         val reader = thread(name = "duplex-mic") {
             val buffer = ByteArray(MIC_CHUNK_BYTES)
             while (open) {
@@ -106,6 +143,7 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
         }
         val player = thread(name = "duplex-play") { playLoop(track) }
         awaitClose {
+            context.unregisterReceiver(unplugged)
             open = false
             record.stop()
             reader.join()
@@ -119,7 +157,9 @@ public class AndroidDuplexAudio(context: Context) : DuplexAudio {
 
     @Synchronized
     override fun play(pcm: ByteArray) {
-        if (open) queue.put(pcm)
+        if (!open) return
+        if (focusLost && audio.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) focusLost = false
+        queue.put(pcm)
     }
 
     /** 재생 스레드만 [AudioTrack] 을 만지게 대기열을 비우고 표시를 넣는다. 쓰던 소리는 다음 조각 경계에서 멈춘다. */
