@@ -15,6 +15,7 @@ import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
 import io.github.nosorae.aiopic.engine.aigemini.GeminiScriptWriter
+import io.github.nosorae.aiopic.engine.aigemini.GeminiSpeakingLink
 import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
@@ -72,6 +73,7 @@ import io.github.nosorae.aiopic.packs.opicen.PromptFile
 import io.github.nosorae.aiopic.packs.opicen.coachProfile
 import io.github.nosorae.aiopic.packs.opicen.polishPrompt
 import io.github.nosorae.aiopic.packs.opicen.scriptPrompt
+import io.github.nosorae.aiopic.packs.opicen.speakingProfile
 import io.github.nosorae.aiopic.ui.featureexam.ExamContent
 import io.github.nosorae.aiopic.ui.featureexam.ExamRepository
 import io.github.nosorae.aiopic.ui.featureexam.ExamViewModel
@@ -209,6 +211,22 @@ interface AppGraph {
     @SingleIn(AppScope::class)
     @Provides
     fun speakingStore(database: OpicDatabase): SpeakingStore = SpeakingStore(database)
+
+    /** 지금 도는 말하기 연습(ADR 0038). Android 포그라운드 서비스와 iOS 원격 명령이 명령을 넣고 효과음을 낸다. */
+    val runningPractice: RunningPractice
+
+    /** 코치 목소리는 질문 음성, 라이브 코치와 같다. 연습마다 Live 연결 하나를 새로 만든다. */
+    @SingleIn(AppScope::class)
+    @Provides
+    fun runningPractice(audio: DuplexAudio, keyVault: KeyVault, speakingStore: SpeakingStore, cards: CardStore, jobs: AnalysisJobs, clock: Clock, timeZone: TimeZone): RunningPractice = RunningPractice(
+        newSession = { scope ->
+            val link = GeminiSpeakingLink(apiKey = { keyVault.get(GeminiModels.PROVIDER) }, voice = QUESTION_VOICE_NAME)
+            speakingSession(speakingProfile(), link, audio, speakingStore, cards, jobs, clock, timeZone, scope)
+        },
+        audio = audio,
+        clock = clock,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+    )
 
     /** 분석 작업 표와 앱 밖 진행, 끝 알림이 같은 시계로 시각을 잰다(#229). */
     val clock: Clock
