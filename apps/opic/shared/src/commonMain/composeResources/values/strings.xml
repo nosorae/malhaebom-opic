@@ -10,6 +10,10 @@
     <!-- 연습 정리 끝 알림(F17.5) -->
     <string name="review_reminder_title">오늘 복습할 표현이 있어요</string>
     <string name="review_reminder_text">%1$d장, 약 %2$d분</string>
+    <!-- 오늘 복습 위젯(F19.6) -->
+    <string name="review_widget_left">오늘 복습 %1$d장</string>
+    <string name="review_widget_done">오늘 복습 끝</string>
+    <string name="review_widget_week">이번 주 %1$d일 복습</string>
     <string name="cards_ready_title">표현을 정리했어요</string>
     <string name="cards_ready_text">새 표현 %1$d개가 복습에 들어갔어요</string>
     <string name="cards_none_text">이번에는 고칠 표현이 없었어요</string>

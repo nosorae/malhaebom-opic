@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="review_widget_surface">#1B1C1E</color>
+    <color name="review_widget_text">#FFFFFF</color>
+    <color name="review_widget_text_secondary">#989BA2</color>
+</resources>

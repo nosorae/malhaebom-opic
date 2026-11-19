@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		03C4CFF59A7EF2121D7A6F77 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F207E71A1C4601A6661BAFAD /* Foundation.framework */; };
+		9F6CDEED6D37AEA07C83DF06 /* ReviewWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 65A54AC4D3FF7CB45B39F477 /* ReviewWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -18,12 +19,34 @@
 			remoteGlobalIDString = 69322F549A29979296841AD9;
 			remoteInfo = iosApp;
 		};
+		775F5FB64418462873E437AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A41A259F2C302D3FB6DF4DF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 748CB2FE88DA60E93E57162B;
+			remoteInfo = ReviewWidget;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8A9DAFF861BC33DE8A2028E1 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				9F6CDEED6D37AEA07C83DF06 /* ReviewWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		2525B4D3F49BC6DEEF0D41C6 /* AiOpicSelfStudy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AiOpicSelfStudy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CE3FA409ED162B091623061 /* iosAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F207E71A1C4601A6661BAFAD /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		65A54AC4D3FF7CB45B39F477 /* ReviewWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ReviewWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -31,8 +54,17 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				iosApp.entitlements,
 			);
 			target = 69322F549A29979296841AD9 /* iosApp */;
+		};
+		F3975D37FCA93C5297B68758 /* Exceptions for "ReviewWidget" folder in "ReviewWidget" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				ReviewWidget.entitlements,
+			);
+			target = 748CB2FE88DA60E93E57162B /* ReviewWidget */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -55,6 +87,14 @@
 			path = iosAppUITests;
 			sourceTree = "<group>";
 		};
+		0BEFF8E6AE5BE64C40DA277A /* ReviewWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				F3975D37FCA93C5297B68758 /* Exceptions for "ReviewWidget" folder in "ReviewWidget" target */,
+			);
+			path = ReviewWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -67,6 +107,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F4A2EB450470396197AC7C68 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DAA6766A86ABF52CB0379038 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -91,6 +138,7 @@
 				7599DF68111AC159158D1C0B /* iosApp */,
 				4EB5D2B6A98E747FED38A403 /* Products */,
 				A5C21EF539AFC18D997B7655 /* iosAppUITests */,
+				0BEFF8E6AE5BE64C40DA277A /* ReviewWidget */,
 				6E3E623F4218F11783B62C38 /* Frameworks */,
 			);
 			sourceTree = "<group>";
@@ -100,6 +148,7 @@
 			children = (
 				2525B4D3F49BC6DEEF0D41C6 /* AiOpicSelfStudy.app */,
 				5CE3FA409ED162B091623061 /* iosAppUITests.xctest */,
+				65A54AC4D3FF7CB45B39F477 /* ReviewWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -123,10 +172,12 @@
 				00589E57DE0A474E854F178D /* Sources */,
 				F4A2EB450470396197AC7C68 /* Frameworks */,
 				7C697B04A8360CE0BAAABF17 /* Resources */,
+				8A9DAFF861BC33DE8A2028E1 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				367AEB088C5A664CED68A257 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				7599DF68111AC159158D1C0B /* iosApp */,
@@ -156,6 +207,26 @@
 			productName = iosAppUITests;
 			productReference = 5CE3FA409ED162B091623061 /* iosAppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		748CB2FE88DA60E93E57162B /* ReviewWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C18D5CAD14C9673A2E9AED94 /* Build configuration list for PBXNativeTarget "ReviewWidget" */;
+			buildPhases = (
+				2B3B401006799BFE23835281 /* Sources */,
+				DAA6766A86ABF52CB0379038 /* Frameworks */,
+				65852226DA6E689F21FFACBF /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0BEFF8E6AE5BE64C40DA277A /* ReviewWidget */,
+			);
+			name = ReviewWidget;
+			productName = ReviewWidget;
+			productReference = 65A54AC4D3FF7CB45B39F477 /* ReviewWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -188,6 +259,7 @@
 			targets = (
 				69322F549A29979296841AD9 /* iosApp */,
 				7B5B2CB49F39F96B11CDBB99 /* iosAppUITests */,
+				748CB2FE88DA60E93E57162B /* ReviewWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -201,6 +273,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7C697B04A8360CE0BAAABF17 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		65852226DA6E689F21FFACBF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -246,6 +325,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2B3B401006799BFE23835281 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -254,6 +340,11 @@
 			name = iosApp;
 			target = 69322F549A29979296841AD9 /* iosApp */;
 			targetProxy = FEF5ABBA98021AA8039911AA /* PBXContainerItemProxy */;
+		};
+		367AEB088C5A664CED68A257 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 748CB2FE88DA60E93E57162B /* ReviewWidget */;
+			targetProxy = 775F5FB64418462873E437AA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -346,6 +437,7 @@
 				DEVELOPMENT_TEAM = "${TEAM_ID}";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -439,6 +531,7 @@
 				DEVELOPMENT_TEAM = "${TEAM_ID}";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -472,6 +565,54 @@
 			};
 			name = Debug;
 		};
+		855591CF3B7D14DFC6C87B24 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = ReviewWidget/ReviewWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReviewWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "오늘 복습";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(inherited).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		66967318C5EDE3AAEF6625E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = ReviewWidget/ReviewWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ReviewWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "오늘 복습";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "$(inherited).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -498,6 +639,15 @@
 			buildConfigurations = (
 				577EB8046435EAE94053EB68 /* Debug */,
 				1E704FB0C1013F2E05F2D484 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C18D5CAD14C9673A2E9AED94 /* Build configuration list for PBXNativeTarget "ReviewWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				855591CF3B7D14DFC6C87B24 /* Debug */,
+				66967318C5EDE3AAEF6625E7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

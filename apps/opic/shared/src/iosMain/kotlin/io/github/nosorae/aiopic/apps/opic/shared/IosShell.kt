@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionPortDescription
 import platform.AVFAudio.currentRoute
@@ -122,6 +124,22 @@ class IosShell {
                 val now = graph.clock.now()
                 if (prefs.reminderOn) upcomingReviewReminders(cards, days, now, prefs.reminderAt, graph.timeZone, REMINDER_DAYS) else emptyList()
             }.collectLatest { scheduleReviewReminders(it, graph.clock.now()) }
+        }
+    }
+
+    /**
+     * 오늘 복습 위젯이 읽을 장면을 App Group 저장소에 쓰고 [onChange] 로 앱 틀(Swift)에 위젯을 다시 그리라고 알린다(F19.7).
+     * 위젯은 앱 코드를 돌릴 수 없어서 지금 장면과 앞으로 날이 바뀌는 새벽 4시마다, 그 사이 카드가 복습 시각이 되는 때마다의 장면을 미리 넘긴다.
+     * 복습을 끝내거나(카드와 복습한 날이 바뀜) 연습 정리가 끝나거나(카드가 늘어남) 앱이 앞으로 오면 다시 쓴다.
+     */
+    fun watchReviewWidget(onChange: () -> Unit) {
+        MainScope().launch {
+            combine(graph.cardStore.cards(), graph.cardStore.reviewDays(), foreground) { cards, days, _ -> upcomingReviewWidgets(cards, days, graph.clock.now(), graph.timeZone, REMINDER_DAYS) }
+                .collectLatest { widgets ->
+                    val scenes = widgets.map { WidgetScene(it.from.epochSeconds, it.title(), it.text()) }
+                    NSUserDefaults(suiteName = APP_GROUP).setObject(Json.encodeToString(scenes), forKey = WIDGET_KEY)
+                    onChange()
+                }
         }
     }
 
@@ -236,6 +254,18 @@ private suspend fun scheduleReviewReminders(reminders: List<ReviewReminder>, now
         center.addNotificationRequest(UNNotificationRequest.requestWithIdentifier(reminderIds[index], content, trigger), null)
     }
 }
+
+/**
+ * 앱과 위젯 확장이 같이 읽는 저장소 이름. 두 타깃의 entitlements 파일과 위젯 확장(`ReviewWidget.swift`)에 같은 값이 있다.
+ */
+private const val APP_GROUP = "group.io.github.nosorae.aiopic"
+
+/** 위젯 장면 목록을 두는 키. 위젯 확장이 같은 키로 읽는다. */
+private const val WIDGET_KEY = "review_widget"
+
+/** 위젯 장면 하나. [date](초) 부터 보인다. 위젯 확장이 같은 이름으로 읽는다. */
+@Serializable
+private class WidgetScene(val date: Long, val title: String, val text: String)
 
 /** 앱 Swift 의 흔들기(`UIWindow.motionEnded`)가 부른다. 릴리스 빌드는 빈 모듈이라 아무 일도 안 한다. */
 fun openDebugTools() = DebugTools.open()
