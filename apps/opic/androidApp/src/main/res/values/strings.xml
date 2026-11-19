@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">말해봄</string>
+    <string name="review_widget_description">오늘 남은 복습과 이번 주 복습한 날</string>
 </resources>

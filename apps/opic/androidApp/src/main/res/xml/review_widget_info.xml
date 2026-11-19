@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 주기 갱신은 끈다. 앱이 복습과 연습 정리 뒤에, 알람이 날이 바뀌는 새벽 4시에 다시 그린다(F19.7). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/review_widget_description"
+    android:initialLayout="@layout/review_widget"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

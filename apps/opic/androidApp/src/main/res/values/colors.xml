@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯은 Compose 테마 밖이라 ui/design 의 라이트 색을 옮겨 둔다. 다크는 values-night 에 있다. -->
+<resources>
+    <color name="review_widget_surface">#FFFFFF</color>
+    <color name="review_widget_text">#171719</color>
+    <color name="review_widget_text_secondary">#5A5C63</color>
+</resources>

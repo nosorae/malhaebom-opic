@@ -49,6 +49,17 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
+        <!-- 오늘 복습 위젯(F19.6). -->
+        <receiver
+            android:name=".ReviewWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/review_widget_info" />
+        </receiver>
         <service
             android:name=".PracticeService"
             android:exported="false"
