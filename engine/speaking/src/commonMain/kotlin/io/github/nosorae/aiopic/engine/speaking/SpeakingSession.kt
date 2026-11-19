@@ -40,9 +40,10 @@ import kotlin.time.Instant
 /**
  * 코치와의 Live 연결 하나(F16). 앱이 `libs/live-gemini` 의 LiveSession 에 키와 연결 설정(말 끝 판정, 끼어들기)을 넣어 감싼다.
  * 모으는 동안 연결을 유지하고, [resumeHandle] 이 있으면 앞 대화를 이어 붙인다. 연결이 끝나면 흐름이 끝난다.
+ * [route] 가 스피커면 주변 소리가 섞이므로 말 시작과 끝 감도를 낮게 둔다(F20.5).
  */
 interface SpeakingLink {
-    fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?): Flow<LiveEvent>
+    fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent>
 
     /** 16kHz 모노 16비트 PCM. */
     suspend fun sendAudio(pcm: ByteArray)
@@ -73,7 +74,10 @@ class SpeakingProfile(val instruction: String, val tools: List<JsonObject>, val 
     }
 }
 
-/** 시작 시트와 설정에서 고른 값(F16.2, F16.8, F16.22, F18.7). [topics] 는 서베이 주제와 업무 주제다. */
+/**
+ * 시작 시트와 설정에서 고른 값(F16.2, F16.8, F16.22, F18.7). [topics] 는 서베이 주제와 업무 주제다.
+ * [bargeIn] 은 설정의 말로 끊기다(F16.17). 스피커 모드는 기기가 끊으므로 연결 설정과 별도로 세션도 안다(F20.4).
+ */
 data class SpeakingSetup(
     val planned: Duration,
     val route: AudioRoute,
@@ -81,6 +85,7 @@ data class SpeakingSetup(
     val oralReview: Boolean = true,
     val grammarNudge: Boolean = false,
     val amount: ReviewAmount = ReviewAmount.Normal,
+    val bargeIn: Boolean = true,
 )
 
 /** 말로 복습에서 푸는 카드 수(F16.8). */
@@ -131,6 +136,16 @@ class SpeakingSession(
     /** 마지막 말소리 조각을 받은 시각과 지금 말하는 중인지. 대답 없음을 판단한다. */
     private var lastSpeechAt: Instant? = null
     private var speaking = false
+
+    /**
+     * 지금 연결의 코치 음성 한 턴. 재생은 받은 즉시 시작한다고 보고 받은 길이를 [queued] 에 더한다. [waiting] 은 턴 끝을 받고 재생 끝을 기다리는 일이다.
+     * 기기가 코치를 끊었으면(F20.4) 서버가 그 턴을 끝낼 때까지 [dropping] 이라 남은 음성을 버린다.
+     */
+    private var turnStart: Instant? = null
+    private var queued = Duration.ZERO
+    private var waiting: Job? = null
+    private var dropping = false
+    private val bargeIn = BargeIn()
 
     /** 지시를 만드는 재료. 연결을 다시 열 때도 같은 지시를 쓴다. */
     private class Plan(val setup: SpeakingSetup, val repeat: String?, val review: List<ExpressionCard>, val errors: String, val weak: QuestionKind?)
@@ -213,20 +228,27 @@ class SpeakingSession(
         }
     }
 
+    private suspend fun endTurn(played: Duration) {
+        turnStart = null
+        queued = Duration.ZERO
+        dispatch(SpeakingEvent.CoachTalked(played))
+    }
+
+    /** 재생과 대기열을 버리고 지금까지 재생한 만큼만 코치가 말한 시간으로 넣는다(F16.24). */
+    private suspend fun stopTurn() {
+        audio.flush()
+        waiting?.cancel()
+        turnStart?.let { endTurn(minOf(queued, clock.now() - it)) }
+    }
+
     private suspend fun talk(state: SpeakingState, handle: String?) = coroutineScope {
-        // 코치 음성 한 턴. 재생은 받은 즉시 시작한다고 보고 받은 길이를 더한다.
-        var turnStart: Instant? = null
-        var queued = Duration.ZERO
-        var waiting: Job? = null
         var replied = false
+        turnStart = null
+        queued = Duration.ZERO
+        waiting = null
+        dropping = false
 
-        suspend fun endTurn(played: Duration) {
-            turnStart = null
-            queued = Duration.ZERO
-            dispatch(SpeakingEvent.CoachTalked(played))
-        }
-
-        link.connect(instruction(state), profile.tools, handle).collect { event ->
+        link.connect(instruction(state), profile.tools, handle, state.route).collect { event ->
             // 연결을 받고 곧바로 닫는 서버(할당량 초과 등)를 성공으로 세지 않게, 응답이 처음 온 때 다시 연결 횟수를 0 으로 돌린다(F16.15).
             if (!replied && event.isReply()) {
                 replied = true
@@ -237,7 +259,7 @@ class SpeakingSession(
 
                 is LiveEvent.ResumeHandle -> dispatch(SpeakingEvent.HandleReceived(event.handle, clock.now()))
 
-                is LiveEvent.AudioChunk -> {
+                is LiveEvent.AudioChunk -> if (!dropping) {
                     waiting?.cancel()
                     if (turnStart == null) {
                         turnStart = clock.now()
@@ -249,20 +271,23 @@ class SpeakingSession(
 
                 // 말로 끊겨 멈춘 코치 음성은 실제로 재생한 만큼만 센다(F16.24).
                 LiveEvent.Interrupted -> {
-                    audio.flush()
-                    waiting?.cancel()
-                    turnStart?.let { endTurn(minOf(queued, clock.now() - it)) }
+                    dropping = false
+                    stopTurn()
                 }
 
                 // 재생이 끝날 때까지 기다려 코치 말 끝으로 넣고, 그 뒤 말소리가 없으면 대답 없음이다(F16.12).
-                LiveEvent.TurnComplete -> turnStart?.let { start ->
-                    val since = clock.now()
-                    waiting = launch {
-                        delay(queued - (clock.now() - start))
-                        endTurn(queued)
-                        delay(NO_ANSWER_WAIT)
-                        val spoke = lastSpeechAt?.let { it >= since } == true
-                        if (!speaking && !spoke) dispatch(SpeakingEvent.NoAnswer(clock.now()))
+                LiveEvent.TurnComplete -> if (dropping) {
+                    dropping = false
+                } else {
+                    turnStart?.let { start ->
+                        val since = clock.now()
+                        waiting = launch {
+                            delay(queued - (clock.now() - start))
+                            endTurn(queued)
+                            delay(NO_ANSWER_WAIT)
+                            val spoke = lastSpeechAt?.let { it >= since } == true
+                            if (!speaking && !spoke) dispatch(SpeakingEvent.NoAnswer(clock.now()))
+                        }
                     }
                 }
 
@@ -387,22 +412,24 @@ class SpeakingSession(
      * 말소리 조각 길이를 모아 말이 끝날 때 내가 말한 시간으로 넣는다(F16.24). 마이크는 늘 모아야 코치 음성이 재생된다.
      * 일시정지 중에도 보내 코치가 다시 시작과 그만할래를 듣게 하고(F16.9, F16.12), 내가 말한 시간은 [reduce] 가 세지 않는다.
      * 끊김으로 멈췄으면 보낼 연결이 없다.
+     *
+     * 스피커 모드는 목소리 주기가 없는 조각을 말소리로 치지 않는다(F20.3). 코치가 말하는 중에는 조각을 [bargeIn] 에 붙잡아 두고,
+     * 내 말소리가 이어져 끊을 때가 되면 재생을 멈추고 붙잡은 조각부터 보낸다. 서버는 그 말소리를 듣고 끼어듦으로 처리한다(F20.4).
      */
     private suspend fun forwardMic() {
         var silence = Duration.INFINITE
         var spoken = Duration.ZERO
-        audio.mic.catch { dispatch(SpeakingEvent.Pause(clock.now())) }.collect { chunk ->
-            val state = _state.value ?: return@collect
-            if (state.disconnected) return@collect
-            val length = (chunk.pcm.size / 2).seconds / DuplexAudio.MIC_SAMPLE_RATE
-            if (chunk.speech) {
-                link.sendAudio(chunk.pcm)
+
+        suspend fun forward(pcm: ByteArray, speech: Boolean) {
+            val length = pcm.length()
+            if (speech) {
+                link.sendAudio(pcm)
                 silence = Duration.ZERO
                 spoken += length
                 speaking = true
                 lastSpeechAt = clock.now()
             } else if (silence.isFinite()) {
-                link.sendAudio(chunk.pcm)
+                link.sendAudio(pcm)
                 silence += length
                 if (silence >= SPEECH_END_GRACE) {
                     link.sendAudioEnd()
@@ -413,7 +440,25 @@ class SpeakingSession(
                 }
             }
         }
+
+        audio.mic.catch { dispatch(SpeakingEvent.Pause(clock.now())) }.collect { chunk ->
+            val state = _state.value ?: return@collect
+            if (state.disconnected) return@collect
+            if (state.route == AudioRoute.Earphones) return@collect forward(chunk.pcm, chunk.speech)
+            if (state.status != SpeakingStatus.CoachSpeaking) {
+                bargeIn.clear()
+                return@collect forward(chunk.pcm, chunk.voiced)
+            }
+            if (!plan.setup.bargeIn) return@collect
+            val held = bargeIn.hold(chunk.pcm, chunk.voiced, chunk.pcm.length()) ?: return@collect
+            // 서버가 턴 끝을 아직 안 보냈으면 그 턴의 남은 음성이 더 온다.
+            dropping = waiting?.isActive != true
+            stopTurn()
+            held.forEach { forward(it, speech = true) }
+        }
     }
+
+    private fun ByteArray.length() = (size / 2).seconds / DuplexAudio.MIC_SAMPLE_RATE
 
     private companion object {
         const val NONE = "none"

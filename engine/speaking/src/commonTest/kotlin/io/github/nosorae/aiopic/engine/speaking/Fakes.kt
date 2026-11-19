@@ -14,13 +14,16 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlin.random.Random
 
 /** 플랫폼마다 메모리 DB 를 만든다. [context] 에 테스트 디스패처를 주면 쿼리가 테스트 시계 위에서 돈다. */
 expect fun inMemoryDatabase(context: CoroutineContext? = null): OpicDatabase
 
 /** 가짜 연결. 연결마다 받은 지시와 핸들을 남기고, [server] 로 넣은 일을 지금 연결에 낸다. 끊김이나 실패를 내면 흐름이 끝난다. */
 class FakeLink : SpeakingLink {
-    data class Connect(val instruction: String, val tools: List<JsonObject>, val resumeHandle: String?)
+    data class Connect(val instruction: String, val tools: List<JsonObject>, val resumeHandle: String?, val route: AudioRoute = AudioRoute.Earphones)
 
     val connects = mutableListOf<Connect>()
     val audio = mutableListOf<ByteArray>()
@@ -31,8 +34,8 @@ class FakeLink : SpeakingLink {
 
     fun server(vararg event: LiveEvent) = event.forEach { events.trySend(it) }
 
-    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?): Flow<LiveEvent> = flow {
-        connects += Connect(instruction, tools, resumeHandle)
+    override fun connect(instruction: String, tools: List<JsonObject>, resumeHandle: String?, route: AudioRoute): Flow<LiveEvent> = flow {
+        connects += Connect(instruction, tools, resumeHandle, route)
         events = Channel(Channel.UNLIMITED)
         for (event in events) {
             emit(event)
@@ -78,6 +81,15 @@ class FakeAudio : DuplexAudio {
 /** 실제 마이크처럼 40ms 길이의, 모든 표본이 최대값인 조각과 무음 조각. */
 val LOUD = ByteArray(DuplexAudio.MIC_CHUNK_BYTES) { if (it % 2 == 0) 0xFF.toByte() else 0x7F }
 val SILENT = ByteArray(DuplexAudio.MIC_CHUNK_BYTES)
+
+/** 목소리처럼 180Hz 로 떠는 40ms 조각과, 크기만 크고 주기가 없는 물소리 같은 잡음 조각(F20.3). */
+val VOICE = pcmOf { (8_000 * sin(2 * PI * 180 * it / DuplexAudio.MIC_SAMPLE_RATE)).toInt() }
+val NOISE = Random(7).let { random -> pcmOf { random.nextInt(-8_000, 8_000) } }
+
+private fun pcmOf(sample: (Int) -> Int): ByteArray {
+    val samples = IntArray(DuplexAudio.MIC_CHUNK_BYTES / 2, sample)
+    return ByteArray(DuplexAudio.MIC_CHUNK_BYTES) { if (it % 2 == 0) samples[it / 2].toByte() else (samples[it / 2] shr 8).toByte() }
+}
 
 /** 코치 음성 1초(24kHz 16비트 모노). */
 val COACH_SECOND = ByteArray(DuplexAudio.PLAYBACK_SAMPLE_RATE * 2)

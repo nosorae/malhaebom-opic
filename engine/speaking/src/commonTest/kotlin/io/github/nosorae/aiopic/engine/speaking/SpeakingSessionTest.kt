@@ -43,6 +43,7 @@ class SpeakingSessionTest {
     private val base = Instant.parse("2026-11-19T09:00:00Z")
     private val finished = mutableListOf<String>()
     private val setup = SpeakingSetup(planned = 20.minutes, route = AudioRoute.Earphones, topics = listOf("cooking", "music"), grammarNudge = true)
+    private val speaker = setup.copy(route = AudioRoute.Speaker)
 
     /** DB 쿼리와 세션의 1초 시계를 같은 테스트 시계 위에서 돌린다. */
     private fun test(block: suspend TestScope.(OpicDatabase) -> Unit) = runTest {
@@ -283,6 +284,83 @@ class SpeakingSessionTest {
 
         assertEquals(1.seconds, session.now().coachTalk)
         assertTrue(audio.queued.isEmpty())
+    }
+
+    @Test
+    fun `F20_5 스피커 모드면 연결에 소리 환경을 넘긴다`() = test { db ->
+        started(db, speaker)
+
+        assertEquals(AudioRoute.Speaker, link.connects.single().route)
+    }
+
+    @Test
+    fun `F20_3 스피커 모드는 주기가 없는 잡음 조각을 보내지 않고 목소리는 보낸다`() = test { db ->
+        val session = started(db, speaker)
+
+        audio.say(*Array(25) { NOISE })
+        runCurrent()
+        assertEquals(0, link.audio.size)
+
+        audio.say(*Array(25) { VOICE }, *Array(30) { SILENT })
+        runCurrent()
+        assertEquals(1.seconds to 1, session.now().userTalk to link.audioEnds)
+    }
+
+    @Test
+    fun `F20_4 스피커 모드에서 코치가 말하는 중 0점6초까지의 말소리는 보내지 않고 코치를 끊지 않는다`() = test { db ->
+        val session = started(db, speaker)
+        link.server(*Array(3) { LiveEvent.AudioChunk(COACH_SECOND) })
+        runCurrent()
+
+        audio.say(*Array(15) { VOICE }, *Array(10) { SILENT })
+        runCurrent()
+
+        assertEquals(0, link.audio.size)
+        assertEquals(3 to SpeakingStatus.CoachSpeaking, audio.queued.size to session.now().status)
+    }
+
+    @Test
+    fun `F20_4 스피커 모드에서 코치가 말하는 중 0점6초 넘게 이어진 말소리는 재생을 멈추고 붙잡은 조각부터 보낸다`() = test { db ->
+        val session = started(db, speaker)
+        link.server(*Array(3) { LiveEvent.AudioChunk(COACH_SECOND) })
+        runCurrent()
+        advanceTimeBy(1.seconds)
+
+        audio.say(*Array(16) { VOICE })
+        runCurrent()
+
+        assertEquals(16, link.audio.size)
+        assertTrue(audio.queued.isEmpty())
+        assertEquals(1.seconds to SpeakingStatus.Listening, session.now().coachTalk to session.now().status)
+    }
+
+    @Test
+    fun `F20_4 기기가 끊은 코치 말은 서버가 그 턴을 끝낼 때까지 재생하지 않는다`() = test { db ->
+        started(db, speaker)
+        link.server(LiveEvent.AudioChunk(COACH_SECOND))
+        runCurrent()
+        audio.say(*Array(16) { VOICE })
+        runCurrent()
+
+        link.server(LiveEvent.AudioChunk(COACH_SECOND))
+        runCurrent()
+        assertTrue(audio.queued.isEmpty())
+
+        link.server(LiveEvent.Interrupted, LiveEvent.AudioChunk(COACH_SECOND))
+        runCurrent()
+        assertEquals(1, audio.queued.size)
+    }
+
+    @Test
+    fun `F20_4 말로 끊기를 끈 스피커 모드는 코치가 말하는 중 말소리를 보내지 않고 끊지 않는다`() = test { db ->
+        started(db, speaker.copy(bargeIn = false))
+        link.server(*Array(3) { LiveEvent.AudioChunk(COACH_SECOND) })
+        runCurrent()
+
+        audio.say(*Array(30) { VOICE })
+        runCurrent()
+
+        assertEquals(0 to 3, link.audio.size to audio.queued.size)
     }
 
     @Test

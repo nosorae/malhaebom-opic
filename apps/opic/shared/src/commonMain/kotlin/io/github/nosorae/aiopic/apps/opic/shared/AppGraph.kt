@@ -270,6 +270,7 @@ interface AppGraph {
             oralReview = settings.speaking.value.oralReview,
             grammarNudge = settings.speaking.value.grammarNudge,
             amount = settings.reviewAmount(),
+            bargeIn = settings.speaking.value.bargeIn,
         )
     }
 
