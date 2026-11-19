@@ -59,7 +59,7 @@ class IosShell {
     // 앱이 뒤로 가면 백그라운드 처리 작업으로 이어서 비운다. 앱 틀(iOSApp)이 실행을 마치기 전에 만들어서 등록 시점을 지킨다.
     // 앱이 화면에 없을 때 비우기가 끝나면 리포트 알림을 띄운다(#229).
     private val workQueue = IosWorkQueue(
-        drain = { graph.opicStore.drainAndNotify(graph.clock, graph.analysisJobs::drain, visible = { UIApplication.sharedApplication.applicationState == UIApplicationState.UIApplicationStateActive }, notify = ::postOutcome) },
+        drain = { graph.drainAndNotify(visible = { UIApplication.sharedApplication.applicationState == UIApplicationState.UIApplicationStateActive }, notify = ::postOutcome) },
         scope = MainScope(),
         backgroundTask = ANALYSIS_TASK,
         keepDraining = { continuing },
@@ -175,7 +175,7 @@ private suspend fun postOutcome(outcome: AnalysisOutcome) {
         setTitle(title)
         setBody(body)
         setSound(UNNotificationSound.defaultSound)
-        setUserInfo(mapOf<Any?, Any?>(ROUTE_KEY to outcome.routeJson))
+        outcome.routeJson?.let { setUserInfo(mapOf<Any?, Any?>(ROUTE_KEY to it)) }
     }
     // ponytail: 끝 알림은 하나만 둔다. 새 결과가 앞 알림을 바꾼다. 권한이 없으면 시스템이 띄우지 않는다.
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(UNNotificationRequest.requestWithIdentifier("analysis-done", content, null), null)

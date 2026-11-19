@@ -370,6 +370,16 @@ abstract class SpeakingDao {
         save(row)
     }
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    abstract suspend fun saveCard(row: CardRow): Long
+
+    /** 연습 정리 끝(F17.4). 새 카드와 정리 끝 연습 기록을 한 트랜잭션으로 써서, 중간에 앱이 죽어도 카드만 남고 정리 중으로 남는 일이 없다. */
+    @Transaction
+    open suspend fun finishCards(cards: List<CardRow>, row: SpeakingSessionRow) {
+        cards.forEach { saveCard(it) }
+        save(row)
+    }
+
     /** 최근 것부터. */
     @Query("SELECT * FROM speaking_session ORDER BY startedAt DESC")
     abstract fun sessions(): Flow<List<SpeakingSessionRow>>

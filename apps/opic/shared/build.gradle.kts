@@ -29,6 +29,8 @@ kotlin {
         implementation(project(":engine:ai-gemini"))
         // 코치 대화 화면에 코치(엔진, Gemini Live 연결, 말하면서 듣는 오디오)를 조립해 넘긴다(#265).
         implementation(project(":engine:coach"))
+        // 연습 정리 작업을 분석 작업 표에 넣고, 정리 끝 알림이 만든 카드 수를 읽는다(F17.4, F17.5).
+        implementation(project(":engine:speaking"))
         implementation(project(":libs:duplex-audio"))
         implementation(project(":libs:keyvault"))
         // 그래프가 플랫폼 인자(녹음기, 기기 음성)를 받고 Gemini 클라이언트, 시험 팩, 시계를 만든다.

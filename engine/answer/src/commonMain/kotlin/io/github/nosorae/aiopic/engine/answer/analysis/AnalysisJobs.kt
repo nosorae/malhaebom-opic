@@ -47,6 +47,27 @@ private val FIRST_BACKOFF = 30.seconds
 /** 오프라인이던 작업을 다시 보내 볼 간격. 플랫폼이 연결을 알려 주면 그보다 먼저 깨운다. */
 private val NETWORK_RECHECK = 30.seconds
 
+/** 답변 분석과 회차 등급의 다시 보내기 간격. 30초부터 두 배씩 늘린다. */
+private val ANSWER_BACKOFF = List(MAX_RETRIES) { FIRST_BACKOFF * (1 shl it) }
+
+/**
+ * 다른 엔진이 맡는 작업의 일. 지금은 연습 정리(F17.4) 하나다. engine/answer 는 engine/speaking 을 모르므로 이 경계를 둔다.
+ * 작업 줄, 다시 보내기, 앱을 켤 때 되돌리기는 [AnalysisJobs] 가 하고, 보내기와 결과 쓰기만 이 일이 한다.
+ */
+interface JobWork {
+    /** 실패한 뒤 다시 보내기 전에 기다릴 시간. 길이가 다시 보내는 횟수다. */
+    val backoff: List<Duration>
+
+    /** 대상 하나를 처리한다. 실패하면 그 이유를 돌려준다. */
+    suspend fun run(targetId: String): AnalysisError?
+
+    /** 다시 보내기를 다 썼거나 다시 보내도 같은 실패라 실패로 끝났다. */
+    suspend fun failed(targetId: String, error: AnalysisError)
+
+    /** 앱을 켤 때 다시 넣을 대상. */
+    suspend fun unfinished(): List<String>
+}
+
 /**
  * 분석 작업 표(#205, ADR 0032). 답변 분석과 회차 등급(F5.3)을 DB 의 작업 한 줄로 두고, 이 표만 보고 하나씩 보낸다.
  * 어떤 작업도 성공이나 실패로 끝난다. 다시 보낼 실패는 [MAX_RETRIES] 번까지 다시 보내고 다 쓰면 실패, 기기가 오프라인([online] 이 false)이면 횟수를 쓰지 않고
@@ -68,12 +89,17 @@ class AnalysisJobs(
     private val wake: () -> Unit,
     private val clock: Clock,
     private val timeout: Duration = 2.minutes,
+    /** 연습 정리(F17.4). 없으면 연습 정리 작업은 실패로 끝난다. */
+    private val cards: JobWork? = null,
 ) {
     /** Android 의 두 WorkManager 작업처럼 [drain] 이 겹쳐 불려도 하나씩 보낸다. 무료 키의 분당 한도 때문이다. */
     private val draining = Mutex()
 
     /** 답변 분석을 넣는다(F5.1). 이미 기다리는 중이면 그대로 둔다. */
     suspend fun enqueueAnswer(answerId: String) = enqueue(JobKind.Answer, answerId)
+
+    /** 끝낸 연습의 정리를 넣는다(F16.11, F17.4). 이미 기다리는 중이면 그대로 둔다. */
+    suspend fun enqueueCards(practiceId: String) = enqueue(JobKind.Cards, practiceId)
 
     /**
      * 회차가 끝났고 답한 답변이 모두 분석됐으면(Done 또는 평가할 수 없음) 등급 작업을 넣는다(F5.3).
@@ -106,14 +132,14 @@ class AnalysisJobs(
 
     /**
      * 남은 작업을 보내지 않고 [error] 로 끝낸다. 답변과 녹음은 남는다. 음성 전송 동의를 철회하면(F1.3) 동의 없음,
-     * 사용자가 시스템 진행 표시에서 멈추면(#229) 취소로 끝낸다.
+     * 사용자가 시스템 진행 표시에서 멈추면(#229) 취소로 끝낸다. 녹음을 보내지 않는 연습 정리는 동의 철회로 멈추지 않는다.
      */
-    suspend fun cancelAll(error: AnalysisError = AnalysisError.NoConsent) = store.jobs().first().filter { it.state.active }.forEach { fail(it, error) }
+    suspend fun cancelAll(error: AnalysisError = AnalysisError.NoConsent) = store.jobs().first().filter { it.state.active && !(error == AnalysisError.NoConsent && it.kind == JobKind.Cards) }.forEach { fail(it, error) }
 
     /**
      * 앱을 켤 때 한 번 부른다. 진행 중으로 남은 작업(앱이 보내는 중에 죽었다)을 대기로 돌리고,
      * 작업이 끝났거나 없는데 기다림인 답변(작업 표가 없던 버전에서 쌓였거나, 작업을 넣기 전에 앱이 죽었다)을 대기로 넣는다.
-     * 등급을 기다리는 회차도 다시 본다.
+     * 등급을 기다리는 회차와 정리 전이거나 정리 실패인 연습(F17.4)도 다시 본다.
      */
     suspend fun recover() {
         val jobs = store.jobs().first()
@@ -121,6 +147,7 @@ class AnalysisJobs(
         val active = jobs.filter { it.kind == JobKind.Answer && it.state.active }.map { it.targetId }.toSet()
         store.answers().first().filter { it.analysis == AnswerAnalysis.Pending && it.id !in active }.forEach { enqueue(JobKind.Answer, it.id, restart = true) }
         store.sessions().first().forEach { requestGradeIfReady(it.id) }
+        cards?.unfinished()?.forEach { enqueue(JobKind.Cards, it, restart = true) }
         wake()
     }
 
@@ -165,11 +192,18 @@ class AnalysisJobs(
 
     /** 작업 하나를 보내고 상태를 남긴다. 받은 실패를 돌려준다. */
     private suspend fun run(job: AnalysisJob): AnalysisError? {
-        if (!consented()) return fail(job, AnalysisError.NoConsent)
+        // 연습 정리는 녹음이 아니라 대화 전문 글을 보낸다. 실시간 음성 전송 동의(F15.1)를 받고 한 연습이라 녹음 전송 동의(F1.3)를 보지 않는다.
+        if (job.kind != JobKind.Cards && !consented()) return fail(job, AnalysisError.NoConsent)
         store.save(job.copy(state = JobState.Running, updatedAt = clock.now()))
         val saved = SavedResponses({ store.response(job.kind, job.targetId, it) }, { stage, text -> store.saveResponse(job.kind, job.targetId, stage, text) })
         val error = try {
-            withContext(saved) { if (job.kind == JobKind.Answer) analyzeAnswer(job.targetId) else grade(job.targetId) }
+            withContext(saved) {
+                when (job.kind) {
+                    JobKind.Answer -> analyzeAnswer(job.targetId)
+                    JobKind.Grade -> grade(job.targetId)
+                    JobKind.Cards -> if (cards == null) AnalysisError.Rejected else withTimeout(timeout) { cards.run(job.targetId) }
+                }
+            }
         } catch (_: TimeoutCancellationException) {
             AnalysisError.Retryable
         } catch (e: CancellationException) {
@@ -181,6 +215,9 @@ class AnalysisJobs(
             AnalysisError.Rejected
         }
         val now = clock.now()
+        val backoff = if (job.kind == JobKind.Cards) cards?.backoff.orEmpty() else ANSWER_BACKOFF
+        // 연습 정리는 읽을 수 없는 응답도 다시 보낸다(F17.4). 카드 만들기가 이미 한 번 다시 요청했고, 정리 실패는 앱을 켤 때까지 남는다.
+        val retryable = error == AnalysisError.Retryable || error == AnalysisError.Offline || (job.kind == JobKind.Cards && error == AnalysisError.Rejected)
         when {
             error == null -> {
                 store.save(job.copy(state = JobState.Succeeded, error = null, nextAttemptAt = null, updatedAt = now))
@@ -190,8 +227,8 @@ class AnalysisJobs(
             // 기기가 오프라인일 때만 횟수를 쓰지 않고 기다린다. 온라인인데 연결만 실패하면(TLS 오류 등) 다시 보낼 실패로 세어 끝없이 보내지 않는다(#211).
             error == AnalysisError.Offline && !online() -> store.save(job.copy(state = JobState.WaitingNetwork, nextAttemptAt = now + NETWORK_RECHECK, updatedAt = now))
 
-            (error == AnalysisError.Retryable || error == AnalysisError.Offline) && job.attempts < MAX_RETRIES -> store.save(
-                job.copy(state = JobState.RetryScheduled, attempts = job.attempts + 1, nextAttemptAt = now + FIRST_BACKOFF * (1 shl job.attempts), updatedAt = now),
+            retryable && job.attempts < backoff.size -> store.save(
+                job.copy(state = JobState.RetryScheduled, attempts = job.attempts + 1, nextAttemptAt = now + backoff[job.attempts], updatedAt = now),
             )
 
             else -> fail(job, error)
@@ -205,6 +242,7 @@ class AnalysisJobs(
         when (job.kind) {
             JobKind.Answer -> store.answers().first().firstOrNull { it.id == job.targetId && it.analysis == AnswerAnalysis.Pending }?.let { store.save(it.copy(analysis = AnswerAnalysis.Failed(error))) }
             JobKind.Grade -> store.session(job.targetId).first()?.let { store.save(it.copy(gradeError = error)) }
+            JobKind.Cards -> cards?.failed(job.targetId, error)
         }
         return error
     }

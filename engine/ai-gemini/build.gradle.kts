@@ -3,12 +3,14 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-// 엔진의 분석 포트(engine/answer)와 코치 연결 포트(engine/coach)를 libs 의 Gemini 클라이언트로 구현하는 어댑터 모듈이다.
+// 엔진의 분석 포트(engine/answer), 코치 연결 포트(engine/coach), 카드 만들기 포트(engine/speaking)를 libs 의 Gemini 클라이언트로 구현하는 어댑터 모듈이다.
 kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":engine:answer"))
             implementation(project(":engine:coach"))
+            // 연습 정리의 카드 만들기 포트와 카드 검사(F17.1~F17.3).
+            implementation(project(":engine:speaking"))
             implementation(project(":libs:llm-gemini"))
             implementation(project(":libs:live-gemini"))
         }

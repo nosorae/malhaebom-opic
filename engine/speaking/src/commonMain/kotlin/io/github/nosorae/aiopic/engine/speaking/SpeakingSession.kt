@@ -112,6 +112,11 @@ class SpeakingSession(
     private val clock: Clock,
     private val timeZone: TimeZone,
     private val scope: CoroutineScope,
+    /**
+     * 연습 기록으로 옮긴 뒤 연습 id 로 부른다. 앱은 `analysisJobs::enqueueCards` 를 넘겨 연습 정리 작업을 넣는다(F16.11, F17.4).
+     * 빠뜨리면 정리가 다음 앱 실행의 recover 까지 밀리므로 기본값을 두지 않는다.
+     */
+    private val onFinished: suspend (String) -> Unit,
 ) {
     private val _state = MutableStateFlow<SpeakingState?>(null)
 
@@ -163,7 +168,12 @@ class SpeakingSession(
     }
 
     private suspend fun set(state: SpeakingState, before: SpeakingState?) {
-        if (state.finished) store.finish(state) else store.saveActive(state)
+        if (state.finished) {
+            store.finish(state)
+            onFinished(state.id)
+        } else {
+            store.saveActive(state)
+        }
         _state.value = state
         before?.let { cues(it, state).forEach { cue -> link.sendText(profile.cues[cue].orEmpty().replace("{{question}}", state.firstQuestion?.text.orEmpty())) } }
         sync(state)

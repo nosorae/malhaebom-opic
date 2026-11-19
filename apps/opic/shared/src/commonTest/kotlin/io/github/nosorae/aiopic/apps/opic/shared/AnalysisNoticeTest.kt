@@ -44,15 +44,15 @@ class AnalysisNoticeTest {
 
         assertEquals(
             AnalysisOutcome(AppRoute.ReportDetail("s1"), failed = false),
-            analysisOutcome(listOf(job("exam-answer", JobState.Succeeded, at = 1_001)), start, sessionOf),
+            analysisOutcome(listOf(job("exam-answer", JobState.Succeeded, at = 1_001)), start, sessionOf = sessionOf),
         )
         assertEquals(
             AnalysisOutcome(AppRoute.AnswerReport("practice"), failed = false),
-            analysisOutcome(listOf(job("practice", JobState.Succeeded, at = 1_001)), start, sessionOf),
+            analysisOutcome(listOf(job("practice", JobState.Succeeded, at = 1_001)), start, sessionOf = sessionOf),
         )
         assertEquals(
             AnalysisOutcome(AppRoute.ReportDetail("s1"), failed = false),
-            analysisOutcome(listOf(job("exam-answer", JobState.Succeeded, at = 1_001), job("s1", JobState.Succeeded, at = 1_002, JobKind.Grade)), start, sessionOf),
+            analysisOutcome(listOf(job("exam-answer", JobState.Succeeded, at = 1_001), job("s1", JobState.Succeeded, at = 1_002, JobKind.Grade)), start, sessionOf = sessionOf),
         )
     }
 
@@ -70,10 +70,23 @@ class AnalysisNoticeTest {
     }
 
     @Test
+    fun `F17_5 연습 정리가 끝나면 만든 카드 수를 싣고 경로 없이 앱 첫 화면을 연다`() {
+        val outcome = analysisOutcome(listOf(job("p1", JobState.Succeeded, at = 1_001, JobKind.Cards)), start, sessionOf = { null }, cardsOf = { if (it == "p1") 5 else null })
+
+        assertEquals(AnalysisOutcome(null, failed = false, cards = 5), outcome)
+        assertNull(outcome?.routeJson)
+    }
+
+    @Test
+    fun `F17_5 연습 정리 실패는 끝 알림으로 알리지 않는다`() {
+        assertNull(analysisOutcome(listOf(job("p1", JobState.Failed, at = 1_001, JobKind.Cards)), start) { null })
+    }
+
+    @Test
     fun `229 알림에 실은 경로를 되읽고 읽지 못하는 값은 버린다`() {
         val outcome = AnalysisOutcome(AppRoute.ReportDetail("s1"), failed = false)
 
-        assertEquals(outcome.route, routeFromJson(outcome.routeJson))
+        assertEquals(outcome.route, routeFromJson(outcome.routeJson!!))
         assertNull(routeFromJson("not a route"))
     }
 
@@ -115,6 +128,24 @@ class AnalysisNoticeTest {
     @Test
     fun `229 앱이 화면에 없으면 비우기를 시작한 밀리초에 끝난 작업도 그 회차 리포트로 알린다`() = runTest {
         assertEquals(listOf(AnalysisOutcome(AppRoute.ReportDetail("s1"), failed = false)), drainExamAnswer(visible = false))
+    }
+
+    @Test
+    fun `F17_5 앱이 화면에 없을 때 연습 정리가 끝나면 그 연습에서 만든 카드 수로 알린다`() = runTest {
+        val notified = mutableListOf<AnalysisOutcome>()
+
+        store.drainAndNotify(
+            clock = clock,
+            drain = {
+                store.save(AnalysisJob(JobKind.Cards, "p1", JobState.Succeeded, updatedAt = clock.now()))
+                null
+            },
+            visible = { false },
+            cardCount = { 3 },
+            notify = { notified += it },
+        )
+
+        assertEquals(listOf(AnalysisOutcome(null, failed = false, cards = 3)), notified)
     }
 
     @Test

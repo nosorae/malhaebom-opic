@@ -42,7 +42,8 @@ class CardStore(db: OpicDatabase, private val timeZone: TimeZone) {
     fun reviewDays(): Flow<Set<Long>> = dao.days().map { it.toSet() }
 }
 
-private fun ExpressionCard.toRow() = CardRow(
+/** 카드 줄. 연습 정리가 연습 기록과 한 트랜잭션으로 카드를 쓸 때도 쓴다(F17.4). */
+fun ExpressionCard.toRow() = CardRow(
     id = id,
     kind = kind.name,
     said = said,

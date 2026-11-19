@@ -6,7 +6,7 @@ import kotlin.time.Instant
 /**
  * 분석 작업 하나(#205). 답변 분석이나 회차 등급을 보낼 일이 생기면 DB 에 한 줄로 남고, 이 줄이 작업 상태의 유일한 기준이다.
  * 플랫폼 대기열은 이 표를 비우는 일만 하고, 화면은 이 표를 구독해 무엇을 기다리는지 보인다.
- * [targetId] 는 [kind] 에 따라 답변 id 나 회차 id 다.
+ * [targetId] 는 [kind] 에 따라 답변 id, 회차 id, 연습 id 다.
  */
 data class AnalysisJob(
     val kind: JobKind,
@@ -24,6 +24,9 @@ data class AnalysisJob(
 enum class JobKind {
     Answer,
     Grade,
+
+    /** 연습 정리(F17.4). 대화 전문으로 표현 카드를 만든다. */
+    Cards,
 }
 
 enum class JobState {
