@@ -52,8 +52,6 @@ sealed interface ReviewIntent {
 
     data class SetSilent(val on: Boolean) : ReviewIntent
 
-    data object Listen : ReviewIntent
-
     /** 6장 더. */
     data object MoreCards : ReviewIntent
 }
@@ -94,7 +92,6 @@ class ReviewViewModel(
                 _uiState.update { it.copy(silent = intent.on) }
                 viewModelScope.launch { setSilentUseCase(intent.on) }
             }
-            ReviewIntent.Listen -> _uiState.value.current?.let { viewModelScope.launch { speakExpressionUseCase(it.better) } }
             ReviewIntent.MoreCards -> start(more = true)
         }
     }

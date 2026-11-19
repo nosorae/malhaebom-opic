@@ -160,7 +160,7 @@ class ReviewRatingTest {
     }
 
     @Test
-    fun `F18_8 묶음을 끝내면 알았음, 다시, 처음 본 장 수를 센다`() = test { store ->
+    fun `F18_8 묶음을 끝내면 알았음과 다시와 처음 본 장 수를 센다`() = test { store ->
         store.save(card(now - 3.days, firstSeen = true))
         store.save(card(now - 2.days))
         store.save(card(now - 1.days))

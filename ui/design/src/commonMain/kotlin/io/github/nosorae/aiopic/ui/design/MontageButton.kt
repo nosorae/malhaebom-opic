@@ -5,7 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +65,7 @@ enum class MontageButtonSize(
  * [fill] 을 주면 배경 위에 왼쪽부터 그 비율(0~1)만큼 옅은 강조색을 채운다. 버튼이 켜지기까지 남은 시간을 보일 때 쓰고, 그리는 단계에서만 읽는다.
  * 누르는 동안 살짝 줄어 눌린 것이 손가락 밑에서도 보인다. 꺼져 있던 버튼이 켜지면 한 번 살짝 튀어 이제 누를 수 있다는 것이 보인다.
  * 처음 그릴 때 이미 켜져 있으면 튀지 않는다. 동작 줄이기면 둘 다 없다.
+ * [onLongClick] 을 주면 길게 누를 때 부른다. 화면 읽기 도구에는 길게 누르기 동작으로 읽힌다.
  */
 @Composable
 fun MontageButton(
@@ -78,6 +79,7 @@ fun MontageButton(
     leadingIcon: DrawableResource? = null,
     loading: Boolean = false,
     fill: (() -> Float)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = MontageTheme.colors
     val typography = MontageTheme.typography
@@ -134,11 +136,12 @@ fun MontageButton(
             // 화면 읽기 도구가 처리 중인 버튼을 "처리 중, 사용할 수 없음" 으로 읽게 버튼에 설명을 단다.
             // ponytail: 앱이 한국어 하나라 문구를 여기 둔다. 언어를 더하면 리소스로 옮긴다.
             .then(if (loading) Modifier.semantics { contentDescription = "처리 중" } else Modifier)
-            .clickable(
+            .combinedClickable(
                 enabled = enabled && !loading,
                 role = Role.Button,
                 interactionSource = interaction,
                 indication = ripple(color = content),
+                onLongClick = onLongClick,
                 onClick = onClick,
             )
             .heightIn(min = if (isText) size.textMinHeight else size.minHeight)
