@@ -7,4 +7,8 @@
     <string name="analysis_ready_text">문법 교정과 한 단계 위 표현을 볼 수 있어요</string>
     <string name="analysis_failed_title">분석하지 못했어요</string>
     <string name="analysis_failed_text">리포트에서 이유를 보고 다시 분석할 수 있어요</string>
+    <!-- 연습 정리 끝 알림(F17.5) -->
+    <string name="cards_ready_title">표현을 정리했어요</string>
+    <string name="cards_ready_text">새 표현 %1$d개가 복습에 들어갔어요</string>
+    <string name="cards_none_text">이번에는 고칠 표현이 없었어요</string>
 </resources>

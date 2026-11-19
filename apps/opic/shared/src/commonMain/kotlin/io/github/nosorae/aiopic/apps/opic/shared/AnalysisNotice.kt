@@ -25,11 +25,24 @@ data class ProgressNotice(val done: Int, val total: Int, val title: String, val 
 
 suspend fun AnalysisProgress.notice(): ProgressNotice = ProgressNotice(done, total, getString(Res.string.analysis_progress_title), getString(Res.string.analysis_progress_text, total, done))
 
-/** 앱이 화면에 없을 때 분석이 끝나면 띄우는 알림. 누르면 [route] 로 간다. */
-data class AnalysisOutcome(val route: AppRoute, val failed: Boolean) {
-    suspend fun title(): String = getString(if (failed) Res.string.analysis_failed_title else Res.string.analysis_ready_title)
+/**
+ * 앱이 화면에 없을 때 분석이 끝나면 띄우는 알림. 누르면 [route] 로 간다.
+ * [cards] 가 있으면 연습 정리 끝 알림이고 그 연습에서 만든 카드 수다(F17.5).
+ */
+data class AnalysisOutcome(val route: AppRoute, val failed: Boolean, val cards: Int? = null) {
+    suspend fun title(): String = getString(
+        when {
+            cards != null -> Res.string.cards_ready_title
+            failed -> Res.string.analysis_failed_title
+            else -> Res.string.analysis_ready_title
+        },
+    )
 
-    suspend fun text(): String = getString(if (failed) Res.string.analysis_failed_text else Res.string.analysis_ready_text)
+    suspend fun text(): String = when {
+        cards == null -> getString(if (failed) Res.string.analysis_failed_text else Res.string.analysis_ready_text)
+        cards == 0 -> getString(Res.string.cards_none_text)
+        else -> getString(Res.string.cards_ready_text, cards)
+    }
 }
 
 /**
@@ -46,15 +59,18 @@ fun analysisProgress(jobs: List<AnalysisJob>, since: Instant): AnalysisProgress?
 /**
  * [since] 에 시작한 비우기가 끝난 뒤 알릴 결과. 남은 작업이 있거나 그 뒤 끝난 작업이 없으면 null 이다.
  * 실패가 있으면 실패한 작업의, 없으면 마지막에 끝난 작업의 리포트로 보낸다. 모의고사 답변은 회차 리포트로 간다.
- * [sessionOf] 는 답변 id 로 회차 id 를 찾는다. 연습 답변이면 null 이다.
+ * [sessionOf] 는 답변 id 로 회차 id 를 찾는다. 연습 답변이면 null 이다. [cardsOf] 는 연습 id 로 만든 카드 수를 찾는다.
+ * 연습 정리는 끝났을 때만 알린다(F17.5). 실패한 정리는 앱을 켤 때 다시 넣는다.
  */
-fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, sessionOf: (String) -> String?): AnalysisOutcome? {
+// ponytail: 연습 정리 끝 알림은 연습 탭으로 보낸다. 연습 정리 화면(speaking-ui)이 생기면 그 화면 경로로 바꾼다.
+fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, cardsOf: (String) -> Int? = { null }, sessionOf: (String) -> String?): AnalysisOutcome? {
     if (jobs.any { it.state.active }) return null
-    val finished = jobs.filter { it.updatedAt >= since }
+    val finished = jobs.filter { it.updatedAt >= since && !(it.kind == JobKind.Cards && it.state == JobState.Failed) }
     val job = finished.firstOrNull { it.state == JobState.Failed } ?: finished.maxByOrNull { it.updatedAt } ?: return null
     val route = when (job.kind) {
         JobKind.Grade -> AppRoute.ReportDetail(job.targetId)
         JobKind.Answer -> sessionOf(job.targetId)?.let { AppRoute.ReportDetail(it) } ?: AppRoute.AnswerReport(job.targetId)
+        JobKind.Cards -> return AnalysisOutcome(AppRoute.PracticeTab, failed = false, cards = cardsOf(job.targetId) ?: 0)
     }
     return AnalysisOutcome(route, failed = job.state == JobState.Failed)
 }
@@ -70,17 +86,22 @@ fun OpicStore.analyzing(): Flow<Boolean> = jobs().map { jobs -> jobs.any { it.st
 
 /**
  * 분석 작업 표를 [drain] 으로 한 번 비우고, 그 사이 끝난 작업이 있고 남은 작업이 없을 때 앱이 화면에 없으면([visible] 이 false) [notify] 로 결과를 알린다.
- * 플랫폼 대기열의 비우기 자리에 넣는다.
+ * 플랫폼 대기열의 비우기 자리에 넣는다. [cardCount] 는 연습 정리 끝 알림에 실을 그 연습의 카드 수를 읽는다(F17.5).
  */
-suspend fun OpicStore.drainAndNotify(clock: Clock, drain: suspend () -> Duration?, visible: () -> Boolean, notify: suspend (AnalysisOutcome) -> Unit): Duration? {
+suspend fun OpicStore.drainAndNotify(clock: Clock, drain: suspend () -> Duration?, visible: () -> Boolean, cardCount: suspend (String) -> Int? = { null }, notify: suspend (AnalysisOutcome) -> Unit): Duration? {
     val since = clock.nowMillis()
     val next = drain()
     if (!visible()) {
+        val jobs = jobs().first()
         val sessions = answers().first().associate { it.id to it.examSessionId }
-        analysisOutcome(jobs().first(), since, sessions::get)?.let { notify(it) }
+        val cards = jobs.filter { it.kind == JobKind.Cards && it.updatedAt >= since }.associate { it.targetId to cardCount(it.targetId) }
+        analysisOutcome(jobs, since, { cards[it] }, sessions::get)?.let { notify(it) }
     }
     return next
 }
+
+/** 플랫폼 대기열의 비우기. 그래프의 작업 표를 비우고 끝 알림에 연습 정리의 카드 수를 싣는다(F17.5). */
+suspend fun AppGraph.drainAndNotify(visible: () -> Boolean, notify: suspend (AnalysisOutcome) -> Unit): Duration? = opicStore.drainAndNotify(clock, analysisJobs::drain, visible, speakingStore::cardCount, notify)
 
 /** 작업 표는 시각을 밀리초로 저장한다. 시작 시각도 밀리초로 잘라야 같은 밀리초에 끝난 작업을 놓치지 않는다. */
 private fun Clock.nowMillis(): Instant = Instant.fromEpochMilliseconds(now().toEpochMilliseconds())

@@ -10,6 +10,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.StoreExamRepository
 import io.github.nosorae.aiopic.apps.opic.shared.data.StorePracticeRepository
 import io.github.nosorae.aiopic.apps.opic.shared.data.StoreReads
 import io.github.nosorae.aiopic.engine.aigemini.GeminiAnalyzer
+import io.github.nosorae.aiopic.engine.aigemini.GeminiCardWriter
 import io.github.nosorae.aiopic.engine.aigemini.GeminiLiveTransport
 import io.github.nosorae.aiopic.engine.aigemini.GeminiModels
 import io.github.nosorae.aiopic.engine.aigemini.GeminiQuestionWriter
@@ -18,6 +19,7 @@ import io.github.nosorae.aiopic.engine.aigemini.GeminiTranscriber
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
 import io.github.nosorae.aiopic.engine.answer.analysis.GradeRequest
+import io.github.nosorae.aiopic.engine.answer.analysis.JobWork
 import io.github.nosorae.aiopic.engine.answer.check.choose
 import io.github.nosorae.aiopic.engine.answer.model.Answer
 import io.github.nosorae.aiopic.engine.answer.model.Feedback
@@ -44,10 +46,13 @@ import io.github.nosorae.aiopic.engine.coach.ScriptWriter
 import io.github.nosorae.aiopic.engine.question.model.Question
 import io.github.nosorae.aiopic.engine.question.model.QuestionType
 import io.github.nosorae.aiopic.engine.question.pick.parseQuestions
+import io.github.nosorae.aiopic.engine.review.CardStore
 import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import io.github.nosorae.aiopic.engine.session.model.ExamSession
 import io.github.nosorae.aiopic.engine.session.model.ExamSpec
 import io.github.nosorae.aiopic.engine.session.model.GradeScale
+import io.github.nosorae.aiopic.engine.speaking.CardJob
+import io.github.nosorae.aiopic.engine.speaking.SpeakingStore
 import io.github.nosorae.aiopic.libs.debug.DebugLevel
 import io.github.nosorae.aiopic.libs.debug.DebugTools
 import io.github.nosorae.aiopic.libs.duplexaudio.api.DuplexAudio
@@ -120,6 +125,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.MissingResourceException
 import kotlin.time.Clock
@@ -185,6 +191,13 @@ interface AppGraph {
 
     /** 디버깅 화면의 DB 패널이 읽는다. */
     val opicStore: OpicStore
+
+    /** 연습 정리 끝 알림이 그 연습에서 만든 카드 수를 읽는다(F17.5). */
+    val speakingStore: SpeakingStore
+
+    @SingleIn(AppScope::class)
+    @Provides
+    fun speakingStore(database: OpicDatabase): SpeakingStore = SpeakingStore(database)
 
     /** 분석 작업 표와 앱 밖 진행, 끝 알림이 같은 시계로 시각을 잰다(#229). */
     val clock: Clock
@@ -386,7 +399,7 @@ interface AppGraph {
 
     @SingleIn(AppScope::class)
     @Provides
-    fun analysisJobs(store: OpicStore, queue: WorkQueue, client: GeminiClient, keyVault: KeyVault, settings: AppSettings, recorder: Recorder, clock: Clock): AnalysisJobs = analysisJobs(
+    fun analysisJobs(store: OpicStore, queue: WorkQueue, client: GeminiClient, keyVault: KeyVault, settings: AppSettings, recorder: Recorder, clock: Clock, database: OpicDatabase, speakingStore: SpeakingStore): AnalysisJobs = analysisJobs(
         store = store,
         queue = queue,
         client = client,
@@ -395,6 +408,7 @@ interface AppGraph {
         answerRequest = { answer, model -> analysisRequest(answer, model, recorder) },
         gradeRequest = { answers, model -> gradeRequest(answers, model, recorder) },
         clock = clock,
+        cards = cardJob(database, speakingStore, client, keyVault, settings, clock),
     )
 
     @DependencyGraph.Factory
@@ -522,6 +536,7 @@ internal fun analysisJobs(
     answerRequest: suspend (Answer, ModelInfo) -> AnalysisRequest,
     gradeRequest: suspend (List<Answer>, ModelInfo) -> GradeRequest,
     clock: Clock = Clock.System,
+    cards: JobWork? = null,
 ): AnalysisJobs {
     val gemini = GeminiAnalyzer(client) { keyVault.get(GeminiModels.PROVIDER) }
     return AnalysisJobs(
@@ -534,8 +549,21 @@ internal fun analysisJobs(
         gradeRequest = { answers -> gradeRequest(answers, GeminiModels.choose(settings.selectedModelId()).model) },
         wake = queue::wake,
         clock = clock,
+        cards = cards,
     )
 }
+
+/**
+ * 연습 정리(F17.4). 대화 전문을 설정에서 고른 분석 모델로 보내 카드를 만든다. 앱의 하루는 기기 시간대로 센다(F18.11).
+ * 정리 작업이 앱을 켤 때 되돌리기와 다시 보내기를 분석 작업 표와 같이 쓰도록 [analysisJobs] 에 넣는다.
+ */
+internal fun cardJob(database: OpicDatabase, speaking: SpeakingStore, client: GeminiClient, keyVault: KeyVault, settings: AppSettings, clock: Clock, timeZone: TimeZone = TimeZone.currentSystemDefault()) = CardJob(
+    store = speaking,
+    cards = CardStore(database, timeZone),
+    writer = GeminiCardWriter(client, { keyVault.get(GeminiModels.PROVIDER) }, { GeminiModels.choose(settings.selectedModelId()).model }),
+    clock = clock,
+    timeZone = timeZone,
+)
 
 /**
  * 고른 모델이 내려가 분석이 [AnalysisError.ModelUnavailable] 로 끝나면 기본 모델을 저장하고 다시 보내게 한다(F5.8).

@@ -5,6 +5,7 @@ import io.github.nosorae.aiopic.apps.opic.shared.data.inMemoryDatabase
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisJobs
 import io.github.nosorae.aiopic.engine.answer.analysis.AnalysisRequest
 import io.github.nosorae.aiopic.engine.answer.analysis.GradeRequest
+import io.github.nosorae.aiopic.engine.answer.analysis.JobWork
 import io.github.nosorae.aiopic.engine.answer.port.Prompt
 import io.github.nosorae.aiopic.engine.answer.port.Recording
 import io.github.nosorae.aiopic.engine.answer.store.OpicStore
@@ -82,6 +83,7 @@ internal fun testAnalysisJobs(
     client: GeminiClient = GeminiClient(HttpClient(mockEngine { respond("{}", HttpStatusCode.ServiceUnavailable) })),
     keyVault: KeyVault = FakeKeyVault(),
     clock: Clock = Clock.System,
+    cards: JobWork? = null,
 ): AnalysisJobs {
     val silence = Recording(ByteArray(0), "audio/mp4", emptyList())
     return analysisJobs(
@@ -93,6 +95,7 @@ internal fun testAnalysisJobs(
         answerRequest = { _, model -> AnalysisRequest(model, Prompt("answer-v1", "answer", "{\"transcript\":{}}"), silence) },
         gradeRequest = { answers, model -> GradeRequest(model, Prompt("grade-v1", "grade", "{\"brokeAt\":{}}"), OpicEn.gradeScale, answers.map { silence }) },
         clock = clock,
+        cards = cards,
     )
 }
 
