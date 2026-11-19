@@ -41,6 +41,7 @@ include(
     ":ui:feature-history",
     ":ui:feature-settings",
     ":ui:feature-live",
+    ":ui:feature-expressions",
     ":packs:opic-en",
     ":engine:session",
     ":engine:answer",

@@ -1690,8 +1690,10 @@
       ],
       "done": "./gradlew :ui:feature-expressions:allTests :ui:feature-expressions:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests && ./gradlew :ui:feature-expressions:testAndroidHostTest --tests '*ReviewRatingTest*'",
       "done_desc": "하단 탭을 모의고사, 연습, 표현, 기록, 설정 다섯 개로 한다. 표현 탭(오늘 복습, 고칠 표현만 센 틀린 유형별 묶음, 묶음 칩 여섯, 표현 목록), 표현 상세(들어오면 처음 봄 끄기, 다른 부분 색칠, 듣기, 고치기, 이미 알아요는 쉬움 평가, 필요 없어요는 보관, 삭제 확인), 복습 화면(처음 봄 카드는 가리지 않고 읽어 주고 다음 버튼 하나, 그 밖은 소리 내기와 소리 없이, 다시와 알았음, 길게 누르면 어려움과 쉬움), 복습 끝(알았음, 다시, 처음 본 장 수, 이번 주 복습한 날 수, 6장 더). 스크린샷 테스트(라이트, 다크, 글자 200%). ReviewRatingTest(F18.3, F18.6): 평가하면 다음 복습 시각과 복습 횟수가 바뀌고 오늘이 복습한 날에 들어가는지, 다음 버튼은 평가 없이 다음 날 새벽 4시로 옮기는지, 이미 알아요가 카드를 빼지 않는지. apps/opic 을 같이 고쳐서 card-writer 뒤에 둔다",
-      "status": "todo",
-      "issue": 291
+      "status": "done",
+      "issue": 291,
+      "start": "2026-11-19",
+      "end": "2026-11-20"
     },
     {
       "id": "speaking-service",
@@ -1742,7 +1744,7 @@
         "F17.10"
       ],
       "done": "./gradlew :ui:feature-speaking:allTests :ui:feature-speaking:verifyRoborazziAndroidHostTest :ui:feature-practice:allTests :ui:feature-practice:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests",
-      "done_desc": "연습 탭 맨 위 카드 둘(말하기 연습, 오늘 복습). 연습 시작 시트(시간 10, 20, 30분, 소리 환경, 말로 하는 조작 안내, 대략 비용). 연습 중 화면(큰 상태 원, 큰 일시정지와 끝내기 버튼, 접는 대화창, 비용 줄)은 서비스가 가진 세션을 지켜보기만 한다. 연습 정리 화면(카드 목록, 밀어서 빼기와 되돌리기, 정리 중과 실패 상태). 스크린샷 테스트(라이트, 다크, 글자 200%). 정리 화면 요약에 내가 말한 시간과 내 말 비율, 표현을 쓴 횟수(말 속도와 쉼 횟수는 보이지 않음), 더 자연스럽게 카드의 틀린 건 아니에요, 길게 눌러 틀린 지적 신고, 말로 복습 결과와 판정 바꾸기(F17.10, 그 뒤 다시 복습한 카드는 막음). Cards 알림 경로 바꾸기: 정리 끝 알림(AnalysisNotice 의 JobKind.Cards)이 지금은 경로 없이 앱 첫 화면을 여니, 그 연습의 정리 화면 경로로 바꾼다(F17.5)",
+      "done_desc": "연습 탭 맨 위 카드 둘(말하기 연습, 오늘 복습). 연습 시작 시트(시간 10, 20, 30분, 소리 환경, 말로 하는 조작 안내, 대략 비용). 연습 중 화면(큰 상태 원, 큰 일시정지와 끝내기 버튼, 접는 대화창, 비용 줄)은 서비스가 가진 세션을 지켜보기만 한다. 연습 정리 화면(카드 목록, 밀어서 빼기와 되돌리기, 정리 중과 실패 상태). 스크린샷 테스트(라이트, 다크, 글자 200%). 정리 화면 요약에 내가 말한 시간과 내 말 비율, 표현을 쓴 횟수(말 속도와 쉼 횟수는 보이지 않음), 더 자연스럽게 카드의 틀린 건 아니에요, 길게 눌러 틀린 지적 신고, 말로 복습 결과와 판정 바꾸기(F17.10, 그 뒤 다시 복습한 카드는 막음). Cards 알림 경로 바꾸기: 정리 끝 알림(AnalysisNotice 의 JobKind.Cards)이 지금은 경로 없이 앱 첫 화면을 여니, 그 연습의 정리 화면 경로로 바꾼다(F17.5) 표현 탭 빈 화면의 연습 시작 버튼(F18.1): ExpressionsScreen 에 매개변수와 버튼을 더하고 RouteContent 에서 말하기 연습 시작으로 잇는다",
       "status": "todo",
       "issue": 290
     },

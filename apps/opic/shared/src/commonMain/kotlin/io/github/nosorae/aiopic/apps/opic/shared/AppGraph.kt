@@ -77,6 +77,11 @@ import io.github.nosorae.aiopic.ui.featureexam.ExamRepository
 import io.github.nosorae.aiopic.ui.featureexam.ExamViewModel
 import io.github.nosorae.aiopic.ui.featureexam.SurveyStore
 import io.github.nosorae.aiopic.ui.featureexam.SurveyViewModel
+import io.github.nosorae.aiopic.ui.featureexpressions.ExpressionDetailViewModel
+import io.github.nosorae.aiopic.ui.featureexpressions.ExpressionVoice
+import io.github.nosorae.aiopic.ui.featureexpressions.ExpressionsViewModel
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewSettings
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewViewModel
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryScript
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryStore
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryViewModel
@@ -167,6 +172,12 @@ interface AppGraph {
 
     val historyViewModel: HistoryViewModel
 
+    val expressionsViewModel: ExpressionsViewModel
+
+    val expressionDetailViewModelFactory: ExpressionDetailViewModel.Factory
+
+    val reviewViewModel: ReviewViewModel
+
     val settingsViewModel: SettingsViewModel
 
     val coachStartViewModel: CoachStartViewModel
@@ -221,6 +232,19 @@ interface AppGraph {
     @Provides fun targetGradeStore(settings: AppSettings): TargetGradeStore = settings
 
     @Provides fun liveConsent(settings: AppSettings): LiveConsent = settings
+
+    @Provides fun reviewSettings(settings: AppSettings): ReviewSettings = settings
+
+    /** 앱의 하루(새벽 4시에 바뀜)를 세는 기기 시간대(F18.11). */
+    // ponytail: 그래프를 만들 때 한 번 읽는다. 앱이 떠 있는 동안 시간대를 바꾸면 다음 실행부터 따른다.
+    @Provides fun timeZone(): TimeZone = TimeZone.currentSystemDefault()
+
+    @SingleIn(AppScope::class)
+    @Provides
+    fun cardStore(database: OpicDatabase, timeZone: TimeZone): CardStore = CardStore(database, timeZone)
+
+    /** 표현은 미리 만든 질문 음성이 없어서 기기 음성으로 바로 읽는다(F18.3, F18.4). */
+    @Provides fun expressionVoice(@Named(DEVICE_TTS) device: Tts): ExpressionVoice = ExpressionVoice { device.speak(it) }
 
     /**
      * 코치 세션 하나를 돌릴 코치(F11). 시험 팩의 코치 프로필, 사용자 키로 여는 Gemini Live 연결, 플랫폼 오디오, 앱 DB 의 코치 표를 묶는다.

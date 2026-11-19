@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="expressions_title">표현</string>
+    <string name="expressions_today">오늘 복습</string>
+    <string name="expressions_today_left">%1$d장 남았어요. 약 %2$d분</string>
+    <string name="expressions_today_done">오늘 복습을 다 했어요</string>
+    <string name="expressions_week_days">이번 주 %1$d일 복습했어요</string>
+    <string name="expressions_start_review">복습 시작</string>
+    <string name="expressions_error_types">자주 틀리는 유형</string>
+    <string name="expressions_error_count">%1$d장</string>
+    <string name="expressions_empty">말하기 연습을 하면 여기에 표현이 쌓여요</string>
+    <string name="expressions_empty_filter">이 묶음에는 아직 표현이 없어요</string>
+    <string name="expressions_not_wrong">틀린 건 아니에요</string>
+
+    <string name="filter_all">전체</string>
+    <string name="filter_archived">보관함</string>
+
+    <string name="kind_correction">고칠 표현</string>
+    <string name="kind_unknown">몰랐던 표현</string>
+    <string name="kind_formulaic">정형 표현</string>
+    <string name="kind_more_natural">더 자연스럽게</string>
+
+    <string name="error_tense">시제</string>
+    <string name="error_article">관사</string>
+    <string name="error_word_choice">낱말 선택</string>
+    <string name="error_connector">연결어</string>
+    <string name="error_sentence_structure">문장 구조</string>
+
+    <string name="detail_said">내가 한 말</string>
+    <string name="detail_better">더 나은 표현</string>
+    <string name="detail_meaning">한국어 뜻</string>
+    <string name="detail_context">상황</string>
+    <string name="detail_history">복습 기록</string>
+    <string name="detail_history_value">복습 %1$d번, 다시 %2$d번. 다음 복습 %3$d월 %4$d일</string>
+    <string name="detail_listen">듣기</string>
+    <string name="detail_edit">고치기</string>
+    <string name="detail_save">저장</string>
+    <string name="detail_cancel">취소</string>
+    <string name="detail_know">이미 알아요</string>
+    <string name="detail_interval_extended">다음 복습까지 간격을 늘렸어요</string>
+    <string name="detail_archive">필요 없어요</string>
+    <string name="detail_unarchive">꺼내기</string>
+    <string name="detail_delete">삭제</string>
+    <string name="detail_delete_title">이 표현을 지울까요?</string>
+    <string name="detail_delete_message">복습 기록도 함께 지워져요</string>
+    <string name="detail_delete_confirm">지우기</string>
+    <string name="detail_missing">지워진 표현이에요</string>
+
+    <string name="review_title">복습</string>
+    <string name="review_progress">%1$d / %2$d</string>
+    <string name="review_silent">소리 없이</string>
+    <string name="review_repeat">소리 내 따라 말해 보세요</string>
+    <string name="review_say_english">영어로 말해 보세요</string>
+    <string name="review_fix_sentence">문장 전체를 고쳐 말해 보세요</string>
+    <string name="review_more_natural">틀린 건 아니에요. 더 자연스럽게 말해 보세요</string>
+    <string name="review_silent_prompt">속으로 말해 보세요</string>
+    <string name="review_reveal">정답 보기</string>
+    <string name="review_next">다음</string>
+    <string name="review_again">다시</string>
+    <string name="review_hard">어려움</string>
+    <string name="review_good">알았음</string>
+    <string name="review_easy">쉬움</string>
+    <string name="review_long_press">길게 누르면 어려움과 쉬움이 나와요</string>
+    <string name="review_done_title">이번 묶음을 마쳤어요</string>
+    <string name="review_done_counts">알았음 %1$d장, 다시 %2$d장, 처음 본 표현 %3$d장</string>
+    <string name="review_done_week">이번 주 %1$d일째 복습했어요</string>
+    <string name="review_more">6장 더</string>
+    <string name="review_close">끝내기</string>
+    <string name="review_empty">오늘 복습할 표현이 없어요</string>
+</resources>

@@ -14,6 +14,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nosorae.aiopic.libs.debug.DebugTools
 import io.github.nosorae.aiopic.ui.featureexam.ExamRoute
 import io.github.nosorae.aiopic.ui.featureexam.SurveyRoute
+import io.github.nosorae.aiopic.ui.featureexpressions.ExpressionDetailRoute
+import io.github.nosorae.aiopic.ui.featureexpressions.ExpressionsRoute
+import io.github.nosorae.aiopic.ui.featureexpressions.ReviewRoute
 import io.github.nosorae.aiopic.ui.featurehistory.HistoryRoute
 import io.github.nosorae.aiopic.ui.featurehome.HomeRoute
 import io.github.nosorae.aiopic.ui.featurelive.CoachScriptRoute
@@ -87,6 +90,21 @@ internal fun RouteContent(
             onOpenCoach = { coachOpen = true },
             modifier = modifier,
         )
+
+        AppRoute.ExpressionsTab -> ExpressionsRoute(
+            viewModel = viewModel { graph.expressionsViewModel },
+            onOpenCard = { onOpen(AppRoute.Expression(it)) },
+            onStartReview = { onOpen(AppRoute.Review) },
+            modifier = modifier,
+        )
+
+        is AppRoute.Expression -> ExpressionDetailRoute(
+            viewModel = viewModel(key = route.toString()) { graph.expressionDetailViewModelFactory.create(route.cardId) },
+            onExit = onBack,
+            modifier = modifier,
+        )
+
+        AppRoute.Review -> ReviewRoute(viewModel = viewModel { graph.reviewViewModel }, onExit = onBack, modifier = modifier)
 
         AppRoute.History -> HistoryRoute(
             viewModel = viewModel { graph.historyViewModel },

@@ -47,6 +47,7 @@ import io.github.nosorae.aiopic.libs.haptics.api.androidHaptics
 import io.github.nosorae.aiopic.ui.design.LocalHaptics
 import io.github.nosorae.aiopic.ui.design.MontageTheme
 import io.github.nosorae.aiopic.ui.design.Res
+import io.github.nosorae.aiopic.ui.design.icon_normal_ai_review
 import io.github.nosorae.aiopic.ui.design.icon_normal_calendar
 import io.github.nosorae.aiopic.ui.design.icon_normal_document_text
 import io.github.nosorae.aiopic.ui.design.icon_normal_microphone
@@ -171,6 +172,7 @@ private fun SnapshotStateList<AppRoute>.replaceAll(next: List<AppRoute>) = Snaps
 
 private fun tabIcon(tab: AppRoute) = when (tab) {
     AppRoute.PracticeTab -> Res.drawable.icon_normal_microphone
+    AppRoute.ExpressionsTab -> Res.drawable.icon_normal_ai_review
     AppRoute.History -> Res.drawable.icon_normal_calendar
     AppRoute.Settings -> Res.drawable.icon_normal_setting
     else -> Res.drawable.icon_normal_document_text

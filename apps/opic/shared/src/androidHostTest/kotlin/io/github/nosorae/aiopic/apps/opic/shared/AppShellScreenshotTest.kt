@@ -32,6 +32,8 @@ class AppShellScreenshotTest {
 
     @Test fun history() = shot(AppRoute.ExamTab, AppRoute.History)
 
+    @Test fun expressionsTab() = shot(AppRoute.ExamTab, AppRoute.ExpressionsTab)
+
     @Test fun flagExport() = shot(AppRoute.ExamTab, AppRoute.Settings, AppRoute.FlagExport)
 
     /** 첫 실행(S1, S2)은 탭 없이 혼자 뜬다. */

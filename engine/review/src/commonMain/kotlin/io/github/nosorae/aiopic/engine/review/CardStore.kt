@@ -33,6 +33,16 @@ class CardStore(db: OpicDatabase, private val timeZone: TimeZone) {
         dao.rated(card.review(rating, now, amount).toRow(), today, keepFrom = today - KEEP_DAYS + 1)
     }
 
+    /**
+     * 처음 봄 카드의 다음(F18.6). FSRS 를 부르지 않고 처음 봄을 끄고 다음 복습 시각을 다음 날 새벽 4시로 옮긴다.
+     * 복습 횟수는 그대로 두고 그날을 복습한 날로 남긴다. 지운 카드면 아무것도 하지 않는다.
+     */
+    suspend fun showNext(id: Long, now: Instant) {
+        val card = dao.card(id)?.toCard() ?: return
+        val today = now.localDay(timeZone)
+        dao.rated(card.copy(firstSeen = false, lastReviewedAt = now, dueAt = now.nextDayStart(timeZone)).toRow(), today, keepFrom = today - KEEP_DAYS + 1)
+    }
+
     /** 보관하거나 꺼낸다(F18.3). */
     suspend fun archive(id: Long, archived: Boolean) = dao.archive(id, archived)
 

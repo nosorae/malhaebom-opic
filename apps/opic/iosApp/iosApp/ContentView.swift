@@ -124,6 +124,7 @@ struct Tabs: View {
     private func icon(_ tab: AppRoute) -> String {
         switch tab {
         case AppRoute.PracticeTab.shared: "mic"
+        case AppRoute.ExpressionsTab.shared: "text.bubble"
         case AppRoute.History.shared: "calendar"
         case AppRoute.Settings.shared: "gearshape"
         default: "doc.text"
