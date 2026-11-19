@@ -80,6 +80,10 @@
     {
       "id": "P6",
       "title": "보완"
+    },
+    {
+      "id": "P7",
+      "title": "말하기 연습"
     }
   ],
   "nodes": [
@@ -1453,6 +1457,310 @@
         "done": 1
       },
       "end": "2026-10-10"
+    },
+    {
+      "id": "speaking-spec",
+      "phase": "P7",
+      "kind": "docs",
+      "title": "말하기 연습 요구사항, 설계, 결정 기록, 개발 그래프",
+      "dependsOn": [
+        "g5"
+      ],
+      "owns": [
+        "docs/specs/",
+        "docs/adr/",
+        "docs/graph/"
+      ],
+      "reqs": [
+        "F16",
+        "F17",
+        "F18",
+        "F19",
+        "F20"
+      ],
+      "done": "python3 scripts/graph/validate.py && python3 -m unittest discover -s scripts/graph",
+      "done_desc": "product.md 에 F16(말하기 연습 세션), F17(연습 정리와 표현 카드), F18(표현 탭과 복습), F19(복습 알림과 위젯), F20(스피커 모드)과 세부 수락 기준. design.md 12절에 연습 세션 단계와 상태, 서비스가 세션을 소유하는 구조, 카드와 FSRS, Room version 5 표 4개. ADR 0038(세션은 서비스가 소유), 0039(말하기 연습 엔진을 코치 엔진과 따로). 그래프에 말하기 연습 노드 12개. 그래프 검사와 그래프 스크립트 테스트가 0 으로 끝난다",
+      "status": "doing",
+      "issue": 283,
+      "start": "2026-11-19"
+    },
+    {
+      "id": "live-config",
+      "phase": "P7",
+      "kind": "ai",
+      "title": "Live 연결에 말 끝 판정 설정 넘기기",
+      "dependsOn": [
+        "speaking-spec"
+      ],
+      "owns": [
+        "libs/live-gemini/"
+      ],
+      "reqs": [
+        "F16.17",
+        "F20.5"
+      ],
+      "done": "./gradlew :libs:live-gemini:allTests :engine:coach:allTests && ./gradlew :libs:live-gemini:testAndroidHostTest --tests '*LiveSetupTest*'",
+      "done_desc": "LiveConfig 에 침묵 판정 시간, 말 시작 감도, 말 끝 감도, 끼어들기 여부를 더하고 setup 의 realtimeInputConfig 로 보낸다(design.md 12.5). 값을 주지 않으면 지금과 같은 setup 이 나간다. LiveSetupTest(F16.17, F20.5): 값을 주면 setup JSON 에 automaticActivityDetection 과 activityHandling 이 들어가는지, 주지 않으면 지금 setup 과 글자 하나 다르지 않은지. 라이브 코치 기존 테스트가 그대로 통과한다",
+      "status": "todo",
+      "issue": 284
+    },
+    {
+      "id": "review-fsrs",
+      "phase": "P7",
+      "kind": "common",
+      "title": "표현 카드와 FSRS 복습 계산",
+      "dependsOn": [
+        "speaking-spec"
+      ],
+      "owns": [
+        "engine/review/",
+        "settings.gradle.kts"
+      ],
+      "reqs": [
+        "F18.2",
+        "F18.6",
+        "F18.7",
+        "F18.9"
+      ],
+      "done": "./gradlew :engine:review:allTests && ./gradlew :engine:review:testAndroidHostTest --tests '*FsrsTest*' --tests '*ReviewQueueTest*'",
+      "done_desc": "새 engine/review 모듈. 카드 모델(종류, 내가 한 말, 더 나은 표현, 뜻, 틀린 유형, 복습 값)과 FSRS 간격 계산(design.md 12.3). 평가는 다시, 어려움, 알았음, 쉬움이고 목표 기억률은 복습 양(85, 90, 95%)을 따른다. KMP 라이브러리가 있으면 쓰고 없으면 수식을 옮긴다. FsrsTest(F18.6, F18.7): 알려진 입력과 결과 쌍으로 다음 복습 시각과 난이도, 안정도를 확인한다. ReviewQueueTest(F18.2, F18.9): 한 번 6장, 하루 30장, 새 카드 하루 10장, 보관 카드 제외, 잊었을 확률 순, 이번 주(월요일부터) 복습한 날 수",
+      "status": "todo",
+      "issue": 285
+    },
+    {
+      "id": "speaking-db",
+      "phase": "P7",
+      "kind": "common",
+      "title": "표현 카드, 연습 기록 저장 표",
+      "dependsOn": [
+        "speaking-spec",
+        "review-fsrs"
+      ],
+      "owns": [
+        "engine/answer/src/commonMain/kotlin/io/github/nosorae/aiopic/engine/answer/store/",
+        "engine/answer/src/commonTest/",
+        "engine/answer/src/iosTest/",
+        "engine/answer/src/androidHostTest/",
+        "engine/review/"
+      ],
+      "reqs": [
+        "F16.16",
+        "F17.8",
+        "F18.9"
+      ],
+      "done": "./gradlew :engine:answer:allTests :engine:review:allTests && ./gradlew :engine:answer:testAndroidHostTest --tests '*Migration4To5Test*'",
+      "done_desc": "Room version 5. 표 4개(expression_card, speaking_session, speaking_active, review_day)와 4에서 5로 옮기는 SQL(design.md 12.4). 진행 중인 연습은 앱 프로세스가 끝나도 이어 붙일 수 있게 둔다. 카드 저장소는 engine/review 에 둔다. Migration4To5Test(F16.16, F17.8): version 4 DB 에 답변과 코치 세션을 넣고 옮긴 뒤 옛 줄이 남고 새 표 4개에 쓰고 읽을 수 있는지. allTests 로 Android 와 iOS 시뮬레이터에서 같이 돈다. review-fsrs 와 engine/review 를 같이 고쳐서 그 뒤에 둔다",
+      "status": "todo",
+      "issue": 286
+    },
+    {
+      "id": "speaking-engine",
+      "phase": "P7",
+      "kind": "ai",
+      "title": "말하기 연습 세션 상태와 코치 흐름",
+      "dependsOn": [
+        "live-config",
+        "review-fsrs",
+        "speaking-db"
+      ],
+      "owns": [
+        "engine/speaking/",
+        "packs/",
+        "settings.gradle.kts"
+      ],
+      "reqs": [
+        "F16.5",
+        "F16.6",
+        "F16.7",
+        "F16.8",
+        "F16.9",
+        "F16.11",
+        "F16.12",
+        "F16.13",
+        "F16.15",
+        "F16.16"
+      ],
+      "done": "./gradlew :engine:speaking:allTests && ./gradlew :engine:speaking:testAndroidHostTest --tests '*SpeakingProgressTest*' --tests '*SpeakingSessionTest*'",
+      "done_desc": "새 engine/speaking(ADR 0039). 단계(말로 복습, 대화, 마무리)와 상태(듣는 중, 코치가 말하는 중, 일시정지)를 reduce 순수 함수로 계산한다(design.md 12.1). 시작 때 복습 카드 3장을 말로 풀고 FSRS 로 고친다. 음성 명령 일곱(잠깐, 다시 시작, 힌트, 이거 영어로 뭐야, 다음 질문, 다른 주제, 그만할래)을 도구 호출로 받는다. 대답 없음 두 번이면 일시정지, 일시정지 10분이면 저장하고 끝, 남은 5분과 1분 처리. 연결이 끊기면 이어 붙이기 핸들로 3번까지 다시 연결. 응답마다 대화 전문과 사용량을 진행 중인 연습에 저장. 코치 프로필(packs)에 주제 연습 지시. SpeakingProgressTest: 단계 전환, 명령, 시간 처리를 상태와 일어난 일의 조합으로. SpeakingSessionTest: 가짜 연결과 가짜 오디오로 다시 연결 3번과 그 뒤 일시정지, 프로세스가 끝난 뒤 저장된 줄에서 이어 가기",
+      "status": "todo",
+      "issue": 287
+    },
+    {
+      "id": "card-writer",
+      "phase": "P7",
+      "kind": "ai",
+      "title": "연습 정리: 대화 전문에서 표현 카드 만들기",
+      "dependsOn": [
+        "speaking-db",
+        "speaking-engine"
+      ],
+      "owns": [
+        "engine/ai-gemini/",
+        "engine/speaking/",
+        "apps/opic/"
+      ],
+      "reqs": [
+        "F17.1",
+        "F17.2",
+        "F17.3",
+        "F17.4",
+        "F17.5"
+      ],
+      "done": "./gradlew :engine:ai-gemini:allTests :engine:speaking:allTests :apps:opic:shared:allTests && ./gradlew :engine:ai-gemini:testAndroidHostTest --tests '*GeminiCardWriterTest*' && ./gradlew :engine:speaking:testAndroidHostTest --tests '*CardJobTest*'",
+      "done_desc": "engine/ai-gemini 에 카드 만들기 요청과 출력 스키마. 내가 한 말이 전문에 그대로 있는지(F5.4 와 같은 검사), 같은 카드가 이미 있는지 확인하고 실패하면 한 번 다시 요청한다. 작업 표(analysis_job)에 연습 정리 작업, 다시 시도 30초, 2분, 10분. 앱이 보이지 않을 때만 정리 끝 알림. GeminiCardWriterTest(F17.1, F17.2, F17.3): 저장한 응답으로 해석, 전문에 없는 카드 버림, 다시 요청 1번. CardJobTest(F17.4, F17.5): 가짜 작성기로 정리 상태 전환, 다시 시도 간격, 앱을 켤 때 정리 못 한 연습 다시 예약. engine/speaking 을 고쳐서 speaking-engine 뒤에 둔다",
+      "status": "todo",
+      "issue": 289
+    },
+    {
+      "id": "expressions-tab",
+      "phase": "P7",
+      "kind": "ui",
+      "title": "표현 탭과 복습 화면",
+      "dependsOn": [
+        "review-fsrs",
+        "speaking-db",
+        "card-writer"
+      ],
+      "owns": [
+        "ui/feature-expressions/",
+        "apps/opic/",
+        "settings.gradle.kts"
+      ],
+      "reqs": [
+        "F18.1",
+        "F18.3",
+        "F18.4",
+        "F18.5",
+        "F18.6",
+        "F18.8",
+        "F18.10"
+      ],
+      "done": "./gradlew :ui:feature-expressions:allTests :ui:feature-expressions:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests && ./gradlew :ui:feature-expressions:testAndroidHostTest --tests '*ReviewRatingTest*'",
+      "done_desc": "하단 탭을 모의고사, 연습, 표현, 기록, 설정 다섯 개로 한다. 표현 탭(오늘 복습, 틀린 유형별 묶음, 표현 목록), 표현 상세(다른 부분 색칠, 듣기, 고치기, 보관, 삭제 확인), 복습 화면(소리 내기와 소리 없이, 다시와 알았음, 길게 누르면 어려움과 쉬움), 복습 끝(이번 주 복습한 날 수, 6장 더). 스크린샷 테스트(라이트, 다크, 글자 200%). ReviewRatingTest(F18.6): 평가하면 다음 복습 시각과 복습 횟수가 바뀌고 오늘이 복습한 날에 들어가는지. apps/opic 을 같이 고쳐서 card-writer 뒤에 둔다",
+      "status": "todo",
+      "issue": 291
+    },
+    {
+      "id": "speaking-service",
+      "phase": "P7",
+      "kind": "platform",
+      "title": "화면이 꺼져도 도는 연습, 이어폰과 알림 조작",
+      "dependsOn": [
+        "speaking-engine",
+        "expressions-tab"
+      ],
+      "owns": [
+        "apps/opic/",
+        "libs/duplex-audio/"
+      ],
+      "reqs": [
+        "F16.4",
+        "F16.10",
+        "F16.14",
+        "F16.19"
+      ],
+      "done": "human",
+      "done_desc": "ADR 0038 대로 세션을 플랫폼 서비스가 소유한다(design.md 12.2). 처음에 실기기로 통화용 오디오 재생 중에 이어폰 버튼이 앱으로 오는지 확인하고, 안 오면 말과 알림 버튼으로만 조작하고 이슈에 적는다. Android: 마이크 포그라운드 서비스, 진행 알림의 일시정지, 끝내기, 다시 연결 버튼, MediaSession 이어폰 한 번 누르기, 오디오 포커스와 전화 끼어듦. iOS: 오디오 세션 수명, 끼어듦과 이어폰 연결 바뀜, MPRemoteCommandCenter. 효과음 5종. 사람 확인: 양 플랫폼 실기기에서 화면을 끄고 20분 연습을 끝까지 하고, 이어폰 버튼과 알림 버튼으로 일시정지와 다시 시작이 된다. apps/opic 을 같이 고쳐서 expressions-tab 뒤에 둔다",
+      "status": "todo",
+      "issue": 288
+    },
+    {
+      "id": "speaking-ui",
+      "phase": "P7",
+      "kind": "ui",
+      "title": "말하기 연습 화면",
+      "dependsOn": [
+        "speaking-service",
+        "card-writer"
+      ],
+      "owns": [
+        "ui/feature-speaking/",
+        "ui/feature-practice/",
+        "apps/opic/",
+        "settings.gradle.kts"
+      ],
+      "reqs": [
+        "F16.1",
+        "F16.2",
+        "F16.3",
+        "F16.18",
+        "F17.6",
+        "F17.7"
+      ],
+      "done": "./gradlew :ui:feature-speaking:allTests :ui:feature-speaking:verifyRoborazziAndroidHostTest :ui:feature-practice:allTests :ui:feature-practice:verifyRoborazziAndroidHostTest :apps:opic:shared:allTests",
+      "done_desc": "연습 탭 맨 위 카드 둘(말하기 연습, 오늘 복습). 연습 시작 시트(시간 10, 20, 30분, 소리 환경, 말로 하는 조작 안내, 대략 비용). 연습 중 화면(큰 상태 원, 큰 일시정지와 끝내기 버튼, 접는 대화창, 비용 줄)은 서비스가 가진 세션을 지켜보기만 한다. 연습 정리 화면(카드 목록, 밀어서 빼기와 되돌리기, 정리 중과 실패 상태). 스크린샷 테스트(라이트, 다크, 글자 200%)",
+      "status": "todo",
+      "issue": 290
+    },
+    {
+      "id": "review-notify",
+      "phase": "P7",
+      "kind": "platform",
+      "title": "말하기 연습과 복습 설정, 복습 알림",
+      "dependsOn": [
+        "expressions-tab",
+        "speaking-ui"
+      ],
+      "owns": [
+        "ui/feature-settings/",
+        "apps/opic/"
+      ],
+      "reqs": [
+        "F19.1",
+        "F19.2",
+        "F19.3",
+        "F19.4",
+        "F19.5"
+      ],
+      "done": "human",
+      "done_desc": "설정 탭 말하기 연습 묶음(기본 시간, 말 끝 기다림, 말로 끊기, 시작 때 말로 복습)과 복습 묶음(복습 양, 알림 받기, 알림 시각), 시각 고르기. 복습 알림은 하루 한 번, 정한 시각에, 할 카드가 있고 그날 아직 안 했을 때만. iOS 는 조건을 미리 계산해 다시 건다. 알림을 누르면 malhaebom://review 로 복습 화면. 알림 권한은 처음 켤 때 요청. 자동 확인: ./gradlew :ui:feature-settings:verifyRoborazziAndroidHostTest 와 알림 조건 계산 단위 테스트(ReviewReminderTest, F19.3). 사람 확인: 실기기에서 알림을 눌러 복습 화면이 열린다. apps/opic 을 같이 고쳐서 speaking-ui 뒤에 둔다",
+      "status": "todo",
+      "issue": 292
+    },
+    {
+      "id": "review-widget",
+      "phase": "P7",
+      "kind": "platform",
+      "title": "오늘 복습 위젯",
+      "dependsOn": [
+        "review-notify"
+      ],
+      "owns": [
+        "apps/opic/"
+      ],
+      "reqs": [
+        "F19.6",
+        "F19.7"
+      ],
+      "done": "human",
+      "done_desc": "Android 위젯, iOS 위젯 확장과 앱과 위젯이 같이 읽는 App Group 저장소. 오늘 남은 장 수와 이번 주 복습한 날 수만 보이고 누르면 복습 화면. 복습 끝, 연습 정리 끝, 날짜가 바뀔 때 다시 그린다. iOS 진행 알림의 Live Activity(F16.10)도 이 확장에 붙인다. 사람 확인: 양 플랫폼 실기기에서 복습 뒤 위젯 숫자가 바뀌고 누르면 복습 화면이 열린다",
+      "status": "todo",
+      "issue": 293
+    },
+    {
+      "id": "speaker-mode",
+      "phase": "P7",
+      "kind": "platform",
+      "title": "이어폰 없이 스피커로 하는 연습",
+      "dependsOn": [
+        "speaking-service"
+      ],
+      "owns": [
+        "libs/duplex-audio/",
+        "engine/speaking/"
+      ],
+      "reqs": [
+        "F20.1",
+        "F20.2",
+        "F20.3",
+        "F20.4",
+        "F20.5",
+        "F20.6"
+      ],
+      "done": "human",
+      "done_desc": "이어폰 연결 감지(없으면 스피커 모드로 시작), 기기 소음 억제, 기기 안 말소리 감지로 말소리가 아닌 조각은 보내지 않는다(라이브러리 라이선스를 먼저 확인하고 THIRD_PARTY 에 적는다). 코치가 말하는 중에는 내 말소리가 0.6초 넘게 이어질 때만 끊고 값은 실기기에서 재서 정한다. 스피커 모드면 Live 말 시작과 끝 감도를 낮게 둔다. 자동 확인: 끊기 판정 단위 테스트(BargeInTest, F20.4). 사람 확인: 물소리를 스피커로 틀어 둔 실기기에서 10분 연습 중 코치가 스스로 끊기지 않는다. 그래프 밖 이슈 #261(duplex-audio) 의 사람 확인이 먼저 끝나야 한다",
+      "status": "todo",
+      "issue": 294
     }
   ]
 }
