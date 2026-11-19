@@ -21,6 +21,8 @@ kotlin {
             implementation(libs.compose.uiTestManifest)
             // 목소리 띠가 계속 도는 녹음 중 화면은 시계를 멈춘 테스트 규칙에서 노드째 찍고, 나가기 확인 대화상자는 따로 뜨는 창이라 화면 전체를 찍는다.
             implementation(libs.roborazzi.core)
+            // 탭 맨 위 말하기 연습 카드와 오늘 복습 카드는 앱 층이 넣는 칸이라, 스크린샷에는 실제 카드를 넣어 찍는다(F16.1).
+            implementation(project(":ui:feature-speaking"))
         }
     }
 }

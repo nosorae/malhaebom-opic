@@ -25,6 +25,8 @@ struct TabRoot: View {
     var onRestart: (AppRoute) -> Void = { _ in }
     /** 이 탭의 화면 하나라도 처리 중인지. 앱 틀이 받아 그동안 탭 전환을 막는다. */
     var onBusy: (Bool) -> Void = { _ in }
+    /** 화면이 탭 경로를 열었다. 앱 틀이 그 탭의 맨 앞으로 옮긴다. */
+    var onSelectTab: (AppRoute) -> Void = { _ in }
     /** 처리 중이라 뒤로 버튼과 가장자리 스와이프를 숨긴 화면(키 확인 중). */
     @State private var backBlocked: Set<AppRoute> = []
 
@@ -36,7 +38,9 @@ struct TabRoot: View {
     }
 
     private func destination(_ route: AppRoute) -> some View {
-        RouteView(shell: shell, route: route, onOpen: { path.append($0) }, onExit: { path.removeAll() }, onBack: { path.removeLast() }, onRestart: onRestart, onBlockBack: { blocked in
+        RouteView(shell: shell, route: route, onOpen: { next in
+            if AppRoute.companion.tabs.contains(next) { onSelectTab(next) } else { path.append(next) }
+        }, onExit: { path.removeAll() }, onBack: { path.removeLast() }, onRestart: onRestart, onBlockBack: { blocked in
             if blocked { backBlocked.insert(route) } else { backBlocked.remove(route) }
             onBusy(blocked)
         })
@@ -93,7 +97,12 @@ struct Tabs: View {
                     TabRoot(shell: shell, root: root, path: Binding(
                         get: { paths[root] ?? [] },
                         set: { paths[root] = $0 }
-                    ), onBusy: { busy = $0 })
+                    ), onBusy: { busy = $0 }, onSelectTab: { next in
+                        // 연습을 닫거나 정리를 다 보면 연습 탭으로 간다(F16.4, F17.7). 떠난 탭과 간 탭 모두 맨 앞 화면으로 둔다.
+                        paths[root] = []
+                        paths[next] = []
+                        tab = next
+                    })
                 }
             }
         }

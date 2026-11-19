@@ -175,6 +175,10 @@ class AppGraphTest {
         graph.coachScriptViewModelFactory.create("coach", "Tell me about a trip.")
         graph.sessionReportViewModelFactory.create("session")
         graph.answerReportViewModelFactory.create("answer")
+        graph.speakingCardsViewModel
+        graph.speakingStartViewModelFactory.create(earphones = true)
+        graph.speakingViewModel
+        graph.speakingSummaryViewModelFactory.create("practice")
         graph.analysisJobs
     }
 

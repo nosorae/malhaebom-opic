@@ -1,6 +1,7 @@
 package io.github.nosorae.aiopic.ui.featurepractice
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,20 +31,20 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * 연습 탭의 바깥 겹. [onStart] 는 한 문항 연습 화면을 연다. 그 화면이 열리자마자 질문을 읽어서 Play 는 한 번만 누른다.
- * [onOpenCoach] 는 코치 시작 시트를 연다(F10.1).
+ * [onOpenCoach] 는 코치 시작 시트를 연다(F10.1). [header] 는 탭 맨 위의 말하기 연습 카드와 오늘 복습 카드다(F16.1). 앱 층이 넣는다.
  */
 @Composable
-fun PracticeTabRoute(viewModel: PracticeTabViewModel, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier) {
+fun PracticeTabRoute(viewModel: PracticeTabViewModel, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier, header: @Composable () -> Unit = {}) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    PracticeTabScreen(state, onStart, onOpenCoach, modifier)
+    PracticeTabScreen(state, onStart, onOpenCoach, modifier, header)
 }
 
 /**
- * 연습 탭의 안쪽 겹. 한 문항 연습 화면의 Play 전 모습과 같게 그려서, Play 를 누르면 같은 자리에서 질문 읽기가 이어지는 것처럼 보인다.
- * 위에서부터 단계 표시, 다음 문항을 낼 약한 유형, 코치 시작 버튼, Play, 규칙 한 줄이다.
+ * 연습 탭의 안쪽 겹. 맨 위에 [header] 를 두고, 그 아래는 한 문항 연습 화면의 Play 전 모습과 같게 그려서 Play 를 누르면 같은 자리에서 질문 읽기가 이어지는 것처럼 보인다.
+ * 한 문항 연습은 위에서부터 단계 표시, 다음 문항을 낼 약한 유형, 코치 시작 버튼, Play, 규칙 한 줄이다.
  */
 @Composable
-fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier) {
+fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, onOpenCoach: () -> Unit, modifier: Modifier = Modifier, header: @Composable () -> Unit = {}) {
     val haptics = LocalHaptics.current
     MontageScreen(modifier = modifier, topBar = { MontageTopBar(title = stringResource(Res.string.practice_tab_title)) }) {
         Column(
@@ -51,6 +52,7 @@ fun PracticeTabScreen(state: PracticeTabUiState, onStart: () -> Unit, onOpenCoac
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(MontageSpacing.spacing16),
         ) {
+            Box(Modifier.padding(horizontal = Gutter)) { header() }
             MontageAnswerSteps(current = AnswerStep.Listen, withFeedback = true, modifier = Modifier.padding(horizontal = Gutter + MontageSpacing.spacing8))
             // 읽기 전에 "모든 유형" 을 보였다가 약한 유형으로 바꾸지 않는다.
             if (state.loaded) {

@@ -55,6 +55,15 @@ sealed class AppRoute {
     /** 코치 세션의 스크립트(F14). 코치 대화가 끝나면 대화 화면 자리에 열리고, 기록 탭의 스크립트 줄로 다시 연다. 질문 글은 다듬기 요청에 쓴다. */
     @Serializable data class CoachScript(val sessionId: String, val questionId: String, val question: String) : AppRoute()
 
+    /**
+     * 연습 중 화면(S17, F16.18). 앱 범위에서 도는 연습 하나를 지켜보므로 인자가 없다. 탭이 없고 화면 안 X 로 닫는다.
+     * 닫거나 뒤로 가도 연습은 계속돼서 뒤로가기를 막지 않는다(F16.4).
+     */
+    @Serializable data object Speaking : AppRoute()
+
+    /** 연습 정리(S18, F17.6). 연습이 끝나면 연습 중 화면 자리에 열리고, 정리 끝 알림이 연다(F17.5). */
+    @Serializable data class SpeakingSummary(val practiceId: String) : AppRoute()
+
     /** 표현 상세(S20). 표현 탭의 목록 줄이 연다. */
     @Serializable data class Expression(val cardId: Long) : AppRoute()
 
@@ -85,8 +94,8 @@ sealed class AppRoute {
     private val chrome: Chrome
         get() = when (this) {
             ExamTab, PracticeTab, ExpressionsTab, History, Settings -> Chrome.TopLevel
-            is ReportDetail, is AnswerReport, is CoachScript, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo, is Expression, Review -> Chrome.Sub
-            is Exam, is Practice, is Coach -> Chrome.FullScreen
+            is ReportDetail, is AnswerReport, is CoachScript, is KeyEntry, FreeTierNotice, Survey, FlagExport, AppInfo, is Expression, Review, is SpeakingSummary -> Chrome.Sub
+            is Exam, is Practice, is Coach, Speaking -> Chrome.FullScreen
             StartKeyEntry, StartConsent -> Chrome.Start
         }
 
@@ -96,6 +105,8 @@ sealed class AppRoute {
             PracticeTab -> "연습"
             ExpressionsTab, is Expression -> "표현"
             Review -> "복습"
+            Speaking -> "말하기 연습"
+            is SpeakingSummary -> "연습 정리"
             History -> "기록"
             Settings -> "설정"
             is ReportDetail -> "회차 리포트"

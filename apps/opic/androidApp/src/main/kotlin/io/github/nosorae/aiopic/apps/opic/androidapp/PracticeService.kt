@@ -19,12 +19,12 @@ import android.os.IBinder
 import android.view.KeyEvent
 import android.view.ViewConfiguration
 import io.github.nosorae.aiopic.apps.opic.shared.Chime
-import io.github.nosorae.aiopic.apps.opic.shared.PracticeCommand
 import io.github.nosorae.aiopic.apps.opic.shared.RunningPractice
 import io.github.nosorae.aiopic.apps.opic.shared.SinglePress
 import io.github.nosorae.aiopic.apps.opic.shared.notice
 import io.github.nosorae.aiopic.engine.speaking.SpeakingState
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStatus
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeCommand
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged

@@ -26,6 +26,8 @@ kotlin {
         implementation(project(":ui:feature-live"))
         // 표현 탭과 복습 화면. 카드 저장소와 복습 설정을 앱이 넣는다(F18).
         implementation(project(":ui:feature-expressions"))
+        // 연습 탭 카드, 연습 시작 시트, 연습 중 화면, 연습 정리 화면. 앱 범위 연습(RunningPractice)이 화면의 연습 조작 경계를 구현해서, RunningPractice 를 쓰는 Android 앱도 그 경계를 보게 api 로 건다(F16, F17).
+        api(project(":ui:feature-speaking"))
         // 설정의 모델 목록으로 앱이 들고 있는 Gemini 목록을 넣는다.
         implementation(project(":engine:answer"))
         implementation(project(":engine:ai-gemini"))

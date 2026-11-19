@@ -60,9 +60,8 @@ fun analysisProgress(jobs: List<AnalysisJob>, since: Instant): AnalysisProgress?
  * [since] 에 시작한 비우기가 끝난 뒤 알릴 결과. 남은 작업이 있거나 그 뒤 끝난 작업이 없으면 null 이다.
  * 실패가 있으면 실패한 작업의, 없으면 마지막에 끝난 작업의 리포트로 보낸다. 모의고사 답변은 회차 리포트로 간다.
  * [sessionOf] 는 답변 id 로 회차 id 를 찾는다. 연습 답변이면 null 이다. [cardsOf] 는 연습 id 로 만든 카드 수를 찾는다.
- * 연습 정리는 끝났을 때만 알린다(F17.5). 실패한 정리는 앱을 켤 때 다시 넣는다.
+ * 연습 정리는 끝났을 때만 알리고 그 연습의 정리 화면으로 보낸다(F17.5). 실패한 정리는 앱을 켤 때 다시 넣는다.
  */
-// ponytail: 연습 정리 끝 알림은 경로 없이 앱 첫 화면을 연다. 지금 연습 탭은 시험 연습 탭이라 정리와 상관없다. 연습 정리 화면(speaking-ui)이 생기면 그 화면 경로로 바꾼다.
 fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, cardsOf: (String) -> Int? = { null }, sessionOf: (String) -> String?): AnalysisOutcome? {
     if (jobs.any { it.state.active }) return null
     val finished = jobs.filter { it.updatedAt >= since && !(it.kind == JobKind.Cards && it.state == JobState.Failed) }
@@ -70,7 +69,7 @@ fun analysisOutcome(jobs: List<AnalysisJob>, since: Instant, cardsOf: (String) -
     val route = when (job.kind) {
         JobKind.Grade -> AppRoute.ReportDetail(job.targetId)
         JobKind.Answer -> sessionOf(job.targetId)?.let { AppRoute.ReportDetail(it) } ?: AppRoute.AnswerReport(job.targetId)
-        JobKind.Cards -> return AnalysisOutcome(null, failed = false, cards = cardsOf(job.targetId) ?: 0)
+        JobKind.Cards -> return AnalysisOutcome(AppRoute.SpeakingSummary(job.targetId), failed = false, cards = cardsOf(job.targetId) ?: 0)
     }
     return AnalysisOutcome(route, failed = job.state == JobState.Failed)
 }

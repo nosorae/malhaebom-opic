@@ -484,7 +484,7 @@ internal fun droppedMessage(reason: String): StringResource = when (reason) {
 internal val String.needsKeySettings: Boolean get() = this == TransportEvent.Disconnected.INVALID_KEY || this == TransportEvent.Disconnected.NO_KEY
 
 /** "$0.42" 처럼 센트까지. 공통 코드에는 숫자 서식 함수가 없어 직접 만든다. */
-internal fun usd(amount: Double): String {
+fun usd(amount: Double): String {
     val cents = (amount * 100).roundToInt()
     return "$${cents / 100}.${(cents % 100).toString().padStart(2, '0')}"
 }

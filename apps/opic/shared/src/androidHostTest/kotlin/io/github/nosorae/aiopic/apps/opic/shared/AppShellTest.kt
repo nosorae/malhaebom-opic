@@ -97,7 +97,8 @@ class AppShellTest {
         start(AppRoute.ExamTab)
 
         rule.onNodeWithText("연습").performClick()
-        rule.onNodeWithText("Play").assertIsDisplayed()
+        // 탭 맨 위에 말하기 연습 카드와 오늘 복습 카드가 있어 Play 는 스크롤 아래에 있다(F16.1).
+        rule.onNodeWithText("Play").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("기록").performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasText("아직 기록이 없습니다", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("설정").performClick()
@@ -110,7 +111,7 @@ class AppShellTest {
     fun `연습 탭의 Play 를 누르면 탭 없는 한 문항 연습이 열리고 뒤로가기로 연습 탭에 돌아온다`() {
         start(AppRoute.ExamTab, AppRoute.PracticeTab)
 
-        rule.onNodeWithText("Play").performClick()
+        rule.onNodeWithText("Play").performScrollTo().performClick()
         rule.waitUntil(5_000) { rule.onAllNodes(hasText("한 문항 연습")).fetchSemanticsNodes().isNotEmpty() }
 
         rule.onNodeWithText("기록").assertDoesNotExist()
@@ -175,6 +176,18 @@ class AppShellTest {
 
         rule.onNodeWithContentDescription("나가기").assertIsDisplayed()
         assertEquals(listOf("s"), runBlocking { graph.examSessionSource.sessions().first() }.map { it.id })
+    }
+
+    @Test
+    fun `F17_7 표현 탭에서 시작한 연습의 정리 화면에서 다 봤어요를 누르면 연습 탭으로 가고 뒤로가기로 모의고사 탭에 돌아온다`() {
+        start(AppRoute.ExamTab, AppRoute.ExpressionsTab, AppRoute.SpeakingSummary("p"))
+        rule.waitUntil(5_000) { rule.onAllNodes(hasText("다 봤어요")).fetchSemanticsNodes().isNotEmpty() }
+
+        rule.onNodeWithText("다 봤어요").performClick()
+
+        rule.onNodeWithText("Play").performScrollTo().assertIsDisplayed()
+        pressBack()
+        rule.onNodeWithTag("exam-start").assertIsDisplayed()
     }
 
     @Test

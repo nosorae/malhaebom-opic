@@ -52,7 +52,9 @@ import io.github.nosorae.aiopic.engine.session.model.AnalysisError
 import io.github.nosorae.aiopic.engine.session.model.ExamSession
 import io.github.nosorae.aiopic.engine.session.model.ExamSpec
 import io.github.nosorae.aiopic.engine.session.model.GradeScale
+import io.github.nosorae.aiopic.engine.speaking.AudioRoute
 import io.github.nosorae.aiopic.engine.speaking.CardJob
+import io.github.nosorae.aiopic.engine.speaking.SpeakingSetup
 import io.github.nosorae.aiopic.engine.speaking.SpeakingStore
 import io.github.nosorae.aiopic.libs.debug.DebugLevel
 import io.github.nosorae.aiopic.libs.debug.DebugTools
@@ -126,6 +128,13 @@ import io.github.nosorae.aiopic.ui.featuresettings.practice.AnswerTimerStore
 import io.github.nosorae.aiopic.ui.featuresettings.practice.QuestionFileStore
 import io.github.nosorae.aiopic.ui.featuresettings.theme.ThemeModeStore
 import io.github.nosorae.aiopic.ui.featuresettings.voice.QuestionVoiceStore
+import io.github.nosorae.aiopic.ui.featurespeaking.PracticeControl
+import io.github.nosorae.aiopic.ui.featurespeaking.RetryCards
+import io.github.nosorae.aiopic.ui.featurespeaking.SpeakingCardsViewModel
+import io.github.nosorae.aiopic.ui.featurespeaking.SpeakingSettings
+import io.github.nosorae.aiopic.ui.featurespeaking.SpeakingStartViewModel
+import io.github.nosorae.aiopic.ui.featurespeaking.SpeakingSummaryViewModel
+import io.github.nosorae.aiopic.ui.featurespeaking.SpeakingViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -136,6 +145,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.serialization.json.Json
 import org.jetbrains.compose.resources.MissingResourceException
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.DurationUnit
 
 /**
@@ -179,6 +189,15 @@ interface AppGraph {
     val expressionDetailViewModelFactory: ExpressionDetailViewModel.Factory
 
     val reviewViewModel: ReviewViewModel
+
+    /** 연습 탭 맨 위 카드 둘(F16.1, F18.10). */
+    val speakingCardsViewModel: SpeakingCardsViewModel
+
+    val speakingStartViewModelFactory: SpeakingStartViewModel.Factory
+
+    val speakingViewModel: SpeakingViewModel
+
+    val speakingSummaryViewModelFactory: SpeakingSummaryViewModel.Factory
 
     val settingsViewModel: SettingsViewModel
 
@@ -227,6 +246,30 @@ interface AppGraph {
         clock = clock,
         scope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     )
+
+    /** 화면은 앱 범위 연습을 지켜보고 명령만 넘긴다(ADR 0038). */
+    @Provides fun practiceControl(practice: RunningPractice): PracticeControl = practice
+
+    /**
+     * 시작 시트가 읽는 값(F16.2, F16.3). 주제는 서베이에서 고른 주제이고, 서베이를 내지 않았으면 서베이의 모든 주제다.
+     * 설정 화면의 말하기 연습 묶음(F19.1)이 생기기 전까지 말로 복습은 켜짐, 문법 짚기는 꺼짐이다.
+     */
+    @Provides
+    fun speakingSettings(settings: AppSettings, keyVault: KeyVault): SpeakingSettings = object : SpeakingSettings {
+        override suspend fun defaultMinutes() = settings.practiceMinutes
+
+        override suspend fun hasKey() = keyVault.get(GeminiModels.PROVIDER) != null
+
+        override suspend fun setup(planned: Duration, route: AudioRoute) = SpeakingSetup(
+            planned = planned,
+            route = route,
+            topics = settings.surveyAnswers()?.topics.orEmpty().ifEmpty { OpicEn.survey.groups.flatMap { group -> group.topics.map { it.id } } },
+            amount = settings.reviewAmount(),
+        )
+    }
+
+    /** 정리 화면의 다시 시도는 앱을 켤 때와 같은 정리 작업을 넣는다(F17.4). */
+    @Provides fun retryCards(jobs: AnalysisJobs): RetryCards = RetryCards { jobs.enqueueCards(it) }
 
     /** 분석 작업 표와 앱 밖 진행, 끝 알림이 같은 시계로 시각을 잰다(#229). */
     val clock: Clock

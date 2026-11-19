@@ -42,6 +42,7 @@ include(
     ":ui:feature-settings",
     ":ui:feature-live",
     ":ui:feature-expressions",
+    ":ui:feature-speaking",
     ":packs:opic-en",
     ":engine:session",
     ":engine:answer",
