@@ -1,5 +1,6 @@
 package io.github.nosorae.aiopic.engine.review
 
+import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.days
@@ -17,6 +18,7 @@ class ReviewQueueTest {
         meaning = "통근하다",
         errorType = null,
         context = "출근 얘기를 하다가",
+        createdAt = now - 2.days,
         dueAt = dueAt,
         archived = archived,
     )
@@ -78,5 +80,25 @@ class ReviewQueueTest {
     @Test
     fun `F18_9 오늘이 월요일이면 오늘만 센다`() {
         assertEquals(1, reviewDaysThisWeek(setOf(20772L, 20773L), today = 20773L))
+    }
+
+    private val seoul = TimeZone.of("Asia/Seoul")
+
+    @Test
+    fun `로컬 날짜 번호는 기기 시간대의 날짜를 1970-01-01 부터 센다`() {
+        // 2026-11-18T16:00Z 는 서울 시각 11-19 01:00 이다.
+        assertEquals(20776L, Instant.parse("2026-11-18T16:00:00Z").localDay(seoul))
+    }
+
+    @Test
+    fun `F18_2 오늘 복습한 수와 새로 넣은 수를 기기 시간대의 오늘로 세어 뺀다`() {
+        // 지금은 서울 시각 11-19 18:00 이다. 앞 둘은 서울의 오늘 복습했고 셋째는 서울의 어제 복습했다.
+        fun reviewedAt(id: Long, at: String, count: Int) = card(id, dueAt = now + 1.days).copy(lastReviewedAt = Instant.parse(at), reviewCount = count)
+        val done = listOf(reviewedAt(1, "2026-11-19T00:30:00Z", 1), reviewedAt(2, "2026-11-18T16:00:00Z", 3), reviewedAt(3, "2026-11-18T14:00:00Z", 1))
+        val due = (10L..29L).map { reviewed(it, daysAgo = 3) } + (100L..114L).map { card(it) }
+
+        val queue = todayQueue(done + due, now, seoul)
+
+        assertEquals(9 to 28, queue.count { it.reviewCount == 0 } to queue.size)
     }
 }
